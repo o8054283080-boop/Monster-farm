@@ -974,9 +974,9 @@ const ALL_RELICS = [
 {id:'sticker_nendro',name:'ネンドロシール',icon:'🏺',desc:'最大ライフ25 力4'},{id:'sticker_dura',name:'デュラハンシール',icon:'🛡️',desc:'力5 丈夫さ6'},
 {id:'sticker_metal',name:'メタルナーシール',icon:'👽',desc:'丈夫さ5 毎ターンガッツ3'},{id:'angel_wing',name:'天使の羽',icon:'🕊️',desc:'毎ターンガッツ回復8',eventOnly:true},
 {id:'zenon_hammer',name:'ゼノンハンマー',icon:'🔨',desc:'力15 ライフ50',eventOnly:true},{id:'gali_mantle',name:'ガリマント',icon:'🧥',desc:'丈夫さ15 毎ターンブロック3',eventOnly:true},
-{id:'point_card',name:'ポイントカード',icon:'🃏',desc:'ショップのコスト-10%'},{id:'guts_charm',name:'ガッツのお守り',icon:'🧿',desc:'カードのガッツ消費-5%'},
+{id:'point_card',name:'ポイントカード',icon:'🃏',desc:'ショップのコスト-10%'},{id:'guts_charm',name:'ガッツのお守り',icon:'🧿',desc:'カード使用時のガッツ消費が5%減少'},
 {id:'garo_juice',name:'ガロエジュース',icon:'🧃',desc:'ライフ100%回復 最大ライフ+15'},
-{id:'gold_card',name:'ゴールドカード',icon:'💳',desc:'ショップのコスト-25%',isRare:true},{id:'guts_trophy',name:'ガッツトロフィー',icon:'🏆',desc:'カードのガッツ消費-15%',isRare:true},
+{id:'gold_card',name:'ゴールドカード',icon:'💳',desc:'ショップのコスト-25%',isRare:true},{id:'guts_trophy',name:'ガッツトロフィー',icon:'🏆',desc:'カード使用時のガッツ消費が15%減少',isRare:true},
 {id:'scroll_hidden', name:'秘伝の書', icon:'📖', desc:'入手時ランダムに1枚強化'},
 {id:'scroll_master', name:'極意の書', icon:'📚', desc:'入手時ランダムに2枚強化'},
 // Rare
@@ -990,6 +990,44 @@ const ALL_RELICS = [
 {id:'pixy_wing', name:'ピクシーの羽', icon:'🧚', desc:'最大初期ガッツ+10'},
 {id:'grace_wing', name:'グレイスウィッチの羽', icon:'🪄', desc:'最大初期ガッツ+20 毎ターンガッツ+3', isRare:true}
 ];
+
+// ボス遺物（15F/30F/45Fのボス撃破時のみ、3つから1つ選択して獲得）
+const BOSS_RELICS_COMMON = [
+  {id:'br_mahougyoku', name:'魔宝玉', icon:'🔮', desc:'ライフ+30 毎ターンガッツ回復+7 力+5'},
+  {id:'br_soul_eater', name:'ソウルイーター', icon:'👻', desc:'毎ターン自傷ダメージ1 毎ターンガッツ回復15 丈夫さ+10'},
+  {id:'br_bag', name:'不思議なカバン', icon:'🎒', desc:'毎ターン1枚ドロー'},
+  {id:'br_shield_abundance', name:'豊穣の盾', icon:'🛡️', desc:'毎ターンブロック+15 毎ターンライフ3回復 丈夫さ+5'},
+  {id:'br_king_peach', name:'大王黄金モモ', icon:'🍑', desc:'ライフ+100 力+8 丈夫さ+8'},
+  {id:'br_conqueror', name:'討伐者の証', icon:'🏅', desc:'消費ガッツ-5 最初の手札+2'},
+  {id:'br_belt_gujira', name:'グジラキングベルト', icon:'🥋', desc:'ライフ+25 力+15 丈夫さ+5'}
+];
+const BOSS_RELICS_SPECIES = {
+  motchi: [
+    {id:'br_m_critbadge', name:'クリティカルバッジ', icon:'🎖️', desc:'力+5 丈夫さ+5 クリティカル時ガッツ回復10 全カードのクリティカル率1段階アップ'},
+    {id:'br_m_belt_most', name:'モストのベルト', icon:'🥇', desc:'ライフ+25 力+5 丈夫さ+5 毎ターンガッツ回復+15 ガッツ上限+30 初期手札+1'},
+    {id:'br_m_mochi_obj', name:'お餅のオブジェ', icon:'🍡', desc:'毎ターンブロック15 毎ターンライフ回復5 毎ターンドロー1 カードの消費ガッツ-10%'}
+  ],
+  golem: [
+    {id:'br_g_patience', name:'我慢の極意', icon:'🧘', desc:'丈夫さ+8 ブロックを付与するカードを使うとガッツ回復7 受けるガッツダウン-10'},
+    {id:'br_g_earthbell', name:'大地の鈴', icon:'🔔', desc:'ライフ+25 力+5 毎ターンライフ回復5 毎ターンガッツ回復15'},
+    {id:'br_g_kindheart', name:'優しい心', icon:'💗', desc:'毎ターンブロック15 カードのガッツ消費-20%'}
+  ],
+  monolith: [
+    {id:'br_mo_activeshield', name:'アクティブシールド', icon:'🔷', desc:'丈夫さ+5 全カードにブロック+5を付与 毎ターンガッツ回復5'},
+    {id:'br_mo_spikywall', name:'トゲトゲ壁紙', icon:'📌', desc:'力+15 ブロックを付与するカードを使うと相手に10ダメージ'},
+    {id:'br_mo_repairkit', name:'修復キット', icon:'🧰', desc:'ライフ+30 毎ターンライフ回復5 毎ターンブロック8 毎ターンガッツ回復12'}
+  ],
+  kawazumo: [
+    {id:'br_k_migawari', name:'身代わり人形', icon:'🪆', desc:'丈夫さ+5 自傷ダメージを50%減らす'},
+    {id:'br_k_goldmawashi', name:'黄金のまわし', icon:'👑', desc:'ライフ+30 力+5 丈夫さ+5 毎ターンガッツ回復10'},
+    {id:'br_k_explosivesoul', name:'爆発の魂', icon:'💥', desc:'ライフ+100 力+25 全カードに自傷ダメージ10追加'}
+  ],
+  gali: [
+    {id:'br_ga_elemental', name:'エレメンタルクローク', icon:'🧣', desc:'状態異常の相手への攻撃時+15ダメージ ガッツ回復3'},
+    {id:'br_ga_eternal', name:'エターナルマント', icon:'🧥', desc:'丈夫さ+5 毎ターンブロック5 毎ターンガッツ回復5'},
+    {id:'br_ga_royalmask', name:'ロイヤルマスク', icon:'👺', desc:'ライフ+20 力+5 感電の追加ダメージ+15'}
+  ]
+};
 
 let state;
 const ui = {
@@ -1493,7 +1531,7 @@ list.appendChild(createShopItem("cardUp", "カード強化", "カードを1枚�
 list.appendChild(createShopItem("relic", "未知の遺物", "ランダムな通常遺物を獲得", 20000, () => {
   const normal = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && !state.player.relics.some(y=>y.id===x.id));
   const r = shuffle(normal)[0];
-  if(r) { state.player.relics.push(r); applyRelicEffect(r); showModal("獲得！", `${r.name} を手に入れた！`); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText = "進む"; ui.modalConfirm.onclick = () => { window.game.shopProceed(); }; }
+  if(r) { state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); return; } showModal("獲得！", `${r.name} を手に入れた！`); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText = "進む"; ui.modalConfirm.onclick = () => { window.game.shopProceed(); }; }
   else { window.game.shopProceed(); }
 }, true));
 list.appendChild(createShopItem("cardDel", "カード削除", "不要なカードを1枚デッキから除外", 30000, () => showShopCardRemoval(), true));
@@ -1521,7 +1559,7 @@ list.appendChild(createShopItem("mrCard", "伝説の技", "MRカードを3枚か
 list.appendChild(createShopItem("rareRelic", "伝説の遺物", "ランダムな激レア遺物を獲得", 70000, () => {
   const rare = ALL_RELICS.filter(x => x.isRare && !state.player.relics.some(y => y.id === x.id));
   const r = shuffle(rare)[0];
-  if(r){ showModal("伝説の遺物","素晴らしい遺物を手に入れた！"); setTimeout(()=>showCelebrationEffect('relic'),200); const d=document.createElement('div'); d.className="p-6 bg-yellow-950 border-2 border-yellow-400 rounded-2xl text-center rare-relic-glow"; d.innerHTML=`<div class="text-5xl mb-3">${r.icon}</div><div class="font-bold text-lg text-yellow-300">${r.name}</div><div class="text-xs mt-2 text-zinc-300">${r.desc}</div>`; state.player.relics.push(r); applyRelicEffect(r); ui.rewardList.appendChild(d); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
+  if(r){ state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); return; } showModal("伝説の遺物","素晴らしい遺物を手に入れた！"); setTimeout(()=>showCelebrationEffect('relic'),200); const d=document.createElement('div'); d.className="p-6 bg-yellow-950 border-2 border-yellow-400 rounded-2xl text-center rare-relic-glow"; d.innerHTML=`<div class="text-5xl mb-3">${r.icon}</div><div class="font-bold text-lg text-yellow-300">${r.name}</div><div class="text-xs mt-2 text-zinc-300">${r.desc}</div>`; ui.rewardList.appendChild(d); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
   else{ showModal("在庫切れ","激レア遺物はもう残っていないようだ..."); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
 }, true));
 
@@ -1622,6 +1660,18 @@ let dt=1; if(state.player.relics.some(r=>r.id==='joker'||r.id==='gali')) dt=2;
 if(state.player.relics.some(r=>r.id==='joker')) state.enemy.vuln=dt; if(state.player.relics.some(r=>r.id==='gali')) state.enemy.weak=dt;
 if(state.player.relics.some(r=>r.id==='sticker_mono')) state.player.block+=10;
 if(state.player.relics.some(r=>r.id==='sticker_metal')) {state.player.regenEnergy+=3;}
+// ボス遺物: 毎ターンガッツ回復・毎ターンドロー系（戦闘ごとにリセットされるため戦闘開始時に再付与）
+if(state.player.relics.some(r=>r.id==='br_mahougyoku')) state.player.regenEnergy+=7;
+if(state.player.relics.some(r=>r.id==='br_soul_eater')) state.player.regenEnergy+=15;
+if(state.player.relics.some(r=>r.id==='br_bag')) state.player.regenDraw=(state.player.regenDraw||0)+1;
+if(state.player.relics.some(r=>r.id==='br_conqueror')) state.player.regenDraw=(state.player.regenDraw||0)+2;
+if(state.player.relics.some(r=>r.id==='br_m_belt_most')) { state.player.regenEnergy+=15; state.player.regenDraw=(state.player.regenDraw||0)+1; }
+if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) state.player.regenDraw=(state.player.regenDraw||0)+1;
+if(state.player.relics.some(r=>r.id==='br_g_earthbell')) state.player.regenEnergy+=15;
+if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) state.player.regenEnergy+=5;
+if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) state.player.regenEnergy+=12;
+if(state.player.relics.some(r=>r.id==='br_k_goldmawashi')) state.player.regenEnergy+=10;
+if(state.player.relics.some(r=>r.id==='br_ga_eternal')) state.player.regenEnergy+=5;
 startPlayerTurn();
 }
 
@@ -1631,12 +1681,24 @@ if(state.enemy.turnCount<2 && state.player.relics.some(r=>r.id==='sticker_mono')
 if(state.player.relics.some(r=>r.id==='trophy_tough')) state.player.block+=5;
 if(state.player.relics.some(r=>r.id==='stove')) state.player.block+=3;
 if(state.player.relics.some(r=>r.id==='firewall_heart')) state.player.block+=8;
+// ボス遺物: 毎ターンブロック付与系
+if(state.player.relics.some(r=>r.id==='br_shield_abundance')) state.player.block+=15;
+if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) state.player.block+=15;
+if(state.player.relics.some(r=>r.id==='br_g_kindheart')) state.player.block+=15;
+if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) state.player.block+=8;
+if(state.player.relics.some(r=>r.id==='br_ga_eternal')) state.player.block+=5;
 state.enemy.turnCount++;
 if(state.player.relics.some(r=>r.id==='demon_wing')) state.player.hp-=1;
 if(state.player.relics.some(r=>r.id==='bad_peach')) state.player.hp-=1;
+if(state.player.relics.some(r=>r.id==='br_soul_eater')) applySelfDamage(1);
 if(state.player.relics.some(r=>r.id==='jug')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+2); showFloatingText(2,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='pot_heal')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='hinotori_heart')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
+// ボス遺物: 毎ターンライフ回復系
+if(state.player.relics.some(r=>r.id==='br_shield_abundance')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
+if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+5); showFloatingText(5,'heal',ui.playerNode);}
+if(state.player.relics.some(r=>r.id==='br_g_earthbell')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+5); showFloatingText(5,'heal',ui.playerNode);}
+if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+5); showFloatingText(5,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='artemis')) state.player.block+=2;
 if(state.player.regenHp>0) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+state.player.regenHp); showFloatingText(state.player.regenHp,'heal',ui.playerNode);}
 if((state.player.regenBlock||0)>0){state.player.block+=state.player.regenBlock;}
@@ -1656,7 +1718,7 @@ if(state.enemy.turnCount > 1) {
 if(state.player.relics.some(r=>r.id==='grace_wing')) rec+=3;
 state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+rec); state.player.nextTurnEnergy=0;
 // ガッツダウン（ガッツ回復後に処理）
-if(state.player.nextTurnDrain>0){ const nd=state.player.nextTurnDrain; state.player.energy=Math.max(0,state.player.energy-nd); showFloatingText(nd,'drain',ui.playerNode); state.player.nextTurnDrain=0; }
+if(state.player.nextTurnDrain>0){ let nd=state.player.nextTurnDrain; if(state.player.relics.some(r=>r.id==='br_g_patience')) nd=Math.max(0,nd-10); state.player.energy=Math.max(0,state.player.energy-nd); showFloatingText(nd,'drain',ui.playerNode); state.player.nextTurnDrain=0; }
 state.player.nextDmgMult=state.player.doubleAtk?2:1; state.player.doubleAtk=false;
 if(state.enemy.weak>0)state.enemy.weak--; if(state.enemy.vuln>0)state.enemy.vuln--; if(state.player.weak>0)state.player.weak--; if(state.player.vuln>0)state.player.vuln--;
 drawCards(5); setEnemyIntent(); updateUI(); renderHand();
@@ -2060,12 +2122,25 @@ function showComboTotal(total, el) {
   el.appendChild(d);
   setTimeout(()=>d.remove(), 1200);
 }
+// 遺物によるガッツ消費軽減を反映した「実際のコスト」を計算する共通関数。
+// カード表示・使用可否判定・実際の消費のすべてでこの関数を使うことで、
+// 「カードガッツ消費-○%」系の遺物の効果が見た目にも正しく反映されるようにする。
+function getCardCost(c) {
+  let cost = c.cost || 0;
+  let pct = 0;
+  if (state.player.relics.some(r => r.id === 'guts_trophy')) pct += 0.15;
+  else if (state.player.relics.some(r => r.id === 'guts_charm')) pct += 0.05;
+  if (state.player.relics.some(r => r.id === 'br_m_mochi_obj')) pct += 0.10;
+  if (state.player.relics.some(r => r.id === 'br_g_kindheart')) pct += 0.20;
+  pct = Math.min(pct, 0.6);
+  cost = Math.floor(cost * (1 - pct));
+  if (state.player.relics.some(r => r.id === 'br_conqueror')) cost -= 5;
+  return Math.max(0, cost);
+}
 function clickCard(idx) { if(!state.isPlayerTurn)return; playCard(idx); }
 async function playCard(idx) {
 const c=state.hand[idx]; 
-let cardCost = c.cost||0;
-if(state.player.relics.some(r=>r.id==='guts_trophy')) cardCost = Math.floor(cardCost * 0.85);
-else if(state.player.relics.some(r=>r.id==='guts_charm')) cardCost = Math.floor(cardCost * 0.95);
+let cardCost = getCardCost(c);
 if(state.player.energy<cardCost)return;
 state.player.energy-=cardCost;
 if(c.discardTwo&&state.hand.length>1) { for(let k=0;k<2;k++){if(state.hand.length>1){let di=state.hand.findIndex((_,i)=>i!==idx); if(di>-1){state.discardPile.push(state.hand[di]);state.hand.splice(di,1);if(di<idx)idx--;}}} }
@@ -2089,15 +2164,28 @@ for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
 if(c.comboDmg&&state.enemy.vuln>0)b+=c.comboDmg;
 if(c.combo&&state.enemy.vuln>0)b+=25;
+// ボス遺物: エレメンタルクローク（状態異常の相手への攻撃で追加ダメージ+ガッツ回復、1回のカード使用につき1回のみ）
+if(k===0 && state.player.relics.some(r=>r.id==='br_ga_elemental') && (state.enemy.weak>0||state.enemy.vuln>0||state.enemy.burn>0||state.enemy.freeze>0||state.enemy.shock>0)) {
+  b+=15; state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+3);
+}
 let m=state.player.nextDmgMult;
 if(state.player.species.id==='golem')m*=1.25;
 if(state.player.species.id==='gali')m*=1.1;
 if(state.player.currentTurnDouble)m*=2; if(state.enemy.vuln>0)m*=1.5; if(state.player.weak>0)m*=0.75;
-let isCrit=false; let cr=1.0; if(c.crit&&Math.random()<CRIT_TABLE[c.crit].r){cr=CRIT_TABLE[c.crit].m; showCritEffect(); isCrit=true;}
+let isCrit=false; let cr=1.0;
+if(c.crit){
+  let critTier=c.crit;
+  if(state.player.relics.some(r=>r.id==='br_m_critbadge')){
+    const cg=['G','F','E','D','C','B','A','S']; const ci=cg.indexOf(critTier);
+    if(ci>-1&&ci<cg.length-1) critTier=cg[ci+1];
+  }
+  if(Math.random()<CRIT_TABLE[critTier].r){cr=CRIT_TABLE[critTier].m; showCritEffect(); isCrit=true;}
+}
 let tot=Math.floor(b*m*cr);
 state.totalDmgDealt+=tot;
 state.score += (tot * 5);
 if(isCrit && c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.critEnergy);
+if(isCrit && state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
 if(state.enemy.block>=tot){state.enemy.block-=tot; showFloatingText(0,'block',ui.enemyNode);}
 else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
@@ -2105,9 +2193,11 @@ comboTotalDmg += d;
 if(!isMultiHit) showFloatingText(d,'dmg',ui.enemyNode,isCrit);
 if(state.enemy.shock > 0 && state.enemy.hp > 0) {
 await new Promise(r=>setTimeout(r,300));
-state.enemy.hp -= 15;
-comboTotalDmg += 15;
-showFloatingText(15, 'dmg', ui.enemyNode);
+let shockDmg = 15;
+if(state.player.relics.some(r=>r.id==='br_ga_royalmask')) shockDmg += 15;
+state.enemy.hp -= shockDmg;
+comboTotalDmg += shockDmg;
+showFloatingText(shockDmg, 'dmg', ui.enemyNode);
 updateUI();
 if(state.enemy.hp<=0){
   if(state.enemy.revive && !state.enemy._revived){
@@ -2132,19 +2222,28 @@ if(isMultiHit && comboTotalDmg > 0) {
 // 150以上ダメージで画面揺れ
 if(comboTotalDmg >= 150) showImpactEffect();
 state.player.nextAtkBonus=0; ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
+// ボス遺物: 爆発の魂（攻撃カード使用時に自傷ダメージ+10）
+if(state.player.relics.some(r=>r.id==='br_k_explosivesoul')) { applySelfDamage(10); if(state.player.hp<=0) return; }
 }
 if(c.comboEnergy&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.comboEnergy);
 if(c.weakCombo&&state.enemy.weak>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.weakCombo);
-if(c.name==='いじわる'&&state.enemy.vuln>0)state.player.energy+=10;
-if(c.name==='モン刺し'&&state.enemy.vuln>0)state.player.energy+=7;
-let blk=(c.block||0); if(blk>0){let bm=state.player.nextBlockMult; if(state.player.currentTurnBlockDouble)bm*=2; state.player.block+=Math.floor(blk*bm);} state.player.nextBlockMult=1;
+if(c.name==='いじわる'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
+if(c.name==='モン刺し'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
+let blk=(c.block||0);
+if(blk>0 && state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=5;
+if(blk>0){
+  let bm=state.player.nextBlockMult; if(state.player.currentTurnBlockDouble)bm*=2; state.player.block+=Math.floor(blk*bm);
+  if(state.player.relics.some(r=>r.id==='br_g_patience')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
+  if(state.player.relics.some(r=>r.id==='br_mo_spikywall')) { state.enemy.hp-=10; state.score+=50; showFloatingText(10,'dmg',ui.enemyNode); }
+}
+state.player.nextBlockMult=1;
 if(c.draw)drawCards(c.draw); if(c.nextTurnEnergy)state.player.nextTurnEnergy+=c.nextTurnEnergy;
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
 if(c.nextTurnDouble)state.player.doubleAtk=true; if(c.currentTurnDouble)state.player.currentTurnDouble=true; if(c.currentTurnBlockDouble)state.player.currentTurnBlockDouble=true;
 if(c.nextAtkBonusMult)state.player.nextDmgMult*=c.nextAtkBonusMult; if(c.atkBattle)state.player.atkBattle+=c.atkBattle; if(c.blockBattle)state.player.blockBattle+=c.blockBattle;
 if(c.maxEnergyBattle)state.player.maxEnergyBattle=(state.player.maxEnergyBattle||0) + c.maxEnergyBattle;
 if(c.heal){state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
-if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){state.player.hp-=c.selfDmg; if(state.player.hp<=0){gameOver();return;}}
+if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){applySelfDamage(c.selfDmg); if(state.player.hp<=0){return;}}
 if(c.weak)state.enemy.weak+=c.weak; if(c.vuln)state.enemy.vuln+=c.vuln;
 if(c.burn)state.enemy.burn+=c.burn; if(c.freeze)state.enemy.freeze+=c.freeze; if(c.shock)state.enemy.shock+=c.shock;
 state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
@@ -2193,6 +2292,7 @@ if([15,30,45].includes(state.floor)){
 if(state.enemy.isRareElite) { state.score+=100000; updateUI(); }
 state.isPlayerTurn=false; state.selectedCardIndex=null;
 setTimeout(()=>{
+if(state.enemy.mode==='boss' && [15,30,45].includes(state.floor)) { showBossRelicChoice(); return; }
 showModal(state.enemy.isRareElite && state.enemy.trait==='narikillog'?"🐸 ナリキロッグ撃破！":"勝利！", state.enemy.isRareElite && state.enemy.trait==='narikillog'?"MRカード3枚から選択！":"報酬を選択してください");
 let r={N:0.4,R:0.30,SR:0.22,SSR:0.08,MR:0}; if(state.enemy.isRareElite && state.enemy.trait==='narikillog')r={N:0,R:0,SR:0,SSR:0,MR:1.0}; else if(state.enemy.isRareElite)r={N:0,R:0,SR:0,SSR:0,MR:1.0}; else if(state.enemy.isElite)r={N:0.15,R:0.35,SR:0.30,SSR:0.17,MR:0.03}; if(state.enemy.mode==='boss')r={N:0,R:0,SR:0,SSR:0.75,MR:0.25};
 const cr=document.createElement('div'); cr.className="flex space-x-2 py-2 overflow-x-auto w-full no-scrollbar justify-center";
@@ -2209,6 +2309,7 @@ skipBtn.className = "px-4 py-2 mt-2 bg-zinc-800 border border-zinc-600 rounded t
 skipBtn.innerText = "スキップ (カードを取得しない)";
 skipBtn.onclick = () => { nextFloor(); };
 if(state.enemy.isElite||state.enemy.mode==='boss') addRelicReward();
+if(state.player.hp<=0){ gameOver(); return; }
 
 ui.rewardList.appendChild(cr); ui.rewardList.appendChild(skipBtn);
 },500);
@@ -2225,6 +2326,29 @@ d.innerHTML=`<div class="text-amber-300 font-bold text-sm mb-1">✨ 遺物を獲
 ui.rewardList.appendChild(d);
 }
 }
+
+// 15F/30F/45Fのボス撃破時：ボス遺物を3つから1つ選んで獲得
+function showBossRelicChoice() {
+showModal("🏆 ボス撃破！", "ボス遺物を1つ選んでください");
+const speciesPool = BOSS_RELICS_SPECIES[state.player.species.id] || [];
+const pool = shuffle([...BOSS_RELICS_COMMON, ...speciesPool]).filter(r => !state.player.relics.some(y => y.id === r.id));
+const picks = pool.slice(0, 3);
+if(picks.length === 0){ nextFloor(); return; }
+const grid = document.createElement('div');
+grid.className = 'flex flex-col gap-3 w-full';
+picks.forEach(r => {
+  const b = document.createElement('div');
+  b.className = 'p-4 border-2 rounded-2xl flex items-center gap-4 cursor-pointer hover:scale-[1.02] active:scale-95 transition-transform bg-yellow-950 border-yellow-400 rare-relic-glow';
+  b.innerHTML = `<div class="text-4xl flex-shrink-0">${r.icon}</div><div class="text-left"><div class="font-bold text-sm text-yellow-300">${r.name} <span class="text-[9px] bg-purple-700 px-1 rounded">BOSS</span></div><div class="text-[10px] mt-0.5 text-zinc-300">${r.desc}</div></div>`;
+  b.onclick = () => {
+    state.player.relics.push(r); applyRelicEffect(r);
+    if(state.player.hp<=0){ gameOver(); return; }
+    nextFloor();
+  };
+  grid.appendChild(b);
+});
+ui.rewardList.appendChild(grid);
+}
 function nextFloor() { ui.modal.classList.add('hidden'); state.floor++; if(state.floor>60)gameClear(); else initMap(); }
 function calculateFinalScore() {
 let s = Math.max(0, state.score);
@@ -2234,6 +2358,15 @@ return s;
 }
 function gameClear(){ const s=calculateFinalScore(); saveScore(s); showModal("殿堂入り",`全60階踏破おめでとう！\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
 function gameOver(){ if(state.battleEnded) return; state.battleEnded=true; const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
+// 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
+function applySelfDamage(amount, el) {
+  let d = amount;
+  if(state.player.relics.some(r=>r.id==='br_k_migawari')) d = Math.ceil(d*0.5);
+  if(d<=0) return;
+  state.player.hp -= d;
+  showFloatingText(d,'dmg', el||ui.playerNode);
+  if(state.player.hp<=0){ gameOver(); }
+}
 function showModal(t,d){ ui.modal.classList.remove('hidden'); ui.modalTitle.innerText=t; ui.modalDesc.innerText=d; ui.rewardList.innerHTML=''; ui.modalBtn.classList.add('hidden'); ui.modalConfirm.classList.add('hidden'); ui.modalConfirm.innerText="決定"; }
 function showCardRemoval() {
 showModal("修行 (削除)","除外するカードを選択"); const g=document.createElement('div'); g.className="grid grid-cols-4 gap-2 w-full";
@@ -2330,7 +2463,7 @@ pool.forEach(r => {
   const b = document.createElement('div');
   b.className = `p-4 border-2 rounded-2xl flex items-center gap-4 cursor-pointer hover:scale-[1.02] active:scale-95 transition-transform ${isRare ? 'bg-yellow-950 border-yellow-400 rare-relic-glow' : 'bg-zinc-800 border-amber-500'}`;
   b.innerHTML = `<div class="text-4xl flex-shrink-0">${r.icon}</div><div class="text-left"><div class="font-bold text-sm ${isRare ? 'text-yellow-300' : 'text-amber-400'}">${r.name}${isRare ? ' <span class="text-[9px] bg-yellow-700 px-1 rounded">RARE</span>' : ''}</div><div class="text-[10px] mt-0.5 text-zinc-300">${r.desc}</div></div>`;
-  b.onclick = () => { state.player.relics.push(r); applyRelicEffect(r); nextFloor(); };
+  b.onclick = () => { state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); return; } nextFloor(); };
   grid.appendChild(b);
 });
 const skip = document.createElement('button');
@@ -2343,14 +2476,14 @@ ui.rewardList.appendChild(skip);
 function applyRelicEffect(r) {
 const m={
 silver_peach:()=>{state.player.maxHp+=25;state.player.hp+=25},banana:()=>{state.player.maxHp+=5;state.player.hp+=5},torres:()=>{state.player.maxHp+=10;state.player.hp+=10},gold_peach:()=>{state.player.maxHp+=50;state.player.hp+=50},bad_peach:()=>{state.player.maxHp+=15;state.player.hp+=15},oil:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+50),mango:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+20),
-tororon:()=>{state.player.maxHp-=15;state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=8},catine:()=>{state.player.maxHp-=15;state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.blockBase+=8},
+tororon:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=8},catine:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.blockBase+=8},
 crab:()=>{state.player.atkBase+=2;state.player.blockBase+=4},glove:()=>state.player.atkBase+=3,shield_iron:()=>state.player.blockBase+=3,zenon_hammer:()=>{state.player.atkBase+=15;state.player.maxHp+=50;state.player.hp=Math.min(state.player.maxHp,state.player.hp+50);},gali_mantle:()=>{state.player.blockBase+=15;state.player.regenBlock=(state.player.regenBlock||0)+3;},
 gutsmin:()=>state.player.maxEnergy+=10,gutsmin_s:()=>state.player.maxEnergy+=20,
 sticker_guzi:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atkBase+=6},sticker_ham:()=>{state.player.atkBase+=4;state.player.maxEnergy+=15},sticker_nendro:()=>{state.player.maxHp+=25;state.player.atkBase+=4},sticker_dura:()=>{state.player.blockBase+=6;state.player.atkBase+=5},sticker_metal:()=>{state.player.blockBase+=5;state.player.regenEnergy+=3},
 garo_juice:()=>{state.player.maxHp+=15;state.player.hp=state.player.maxHp;},
 point_card:()=>{},guts_charm:()=>{},gold_card:()=>{},guts_trophy:()=>{},
 // Rare
-torocatin_ex:()=>{state.player.maxHp-=30;state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10;state.player.blockBase+=10},
+torocatin_ex:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-30);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10;state.player.blockBase+=10},
 chucky_soul:()=>{state.player.maxHp+=70;state.player.hp+=70;state.player.atkBase-=3;state.player.blockBase-=3},
 mu_heart:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atkBase+=8;state.player.blockBase+=3},
 munendo_heart:()=>{state.player.maxHp+=50;state.player.hp+=50;state.player.atkBase+=5},
@@ -2358,9 +2491,43 @@ firewall_heart:()=>{state.player.blockBase+=5},
 hinotori_heart:()=>{state.player.maxHp+=50;state.player.hp+=50},
 scroll_secret:()=>{upgradeRandomCards(3)},
 scroll_hidden:()=>{upgradeRandomCards(1)},
-scroll_master:()=>{upgradeRandomCards(2)}
+scroll_master:()=>{upgradeRandomCards(2)},
+// ボス遺物（共通）
+br_mahougyoku:()=>{state.player.maxHp+=30;state.player.hp+=30;state.player.atkBase+=5},
+br_soul_eater:()=>{state.player.blockBase+=10},
+br_bag:()=>{},
+br_shield_abundance:()=>{state.player.blockBase+=5},
+br_king_peach:()=>{state.player.maxHp+=100;state.player.hp+=100;state.player.atkBase+=8;state.player.blockBase+=8},
+br_conqueror:()=>{},
+br_belt_gujira:()=>{state.player.maxHp+=25;state.player.hp+=25;state.player.atkBase+=15;state.player.blockBase+=5},
+// ボス遺物（モッチー限定）
+br_m_critbadge:()=>{state.player.atkBase+=5;state.player.blockBase+=5},
+br_m_belt_most:()=>{state.player.maxHp+=25;state.player.hp+=25;state.player.atkBase+=5;state.player.blockBase+=5;state.player.maxEnergy+=30},
+br_m_mochi_obj:()=>{},
+// ボス遺物（ゴーレム限定）
+br_g_patience:()=>{state.player.blockBase+=8},
+br_g_earthbell:()=>{state.player.maxHp+=25;state.player.hp+=25;state.player.atkBase+=5},
+br_g_kindheart:()=>{},
+// ボス遺物（モノリス限定）
+br_mo_activeshield:()=>{state.player.blockBase+=5},
+br_mo_spikywall:()=>{state.player.atkBase+=15},
+br_mo_repairkit:()=>{state.player.maxHp+=30;state.player.hp+=30},
+// ボス遺物（カワズモー限定）
+br_k_migawari:()=>{state.player.blockBase+=5},
+br_k_goldmawashi:()=>{state.player.maxHp+=30;state.player.hp+=30;state.player.atkBase+=5;state.player.blockBase+=5},
+br_k_explosivesoul:()=>{state.player.maxHp+=100;state.player.hp+=100;state.player.atkBase+=25},
+// ボス遺物（ガリ限定）
+br_ga_elemental:()=>{},
+br_ga_eternal:()=>{state.player.blockBase+=5},
+br_ga_royalmask:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atkBase+=5}
 };
 if(m[r.id])m[r.id]();
+
+// 安全策: 遺物効果でライフが0以下になった場合に、表示だけマイナスになって
+// ゲームオーバー処理が呼ばれない事態を防ぐ（最大HPも1未満にはしない）
+if(state.player.maxHp < 1) state.player.maxHp = 1;
+if(state.player.hp > state.player.maxHp) state.player.hp = state.player.maxHp;
+if(state.player.hp < 0) state.player.hp = 0;
 
 const cm={'coin_most':90000,'coin_politoka':90000};
 if(cm[r.id]) { state.score += cm[r.id]; updateUI(); }
@@ -2482,6 +2649,7 @@ function showEvent() {
         const rl=shuffle(p)[0];
         if(rl){
           state.player.relics.push(rl); applyRelicEffect(rl);
+          if(state.player.hp<=0){ gameOver(); return 'skip'; }
           showModal('✨ 伝説の遺物発見！','');
           setTimeout(()=>showCelebrationEffect('relic'),150);
           const d=document.createElement('div');
@@ -2587,12 +2755,18 @@ function showEvent() {
   }
 }
 function createCardUI(c,idx,isR=false,isSmall=false) {
-const d=document.createElement('div'), can=isR||state.player.energy>=(c.cost||0);
+const d=document.createElement('div');
+const realCost = isR ? (c.cost||0) : getCardCost(c);
+const discounted = realCost < (c.cost||0);
+const can=isR||state.player.energy>=realCost;
 let bg="bg-common"; if(c.isInjury)bg="bg-red-900"; else if(c.mid==='motchi')bg="bg-motchi"; else if(c.mid==='golem')bg="bg-golem"; else if(c.mid==='monolith')bg="bg-monolith"; else if(c.mid==='kawazumo')bg="bg-kawazumo"; else if(c.mid==='gali')bg="bg-gali";
 d.className=`card ${bg} ${isSmall?'small':''} p-2 justify-between rarity-${c.rarity} ${can?'':'disabled'} ${c.upgraded?'upgraded-card':''}`;
 const lrMark = '';
 const nameColor = c.isInjury ? 'style="color:#ff6b6b;font-weight:900;"' : (c.rarity==='LR' ? 'style="background:linear-gradient(90deg,#fff700,#ff00ff,#00ffff,#fff700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;animation:lr-border 1.5s linear infinite;"' : '');
-d.innerHTML=`${c.upgraded?'<div class="upgraded-mark"> </div>':''}${lrMark}<div class="flex justify-between items-start"><div class="bg-amber-700 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${c.cost||0}</div><div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
+const costBadge = discounted
+  ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
+  : `<div class="bg-amber-700 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
+d.innerHTML=`${c.upgraded?'<div class="upgraded-mark"> </div>':''}${lrMark}<div class="flex justify-between items-start">${costBadge}<div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
 if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); }; return d;
 }
 function renderHand(){ ui.hand.innerHTML=''; state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true))); }
