@@ -2604,17 +2604,17 @@ function showEvent() {
     { t:'☠️ 毒沼', d:'10ダメージを受ける。スコア10000か何もなしを選べる。', rare:false,
       choices:[
         { label:'スコア+10000を受け取る', result:'ライフ <b>−10</b>、スコア <b>+10000</b>！',
-          fn:()=>{ state.player.hp-=10; updateUI(); if(state.player.hp<=0){gameOver();return;} state.score+=10000; }},
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();return;} state.score+=10000; }},
         { label:'何もしない', result:'ライフ <b>−10</b>…',
-          fn:()=>{ state.player.hp-=10; updateUI(); if(state.player.hp<=0){gameOver();} }}
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();} }}
       ]},
     // 溶岩
     { t:'🌋 溶岩地帯', d:'25ダメージを受けるか、10ダメージを受けてスコア+50000か選べる。', rare:false,
       choices:[
         { label:'25ダメージを受けてスコア+50000', result:'ライフ <b>−25</b>、スコア <b>+50000</b>！',
-          fn:()=>{ state.player.hp-=25; updateUI(); if(state.player.hp<=0){gameOver();return;} state.score+=50000; }},
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-25); updateUI(); if(state.player.hp<=0){gameOver();return;} state.score+=50000; }},
         { label:'10ダメージのみ受ける', result:'ライフ <b>−10</b>…',
-          fn:()=>{ state.player.hp-=10; updateUI(); if(state.player.hp<=0){gameOver();} }}
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();} }}
       ]},
     // 不調
     { t:'😓 不調', d:'力を失った (力-1)', rare:false, result:'体の調子が悪い…<br>力が <b>−1</b> になった。', a:()=>state.player.atkBase=Math.max(0,state.player.atkBase-1) },
@@ -2772,7 +2772,8 @@ function showEvent() {
     const btn = document.createElement('button');
     btn.className = 'w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded-full text-sm active:scale-95 transition-all';
     btn.innerText = '次へ進む';
-    btn.onclick = () => nextFloor();
+    let advancing = false;
+    btn.onclick = () => { if(advancing) return; advancing = true; try { nextFloor(); } catch(e) { console.error('nextFloor error', e); advancing = false; } };
     ui.rewardList.appendChild(box);
     ui.rewardList.appendChild(btn);
     updateUI();
@@ -2784,34 +2785,66 @@ function showEvent() {
     title.className = 'text-center mb-3';
     title.innerHTML = `<div class="text-lg font-bold">${ev.t}</div><div class="text-xs text-zinc-400 mt-1">${ev.d}</div>`;
     ui.rewardList.appendChild(title);
+    let locked = false;
     ev.choices.forEach(ch => {
       const b = document.createElement('button');
       b.className = 'w-full p-3 bg-zinc-800 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 mb-2';
       b.innerText = ch.label;
       b.onclick = () => {
-        const res = ch.fn();
-        if(res === 'skip') return;
-        if(state.player.hp<=0){ gameOver(); return; }
-        updateUI();
-        if(ch.result) showResult(ch.result);
-        else nextFloor();
+        if(locked) return; // 連打による多重実行を防止
+        locked = true;
+        try {
+          const res = ch.fn();
+          if(res === 'skip') return;
+          if(state.player.hp<=0){ gameOver(); return; }
+          updateUI();
+          if(ch.result) showResult(ch.result);
+          else nextFloor();
+        } catch(e) {
+          console.error('event choice error', e);
+          if(state.player.hp<=0){ gameOver(); return; }
+          showEventErrorFallback();
+        }
       };
       ui.rewardList.appendChild(b);
     });
   } else {
     // 単一ボタン型イベント
+    let locked = false;
     const b = document.createElement('button');
     b.className = 'w-full p-4 bg-zinc-800 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700';
     b.innerHTML = `<strong>${ev.t}</strong><br><span class="text-xs text-zinc-400">${ev.d}</span>`;
     b.onclick = () => {
-      const res = ev.a();
-      if(res === 'skip') return;
-      if(state.player.hp<=0){ gameOver(); return; }
-      updateUI();
-      if(ev.result) showResult(ev.result);
-      else nextFloor();
+      if(locked) return; // 連打による多重実行を防止
+      locked = true;
+      try {
+        const res = ev.a();
+        if(res === 'skip') return;
+        if(state.player.hp<=0){ gameOver(); return; }
+        updateUI();
+        if(ev.result) showResult(ev.result);
+        else nextFloor();
+      } catch(e) {
+        console.error('event action error', e);
+        if(state.player.hp<=0){ gameOver(); return; }
+        showEventErrorFallback();
+      }
     };
     ui.rewardList.appendChild(b);
+  }
+
+  // 何らかの理由でイベント処理が失敗した際、必ず先に進めるようにするフォールバック
+  function showEventErrorFallback() {
+    ui.rewardList.innerHTML = '';
+    const msg = document.createElement('div');
+    msg.className = 'text-xs text-zinc-400 text-center mb-2';
+    msg.innerText = '予期せぬ問題が発生しました。';
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded-full text-sm';
+    nextBtn.innerText = '次へ進む';
+    nextBtn.onclick = () => nextFloor();
+    ui.rewardList.appendChild(msg);
+    ui.rewardList.appendChild(nextBtn);
   }
 }
 function createCardUI(c,idx,isR=false,isSmall=false) {
