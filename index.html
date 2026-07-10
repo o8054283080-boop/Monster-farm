@@ -285,7 +285,16 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </head>
 <body class="bg-black text-zinc-100">
 <div id="impact-flash"></div>
-<div style="position:fixed;left:6px;bottom:calc(6px + env(safe-area-inset-bottom, 0px));z-index:9999;font-size:10px;color:rgba(212,212,216,0.65);pointer-events:none;user-select:none;">最終アップデート: 2026/07/08</div>
+<div id="last-update-tag" style="position:fixed;left:6px;bottom:calc(6px + env(safe-area-inset-bottom, 0px));z-index:9999;font-size:10px;color:rgba(212,212,216,0.65);pointer-events:none;user-select:none;"></div>
+<script>
+(function(){
+  try {
+    var d = new Date(document.lastModified);
+    var y = d.getFullYear(), m = ('0'+(d.getMonth()+1)).slice(-2), day = ('0'+d.getDate()).slice(-2);
+    document.getElementById('last-update-tag').innerText = '最終アップデート: ' + y + '/' + m + '/' + day;
+  } catch(e) {}
+})();
+</script>
 
 
 <!-- TOP BAR -->
@@ -2999,6 +3008,8 @@ if(state.player.atkBattle!==0)ui.playerStatuses.innerHTML+=ps('bg-red-900','bord
 if(state.player.blockBattle!==0)ui.playerStatuses.innerHTML+=ps('bg-blue-900','border-blue-400/50','text-blue-200','🛡️',`丈${state.player.blockBattle>0?'+':''}${state.player.blockBattle}`);
 if(state.player.weak>0)ui.playerStatuses.innerHTML+=ps('bg-zinc-700','border-zinc-400/30','text-zinc-300','💢',`攻弱${state.player.weak}`);
 if(state.player.vuln>0)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/30','text-orange-200','🩹',`守弱${state.player.vuln}`);
+if((state.player.bleed||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`出血${state.player.bleed}`);
+if((state.player.costUpTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-sky-950','border-sky-400/50','text-sky-200','🥶',`消費+${state.player.costUpPct}%(${state.player.costUpTurns}T)`);
 if(state.player.nextTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','💥','次ダメ×2');
 if(state.player.currentTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-700','border-yellow-300/50','text-yellow-100','💥','ダメ×2');
 if(state.player.currentTurnBlockDouble)ui.playerStatuses.innerHTML+=ps('bg-cyan-900','border-cyan-400/50','text-cyan-200','🛡️','防×2');
@@ -3058,6 +3069,7 @@ if(state.enemy.vuln>0)ui.enemyStatuses.innerHTML+=`<span class="bg-purple-900 px
 if(state.enemy.burn>0)ui.enemyStatuses.innerHTML+=`<span class="bg-red-800 px-1 text-[7px] rounded border border-red-400/30">炎上 ${state.enemy.burn}</span>`;
 if(state.enemy.freeze>0)ui.enemyStatuses.innerHTML+=`<span class="bg-cyan-800 px-1 text-[7px] rounded border border-cyan-400/30">氷結 ${state.enemy.freeze}</span>`;
 if(state.enemy.shock>0)ui.enemyStatuses.innerHTML+=`<span class="bg-yellow-600 px-1 text-[7px] rounded border border-yellow-300/30 text-black font-bold">感電 ${state.enemy.shock}</span>`;
+if((state.enemy.evasion||0)>0)ui.enemyStatuses.innerHTML+=`<span class="bg-slate-600 px-1 text-[7px] rounded border border-slate-300/30 text-white font-bold">回避 ${state.enemy.evasion}</span>`;
 // 力アップ蓄積を表示
 const atkBonus = state.enemy.dmg - (state.enemy._baseDmg||state.enemy.dmg);
 if(atkBonus>0) ui.enemyStatuses.innerHTML+=`<span class="bg-orange-700 px-1 text-[7px] rounded border border-orange-400/30 font-bold text-white">力+${atkBonus}</span>`;
