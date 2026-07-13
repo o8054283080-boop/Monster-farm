@@ -53,6 +53,7 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
 }
 .card.small { width: 70px; height: 100px; border-width: 2px; }
 .card.small .card-cost { width: 16px; height: 16px; font-size: 8px; }
+.card.small .card-cost-star { width: 18px !important; height: 18px !important; }
 .card.small .card-name { font-size: 7px; height: 12px; margin-bottom: 0; }
 .card.small .card-val { font-size: 1.25rem; }
 .card.small .card-desc { font-size: 6px; padding: 1px; height: 28px; line-height: 1.1; }
@@ -148,7 +149,16 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   animation: mr-bg-flash 0.5s ease-out forwards;
 }
 
-.upgraded-mark { position: absolute; top: -8px; right: -8px; background: #d97706; color: white; font-weight: bold; font-size: 14px; width: 22px; height: 22px; text-align: center; line-height: 22px; border-radius: 50%; box-shadow: 0 0 5px rgba(217,119,6,0.8); z-index: 20; border: 2px solid #fff; }
+.card-cost-star { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); width: 22px !important; height: 22px !important; background: linear-gradient(135deg, #fff3c4, #f59e0b 55%, #b45309) !important; animation: upgrade-star-shine 1.6s ease-in-out infinite; }
+@keyframes upgrade-star-shine {
+0%, 100% { filter: brightness(1) drop-shadow(0 0 2px rgba(245,158,11,0.8)); }
+50% { filter: brightness(1.35) drop-shadow(0 0 5px rgba(253,224,71,1)); }
+}
+.upgraded-card { border-color: #fbbf24 !important; box-shadow: 0 0 10px rgba(245,158,11,0.55), 0 0 2px rgba(255,255,255,0.6) inset; animation: upgraded-card-glow 2.2s ease-in-out infinite; }
+@keyframes upgraded-card-glow {
+0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.45), 0 0 2px rgba(255,255,255,0.5) inset; }
+50% { box-shadow: 0 0 16px rgba(253,224,71,0.85), 0 0 5px rgba(255,255,255,0.7) inset; }
+}
 .monster-sprite { animation: idle 3s ease-in-out infinite; display: inline-block; font-size: 5rem; line-height: 1; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
 @keyframes idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .battle-bg { position: absolute; inset: 0; transition: background 1.2s ease; z-index: 0; overflow: hidden;}
@@ -317,7 +327,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="flex items-center space-x-2 overflow-hidden justify-end flex-grow">
 <button onclick="window.game.showDeckList()" class="shrink-0 cursor-pointer pixel-font text-amber-500 text-xs bg-black/60 px-3 py-1 rounded border border-amber-900/50 hover:bg-amber-900/20 active:scale-95 transition-transform"><span id="floor-count">1</span>F</button>
 <div class="shrink-0 text-[10px] font-mono text-emerald-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">SCORE</span><span id="score-display">0</span></div>
-<div onclick="window.game.showRelicList()" class="shrink cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-0.5 overflow-hidden max-w-[60px] sm:max-w-[120px]" id="relics-container"></div>
+<div onclick="window.game.showRelicList()" class="shrink cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-0.5 overflow-x-auto no-scrollbar max-w-[90px] sm:max-w-[160px]" id="relics-container"></div>
 </div>
 </div>
 </header>
@@ -481,7 +491,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 
 <!-- MODALS -->
 <div id="ranking-modal" class="fixed inset-0 bg-black/95 hidden flex flex-col items-center justify-center z-[200] p-6 backdrop-blur-md">
-<h2 class="text-2xl font-black text-amber-500 mb-4 pixel-font">歴代ブリーダーランキング <span id="ranking-type" class="text-xs text-zinc-500"></span></h2>
+<h2 class="text-2xl font-black text-amber-500 mb-3 pixel-font">歴代ブリーダーランキング <span id="ranking-type" class="text-xs text-zinc-500"></span></h2>
+<div id="ranking-tabs" class="flex flex-wrap gap-1.5 justify-center mb-3 max-w-sm"></div>
 <div class="bg-zinc-900 border border-zinc-700 w-full max-w-sm rounded-lg p-4 h-96 overflow-y-auto shadow-2xl">
 <table class="w-full text-xs text-left">
 <thead><tr class="text-zinc-500 border-b border-zinc-700"><th class="pb-2 pl-2">順位</th><th class="pb-2">名前</th><th class="pb-2 text-center">相棒</th><th class="pb-2 text-right pr-2">スコア</th></tr></thead>
@@ -551,6 +562,7 @@ try {
 } catch(e){ console.warn("オンラインランキング初期化に失敗。端末内ランキングにフォールバックします。", e); }
 }
 initFirebase();
+try{ const savedName = localStorage.getItem('mf_last_trainer_name'); if(savedName) document.getElementById('player-name-input').value = savedName; }catch(e){}
 
 const CRIT_TABLE = { 'S':{r:0.4, m:2.8}, 'A':{r:0.3, m:2.4}, 'B':{r:0.22, m:2.0}, 'C':{r:0.18, m:1.8}, 'D':{r:0.14, m:1.6}, 'E':{r:0.10, m:1.4}, 'F':{r:0.07, m:1.2}, 'G':{r:0.04, m:1.1} };
 
@@ -570,7 +582,7 @@ energyVal: document.getElementById('energy-val'), energyMax: document.getElement
 };
 
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
-window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); };
+window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); };
 function renderSpeciesSelect(){
   const grid = document.getElementById('select-grid');
   if(!grid) return;
@@ -620,16 +632,20 @@ try {
 ui.select.classList.add('hidden'); ui.topBar.classList.remove('hidden'); initMap();
 };
 
+let allRankingData = [];
+let currentRankingFilter = 'all';
 window.game.showRanking = async function() {
 const list = document.getElementById('ranking-list'); const typeLabel = document.getElementById('ranking-type');
 document.getElementById('ranking-modal').classList.remove('hidden');
 list.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-zinc-500">Loading...</td></tr>';
+currentRankingFilter = 'all';
 if (useFirebase && db) {
   typeLabel.innerText = "(オンライン・全プレイヤー)";
   try {
-    const snap = await db.collection('rankings').orderBy('score', 'desc').limit(10).get();
-    const ranking = snap.docs.map(d => d.data());
-    renderRankingList(ranking);
+    const snap = await db.collection('rankings').orderBy('score', 'desc').limit(100).get();
+    allRankingData = snap.docs.map(d => d.data());
+    renderRankingTabs();
+    renderRankingList(allRankingData.slice(0, 10));
     return;
   } catch(e) {
     console.warn('オンラインランキング取得に失敗。端末内ランキングを表示します。', e);
@@ -638,19 +654,43 @@ if (useFirebase && db) {
 typeLabel.innerText = "(この端末)";
 try {
   const raw = localStorage.getItem('mf_rankings');
-  const ranking = raw ? JSON.parse(raw) : [];
-  renderRankingList(ranking.slice(0, 10));
+  allRankingData = raw ? JSON.parse(raw) : [];
+  renderRankingTabs();
+  renderRankingList(allRankingData.slice(0, 10));
 } catch(e) {
+  allRankingData = [];
+  renderRankingTabs();
   list.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-zinc-500">データなし</td></tr>';
 }
 };
+function renderRankingTabs() {
+const tabs = document.getElementById('ranking-tabs');
+if(!tabs) return;
+const usedIds = [...new Set(allRankingData.map(r=>r.monsterId).filter(Boolean))];
+const speciesList = usedIds.map(id=>SPECIES[id]).filter(Boolean);
+let html = `<button data-filter="all" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border ${currentRankingFilter==='all'?'bg-amber-600 border-amber-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-400'}">全体</button>`;
+speciesList.forEach(sp=>{
+  const active = currentRankingFilter===sp.id;
+  html += `<button data-filter="${sp.id}" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 ${active?'bg-amber-600 border-amber-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-400'}">${sp.img?`<img src="${sp.img}" class="w-4 h-4 object-contain">`:sp.icon} ${sp.name}</button>`;
+});
+tabs.innerHTML = html;
+tabs.querySelectorAll('.ranking-tab-btn').forEach(btn=>{
+  btn.onclick = () => {
+    currentRankingFilter = btn.dataset.filter;
+    renderRankingTabs();
+    const filtered = currentRankingFilter==='all' ? allRankingData : allRankingData.filter(r=>r.monsterId===currentRankingFilter);
+    renderRankingList(filtered.slice(0,10));
+  };
+});
+}
 function renderRankingList(rk) {
 const list = document.getElementById('ranking-list'); list.innerHTML = '';
 if(rk.length === 0) list.innerHTML = '<tr><td colspan="4" class="text-center py-2 text-zinc-500">データなし</td></tr>';
 else rk.forEach((r, i) => {
 let mIcon = '-';
 if(r.monsterId && SPECIES[r.monsterId]) {
-mIcon = `<div class="w-5 h-5 inline-block align-middle">${SPECIES[r.monsterId].icon}</div>`;
+const sp = SPECIES[r.monsterId];
+mIcon = sp.img ? `<img src="${sp.img}" class="w-7 h-7 object-contain inline-block align-middle">` : `<div class="w-5 h-5 inline-block align-middle text-lg">${sp.icon}</div>`;
 }
 list.innerHTML += `<tr class="text-zinc-300"><td class="py-2 pl-2 text-amber-500 font-bold">${i + 1}</td><td>${r.name}</td><td class="text-center">${mIcon}</td><td class="text-right pr-2 text-amber-400 font-mono">${r.score}</td></tr>`;
 });
@@ -705,9 +745,13 @@ window.game.showRelicTooltip = function(idx) {
 };
 
 window.game.showRelicList = function() {
-if(state.player.relics.length===0) return; showModal("所持遺物","効果一覧");
+if(state.player.relics.length===0) return; showModal("所持遺物", `全${state.player.relics.length}個`);
 const list = document.createElement('div'); list.className = "w-full space-y-2";
-state.player.relics.forEach(r => { list.innerHTML += `<div class="flex items-center space-x-3 p-2.5 bg-zinc-800 rounded-lg border border-zinc-700 text-left ${r.isRare?'rare-relic-glow':''}"><span class="text-2xl">${r.icon}</span><div><div class="font-bold text-[10px] text-amber-500">${r.name}</div><div class="text-[8px] text-zinc-300">${r.desc}</div></div></div>`; });
+state.player.relics.forEach(r => {
+const isBoss = r.id && r.id.startsWith('br_');
+const glowClass = isBoss ? 'rare-relic-glow' : (r.isRare?'rare-relic-glow':'');
+list.innerHTML += `<div class="flex items-center space-x-3 p-2.5 bg-zinc-800 rounded-lg border border-zinc-700 text-left ${glowClass}"><span class="text-2xl shrink-0">${r.icon}</span><div><div class="font-bold text-[10px] text-amber-500 flex items-center gap-1">${r.name}${isBoss?'<span class="text-[7px] bg-yellow-600 text-black px-1 rounded font-black">BOSS</span>':''}</div><div class="text-[8px] text-zinc-300">${r.desc}</div></div></div>`;
+});
 ui.rewardList.appendChild(list); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="閉じる"; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');
 };
 window.game.showDeckList = function() {
@@ -726,7 +770,7 @@ if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = hand
 state = {
 playerName:name, score:0, totalDmgDealt:0, totalDmgTaken:0,
 difficulty: ui.diffInput.value,
-player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
+player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
 };
@@ -1237,7 +1281,7 @@ t.maxHp = t.hp; // Update maxHp for UI
 
 state.enemy={...t,maxHp:t.hp,mode:mode,weak:0,vuln:0,burn:0,freeze:0,shock:0,block:0,evasion:0,bleed:0,turnCount:0,isElite:mode!=='normal',_baseDmg:t.dmg}; state.battleEnded=false;
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null;
-state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0;
+state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
 // 初期ガッツ: 50固定 + 遺物ボーナス
 let initEnergy = 50;
 if(state.player.relics.some(r=>r.id==='pixy_wing')) initEnergy+=10;
@@ -1273,7 +1317,7 @@ startPlayerTurn();
 }
 
 function startPlayerTurn() {
-state.isPlayerTurn=true; state.player.block=0; state.selectedCardIndex=null;
+state.isPlayerTurn=true; state.player.block=0; state.selectedCardIndex=null; state.player.zeroCostTurn=false;
 if(state.enemy.turnCount<2 && state.player.relics.some(r=>r.id==='sticker_mono')) state.player.block+=10;
 if(state.player.relics.some(r=>r.id==='trophy_tough')) state.player.block+=5;
 if(state.player.relics.some(r=>r.id==='stove')) state.player.block+=3;
@@ -1807,6 +1851,7 @@ function showComboTotal(total, el) {
 // カード表示・使用可否判定・実際の消費のすべてでこの関数を使うことで、
 // 「カードガッツ消費-○%」系の遺物の効果が見た目にも正しく反映されるようにする。
 function getCardCost(c) {
+  if (state.player.zeroCostTurn) return 0;
   let cost = c.cost || 0;
   let pct = 0;
   if (state.player.relics.some(r => r.id === 'guts_trophy')) pct += 0.15;
@@ -1830,6 +1875,7 @@ state.player.energy-=cardCost;
 if(c.discardTwo&&state.hand.length>1) { for(let k=0;k<2;k++){if(state.hand.length>1){let di=state.hand.findIndex((_,i)=>i!==idx); if(di>-1){state.discardPile.push(state.hand[di]);state.hand.splice(di,1);if(di<idx)idx--;}}} }
 if(c.discardAll){const o=state.hand.filter((_,i)=>i!==idx); o.forEach(x=>state.discardPile.push(x)); state.hand=[state.hand[idx]]; idx=0;}
 if(c.breakBlock)state.enemy.block=0;
+let actualHits=1;
 if(c.val>0||c.hits>1 || c.godRising){
 let h = c.hits || 1;
 if (c.godRising) {
@@ -1841,11 +1887,13 @@ if(state.enemy.freeze > 0) count++;
 if(state.enemy.shock > 0) count++;
 h = Math.max(1, count);
 }
+actualHits=h;
 const isMultiHit = h > 1;
 let comboTotalDmg = 0;
 
 for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
+if(k===0 && c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
 if(c.comboDmg&&state.enemy.vuln>0)b+=c.comboDmg;
 if(c.combo&&state.enemy.vuln>0)b+=25;
 // ボス遺物: エレメンタルクローク（状態異常の相手への攻撃で追加ダメージ+ガッツ回復、1回のカード使用につき1回のみ）
@@ -1879,7 +1927,7 @@ if(state.enemy.block>=tot){state.enemy.block-=tot; showFloatingText(0,'block',ui
 else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
 comboTotalDmg += d;
-if(!isMultiHit) showFloatingText(d,'dmg',ui.enemyNode,isCrit);
+showFloatingText(d,'dmg',ui.enemyNode,isCrit);
 if(state.enemy.shock > 0 && state.enemy.hp > 0) {
 await new Promise(r=>setTimeout(r,300));
 let shockDmg = 15;
@@ -1921,7 +1969,7 @@ if(c.weakCombo&&state.enemy.weak>0)state.player.energy=Math.min(state.player.max
 if(c.name==='いじわる'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
 if(c.name==='モン刺し'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
 if(c.name==='ファイアウェーブ'&&state.enemy.burn>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+15);
-let blk=(c.block||0);
+let blk=(c.block||0) + (c.bleedBlock ? (state.enemy.bleed||0) : 0);
 if(blk>0 && state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=5;
 if(blk>0){
   let bm=state.player.nextBlockMult; if(state.player.currentTurnBlockDouble)bm*=2; state.player.block+=Math.floor(blk*bm);
@@ -1930,14 +1978,25 @@ if(blk>0){
 }
 state.player.nextBlockMult=1;
 if(c.draw)drawCards(c.draw); if(c.nextTurnEnergy)state.player.nextTurnEnergy+=c.nextTurnEnergy;
+if(c.zeroCostHand){ state.player.zeroCostTurn=true; }
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
 if(c.nextTurnDouble)state.player.doubleAtk=true; if(c.currentTurnDouble)state.player.currentTurnDouble=true; if(c.currentTurnBlockDouble)state.player.currentTurnBlockDouble=true;
 if(c.nextAtkBonusMult)state.player.nextDmgMult*=c.nextAtkBonusMult; if(c.atkBattle)state.player.atkBattle+=c.atkBattle; if(c.blockBattle)state.player.blockBattle+=c.blockBattle;
 if(c.maxEnergyBattle)state.player.maxEnergyBattle=(state.player.maxEnergyBattle||0) + c.maxEnergyBattle;
 if(c.heal){state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
+if(c.bleedHealHalf){ const bh=Math.floor((state.enemy.bleed||0)/2); if(bh>0){ state.player.hp=Math.min(state.player.maxHp,state.player.hp+bh); showFloatingText(bh,'heal',ui.playerNode); } }
 if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){applySelfDamage(c.selfDmg); if(state.player.hp<=0){return;}}
-if(c.weak)state.enemy.weak+=c.weak; if(c.vuln)state.enemy.vuln+=c.vuln;
-if(c.burn)state.enemy.burn+=c.burn; if(c.freeze)state.enemy.freeze+=c.freeze; if(c.shock)state.enemy.shock+=c.shock; if(c.bleed)state.enemy.bleed=(state.enemy.bleed||0)+c.bleed;
+const debuffMult = actualHits>1 ? actualHits : 1;
+if(c.weak)state.enemy.weak+=c.weak*debuffMult; if(c.vuln)state.enemy.vuln+=c.vuln*debuffMult;
+if(c.burn)state.enemy.burn+=c.burn*debuffMult; if(c.freeze)state.enemy.freeze+=c.freeze*debuffMult; if(c.shock)state.enemy.shock+=c.shock*debuffMult;
+if(c.selfBleedOnHit) state.player.bleedOnHit=(state.player.bleedOnHit||0)+c.selfBleedOnHit;
+const isAtkCard = (c.val>0||c.hits>1);
+let bleedAdd=(c.bleed||0)*debuffMult;
+if(isAtkCard){
+  if(state.player.relics.some(r=>r.id==='br_zan_bloodmark')) bleedAdd+=1*debuffMult;
+  if(state.player.bleedOnHit) bleedAdd+=state.player.bleedOnHit*debuffMult;
+}
+if(bleedAdd>0) state.enemy.bleed=(state.enemy.bleed||0)+bleedAdd;
 state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
 updateUI(); renderHand();
 if(state.enemy.hp<=0&&!state.battleEnded){
@@ -2137,6 +2196,8 @@ if(c.vuln)c.vuln+=1;
 if(c.burn)c.burn+=1;
 if(c.freeze)c.freeze+=1;
 if(c.shock)c.shock+=1;
+if(c.bleed)c.bleed=Math.floor(c.bleed*1.25);
+if(c.selfBleedOnHit)c.selfBleedOnHit+=1;
 // descを全効果で再構築
 const parts=[];
 if(c.val){ if(c.hits)parts.push(`攻${c.val} 連撃${c.hits}`); else parts.push(`攻${c.val}`); }
@@ -2158,6 +2219,12 @@ if(c.maxEnergyBattle)parts.push(`最大G+${c.maxEnergyBattle}`);
 if(c.regenHp)parts.push(`毎T回復${c.regenHp}`);
 if(c.selfDmg)parts.push(`自傷${c.selfDmg}`);
 if(c.combo)parts.push(`守弱時ガッツ7回`);
+if(c.bleed)parts.push(`出血${c.bleed}`);
+if(c.bleedBonusMult)parts.push(`出血${c.bleedBonusMult>1?`×${c.bleedBonusMult}`:''}分追加ダメ`);
+if(c.bleedHealHalf)parts.push(`出血の半分回復`);
+if(c.bleedBlock)parts.push(`出血分ブロック`);
+if(c.zeroCostHand)parts.push(`手札消費ガッツ0`);
+if(c.selfBleedOnHit)parts.push(`攻撃時出血+${c.selfBleedOnHit}`);
 if(c.crit)parts.push(`会心:${c.crit}`);
 if(parts.length>0)c.desc=parts.join(' ');
 }
@@ -2254,7 +2321,18 @@ br_ga_royalmask:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atk
 // ボス遺物（ヒノトリ限定）
 br_h_flamewing:()=>{state.player.atkBase+=5;state.player.blockBase+=5},
 br_h_wing:()=>{state.player.atkBase+=5;state.player.blockBase+=10},
-br_h_phoenixblessing:()=>{state.player.maxHp+=30;state.player.hp+=30;state.player.atkBase+=7;state.player.blockBase+=4}
+br_h_phoenixblessing:()=>{state.player.maxHp+=30;state.player.hp+=30;state.player.atkBase+=7;state.player.blockBase+=4},
+// ボス遺物（ザン限定）
+br_zan_bloodmark:()=>{},
+br_zan_masamune:()=>{state.player.atkBase+=10;state.player.regenEnergy+=8;state.player.regenBlock=(state.player.regenBlock||0)+3;},
+br_zan_scroll:()=>{
+  state.deck.forEach(cd=>{
+    if(cd.rarity==='N'||cd.rarity==='R'){
+      cd.cost=Math.max(0,(cd.cost||0)-3);
+      if(cd.val>0){ if(!cd.hits||cd.hits<=1) cd.hits=2; else cd.hits+=1; }
+    }
+  });
+}
 };
 if(m[r.id])m[r.id]();
 
@@ -2534,9 +2612,9 @@ d.className=`card ${bg} ${isSmall?'small':''} p-2 justify-between rarity-${c.rar
 const lrMark = '';
 const nameColor = c.isInjury ? 'style="color:#ff6b6b;font-weight:900;"' : (c.rarity==='LR' ? 'style="background:linear-gradient(90deg,#fff700,#ff00ff,#00ffff,#fff700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;animation:lr-border 1.5s linear infinite;"' : '');
 const costBadge = discounted
-  ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
-  : `<div class="bg-amber-700 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
-d.innerHTML=`${c.upgraded?'<div class="upgraded-mark"> </div>':''}${lrMark}<div class="flex justify-between items-start">${costBadge}<div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
+  ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 ${c.upgraded?'card-cost-star':'rounded-full'} flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
+  : `<div class="bg-amber-700 w-5 h-5 ${c.upgraded?'card-cost-star':'rounded-full'} flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
+d.innerHTML=`${lrMark}<div class="flex justify-between items-start">${costBadge}<div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
 if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); }; return d;
 }
 function renderHand(){ ui.hand.innerHTML=''; state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true))); }
@@ -2594,6 +2672,7 @@ if(state.player.relics.some(r=>r.id==='grace_wing')) totalRegenE+=3;
 if(state.player.relics.some(r=>r.id==='sticker_metal')) totalRegenE+=3;
 if(totalRegenE>0)ui.playerStatuses.innerHTML+=ps('bg-purple-900','border-purple-400/50','text-purple-200','⚡',`毎G ${totalRegenE}`);
 if((state.player.regenBlock||0)>0)ui.playerStatuses.innerHTML+=ps('bg-cyan-900','border-cyan-400/50','text-cyan-200','🔰',`毎防+${state.player.regenBlock}`);
+if((state.player.bleedOnHit||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`攻撃時出血+${state.player.bleedOnHit}`);
 if((state.player.regenDraw||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-900','border-indigo-400/50','text-indigo-200','🃏',`毎ドロー+${state.player.regenDraw}`);
 if(state.player.nextTurnEnergy>0)ui.playerStatuses.innerHTML+=ps('bg-violet-900','border-violet-400/50','text-violet-200','⚡',`次G+${state.player.nextTurnEnergy}`);
 if((state.player.nextTurnDrain||0)>0)ui.playerStatuses.innerHTML+=ps('bg-rose-900','border-rose-400/50','text-rose-200','🌀',`次G-${state.player.nextTurnDrain}`);

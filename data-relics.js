@@ -74,5 +74,10 @@ const BOSS_RELICS_SPECIES = {
     {id:'br_h_flamewing', name:'ほのおの羽根', icon:'🪶', desc:'炎上している敵にダメージを与えるとガッツ回復5 毎ターンライフ回復3 力+5 丈夫さ+5'},
     {id:'br_h_wing', name:'鋼の翼', icon:'🦾', desc:'力+5 丈夫さ+10 毎ターンブロック10 毎ターンガッツ回復5'},
     {id:'br_h_phoenixblessing', name:'炎王の祝福', icon:'👑', desc:'毎ターンガッツ回復12 ライフ+30 力+7 丈夫さ+4'}
+  ],
+  zan: [
+    {id:'br_zan_bloodmark', name:'血の証', icon:'🩸', desc:'全てのカードに出血+1を追加'},
+    {id:'br_zan_masamune', name:'マサムネ', icon:'⚔️', desc:'力+10 毎ターンガッツ回復8 毎ターンブロック3'},
+    {id:'br_zan_scroll', name:'忍びの巻物', icon:'📜', desc:'Rカード以下の消費ガッツ-3 連撃+1(連撃のないダメージカードは連撃2に、連撃のあるカードは+1)'}
   ]
 };
