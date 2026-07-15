@@ -154,7 +154,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 0%, 100% { filter: brightness(1) drop-shadow(0 0 2px rgba(245,158,11,0.8)); }
 50% { filter: brightness(1.35) drop-shadow(0 0 5px rgba(253,224,71,1)); }
 }
-.upgraded-card { border-color: #fbbf24 !important; box-shadow: 0 0 10px rgba(245,158,11,0.55), 0 0 2px rgba(255,255,255,0.6) inset; animation: upgraded-card-glow 2.2s ease-in-out infinite; }
+.upgraded-card { box-shadow: 0 0 8px rgba(253,224,71,0.5); animation: upgraded-card-glow 2.2s ease-in-out infinite; }
 @keyframes upgraded-card-glow {
 0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.45), 0 0 2px rgba(255,255,255,0.5) inset; }
 50% { box-shadow: 0 0 16px rgba(253,224,71,0.85), 0 0 5px rgba(255,255,255,0.7) inset; }
@@ -1164,7 +1164,7 @@ list.appendChild(createShopItem("defPotion", "丈夫さの薬", "丈夫さを5�
 }));
 list.appendChild(createShopItem("cardUp", "カード強化", "カードを1枚強化する", 15000, () => showShopCardUpgrade(), true));
 list.appendChild(createShopItem("relic", "未知の遺物", "ランダムな通常遺物を獲得", 20000, () => {
-  const normal = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && !state.player.relics.some(y=>y.id===x.id));
+  const normal = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y=>y.id===x.id));
   const r = shuffle(normal)[0];
   if(r) { state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } showModal("獲得！", `${r.name} を手に入れた！`); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText = "進む"; ui.modalConfirm.onclick = () => { window.game.shopProceed(); }; }
   else { window.game.shopProceed(); }
@@ -1192,7 +1192,7 @@ list.appendChild(createShopItem("mrCard", "伝説の技", "MRカードを3枚か
   ui.rewardList.appendChild(cr); ui.rewardList.appendChild(skipBtn);
 }, true));
 list.appendChild(createShopItem("rareRelic", "伝説の遺物", "ランダムな激レア遺物を獲得", 70000, () => {
-  const rare = ALL_RELICS.filter(x => x.isRare && !state.player.relics.some(y => y.id === x.id));
+  const rare = ALL_RELICS.filter(x => x.isRare && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y => y.id === x.id));
   const r = shuffle(rare)[0];
   if(r){ state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } showModal("伝説の遺物","素晴らしい遺物を手に入れた！"); setTimeout(()=>showCelebrationEffect('relic'),200); const d=document.createElement('div'); d.className="p-6 bg-yellow-950 border-2 border-yellow-400 rounded-2xl text-center rare-relic-glow"; d.innerHTML=`<div class="text-5xl mb-3">${r.icon}</div><div class="font-bold text-lg text-yellow-300">${r.name}</div><div class="text-xs mt-2 text-zinc-300">${r.desc}</div>`; ui.rewardList.appendChild(d); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
   else{ showModal("在庫切れ","激レア遺物はもう残っていないようだ..."); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
@@ -1286,7 +1286,11 @@ state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; stat
 let initEnergy = 50;
 if(state.player.relics.some(r=>r.id==='pixy_wing')) initEnergy+=10;
 if(state.player.relics.some(r=>r.id==='grace_wing')) initEnergy+=20;
+if(state.player.relics.some(r=>r.id==='glove')) initEnergy+=5;
 state.player.energy = Math.min(state.player.maxEnergy, initEnergy);
+state.player._gutsBankUsed = false;
+state.player._hozonshokuUsed = false;
+state.player.nextTurnBlockBonus = 0;
 if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
 else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
 else ui.enemyVisual.className='monster-sprite';
@@ -1303,10 +1307,12 @@ if(state.player.relics.some(r=>r.id==='sticker_metal')) {state.player.regenEnerg
 if(state.player.relics.some(r=>r.id==='br_mahougyoku')) state.player.regenEnergy+=7;
 if(state.player.relics.some(r=>r.id==='br_soul_eater')) state.player.regenEnergy+=15;
 if(state.player.relics.some(r=>r.id==='br_bag')) state.player.regenDraw=(state.player.regenDraw||0)+1;
+if(state.player.relics.some(r=>r.id==='mu_heart')) state.player.regenDraw=(state.player.regenDraw||0)+1;
 if(state.player.relics.some(r=>r.id==='br_conqueror')) drawCards(2); // 初期手札+2（戦闘開始時のみ・毎ターンではない）
 if(state.player.relics.some(r=>r.id==='br_m_belt_most')) { state.player.regenEnergy+=15; drawCards(1); } // 初期手札+1（戦闘開始時のみ）
 if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) state.player.regenDraw=(state.player.regenDraw||0)+1;
 if(state.player.relics.some(r=>r.id==='br_g_earthbell')) state.player.regenEnergy+=15;
+if(state.player.relics.some(r=>r.id==='torocatin_ex')) state.player.regenBlock=(state.player.regenBlock||0)+5;
 if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) state.player.regenEnergy+=5;
 if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) state.player.regenEnergy+=12;
 if(state.player.relics.some(r=>r.id==='br_k_goldmawashi')) state.player.regenEnergy+=10;
@@ -1319,6 +1325,7 @@ startPlayerTurn();
 function startPlayerTurn() {
 state.isPlayerTurn=true; state.player.block=0; state.selectedCardIndex=null; state.player.zeroCostTurn=false;
 if(state.enemy.turnCount<2 && state.player.relics.some(r=>r.id==='sticker_mono')) state.player.block+=10;
+if(state.enemy.turnCount<1 && state.player.relics.some(r=>r.id==='shield_iron')) state.player.block+=10;
 if(state.player.relics.some(r=>r.id==='trophy_tough')) state.player.block+=5;
 if(state.player.relics.some(r=>r.id==='stove')) state.player.block+=3;
 if(state.player.relics.some(r=>r.id==='firewall_heart')) state.player.block+=8;
@@ -1336,6 +1343,7 @@ if(state.player.relics.some(r=>r.id==='br_soul_eater')) applySelfDamage(1);
 if(state.player.relics.some(r=>r.id==='jug')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+2); showFloatingText(2,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='pot_heal')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='hinotori_heart')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
+if(state.player.relics.some(r=>r.id==='chucky_soul')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 // ボス遺物: 毎ターンライフ回復系
 if(state.player.relics.some(r=>r.id==='br_shield_abundance')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+5); showFloatingText(5,'heal',ui.playerNode);}
@@ -1345,6 +1353,7 @@ if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) {state.player.hp=Math.
 if(state.player.relics.some(r=>r.id==='artemis')) state.player.block+=2;
 if(state.player.regenHp>0) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+state.player.regenHp); showFloatingText(state.player.regenHp,'heal',ui.playerNode);}
 if((state.player.regenBlock||0)>0){state.player.block+=state.player.regenBlock;}
+if((state.player.nextTurnBlockBonus||0)>0){state.player.block+=state.player.nextTurnBlockBonus; showFloatingText(state.player.nextTurnBlockBonus,'block',ui.playerNode); state.player.nextTurnBlockBonus=0;}
 if((state.player.regenDraw||0)>0){drawCards(state.player.regenDraw);}
 if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; }
 
@@ -1357,6 +1366,13 @@ if(state.enemy.turnCount > 1) {
   if(state.player.relics.some(r=>r.id==='angel_wing')) rec+=8;
   if(state.player.relics.some(r=>r.id==='pixy_wing')) rec+=10;
   if(state.player.relics.some(r=>r.id==='grace_wing')) rec+=20;
+  if(state.player.relics.some(r=>r.id==='hinotori_heart')) rec+=5;
+  if(state.player.relics.some(r=>r.id==='ga_seinarutama')) {
+    let statusCount=0;
+    if(state.enemy.weak>0)statusCount++; if(state.enemy.vuln>0)statusCount++; if(state.enemy.burn>0)statusCount++;
+    if(state.enemy.freeze>0)statusCount++; if(state.enemy.shock>0)statusCount++; if(state.enemy.bleed>0)statusCount++;
+    rec += statusCount*2;
+  }
 }
 if(state.player.relics.some(r=>r.id==='grace_wing')) rec+=3;
 state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+rec); state.player.nextTurnEnergy=0;
@@ -1365,7 +1381,7 @@ if(state.player.nextTurnDrain>0){ let nd=state.player.nextTurnDrain; if(state.pl
 state.player.nextDmgMult=state.player.doubleAtk?2:1; state.player.doubleAtk=false;
 if(state.enemy.weak>0)state.enemy.weak--; if(state.enemy.vuln>0)state.enemy.vuln--; if(state.player.weak>0)state.player.weak--; if(state.player.vuln>0)state.player.vuln--;
 if(state.player.costUpTurns>0){ state.player.costUpTurns--; if(state.player.costUpTurns<=0)state.player.costUpPct=0; }
-if(state.player.bleed>0){ const bleedDmg=state.player.bleed*2; state.player.hp=Math.max(0,state.player.hp-bleedDmg); showFloatingText(bleedDmg,'dmg',ui.playerNode); state.player.bleed=Math.max(0,state.player.bleed-2); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } }
+if(state.player.bleed>0){ const bleedDmg=state.player.bleed*2; state.player.hp=Math.max(0,state.player.hp-bleedDmg); showFloatingText(bleedDmg,'dmg',ui.playerNode); state.player.bleed=Math.max(0,state.player.bleed-2); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } checkHpThresholdRelics(); }
 drawCards(5); setEnemyIntent(); updateUI(); renderHand();
 // 手札-N（ドロー後に処理）
 if((state.player.nextTurnHandReduce||0)>0){
@@ -1765,6 +1781,9 @@ if(state.player.species.id==='gali')dmg=Math.floor(dmg*0.95);
 if(state.player.species.id==='suezo')dmg=Math.max(0,dmg-3);
 if(state.player.species.id==='ham')dmg=Math.max(0,dmg-3);
 if(state.player.species.id==='kolope')dmg=Math.max(0,dmg-4);
+if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) dmg=Math.floor(dmg*0.9);
+if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_enkaku')) dmg=Math.floor(dmg*0.9);
+if(state.enemy.bleed>0 && state.player.relics.some(r=>r.id==='z_kuroi_houseki')) dmg=Math.floor(dmg*0.9);
 const def=state.player.blockBase + state.player.blockBattle; dmg=Math.max(0,dmg-def);
 if(state.player.block>=dmg){ state.player.block-=dmg; showFloatingText(0,'block',ui.playerNode); }
 else {
@@ -1774,6 +1793,10 @@ state.totalDmgTaken+=d;
 state.score = Math.max(0, state.score - (d * 5));
 state.player.block=0;
 showFloatingText(d,'dmg',ui.playerNode);
+if(state.player.relics.some(r=>r.id==='g_revenge_armor')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0), state.player.energy+Math.floor(d*0.3));
+if(state.player.relics.some(r=>r.id==='mo_revenge_shield')) state.player.nextTurnBlockBonus=(state.player.nextTurnBlockBonus||0)+Math.floor(d*0.25);
+if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_enkaku')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0), state.player.energy+10);
+checkHpThresholdRelics();
 }
 ui.playerVisual.classList.add('shake'); setTimeout(()=>ui.playerVisual.classList.remove('shake'),400);
 }
@@ -1781,7 +1804,7 @@ let dd=(state.enemy.isElite||state.enemy.mode==='boss')?3:2; if(i.type.includes(
 if(i.type.includes('weak')||i.type.includes('debuff')) state.player.weak=(state.player.weak||0)+dd;
 if(i.type.includes('vuln')||i.type.includes('debuff')) state.player.vuln=(state.player.vuln||0)+dd;
 if(i.block) state.enemy.block=i.block||0;
-if(i.drain) { const totalDrain=i.drain+(state.enemy._drainBonus||0); state.player.nextTurnDrain=(state.player.nextTurnDrain||0)+totalDrain; showFloatingText(totalDrain,'drain',ui.playerNode); }
+if(i.drain) { let totalDrain=i.drain+(state.enemy._drainBonus||0); if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) totalDrain=Math.max(0,totalDrain-10); state.player.nextTurnDrain=(state.player.nextTurnDrain||0)+totalDrain; showFloatingText(totalDrain,'drain',ui.playerNode); }
 if(i.drawReduce||i.handMinus) { const hm=i.drawReduce||i.handMinus; state.player.nextTurnHandReduce=(state.player.nextTurnHandReduce||0)+hm; showFloatingText(`手札-${hm}`,'drain',ui.playerNode); }
 if(i.injuryCards && i.injuryCards>0) { addInjuryCards(i.injuryCards); showFloatingText(`ケガ×${i.injuryCards}`,  'drain',ui.playerNode); }
 if(i.burnCards && i.burnCards>0) { addBurnCards(i.burnCards); showFloatingText(`火傷×${i.burnCards}`,  'drain',ui.playerNode); }
@@ -1858,9 +1881,14 @@ function getCardCost(c) {
   else if (state.player.relics.some(r => r.id === 'guts_charm')) pct += 0.05;
   if (state.player.relics.some(r => r.id === 'br_m_mochi_obj')) pct += 0.10;
   if (state.player.relics.some(r => r.id === 'br_g_kindheart')) pct += 0.20;
+  if (state.player.relics.some(r => r.id === 'munendo_heart')) pct += 0.05;
+  if (state.player.relics.some(r => r.id === 'z_eiri_no_ha')) pct += 0.05;
   pct = Math.min(pct, 0.6);
   cost = Math.floor(cost * (1 - pct));
   if (state.player.relics.some(r => r.id === 'br_conqueror')) cost -= 2;
+  if (c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) cost -= 5;
+  if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) cost = Math.floor(cost*0.75);
+  if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) cost -= 5;
   if (state.player.costUpTurns && state.player.costUpTurns > 0) cost = Math.ceil(cost * (1 + (state.player.costUpPct||0)/100));
   return Math.max(0, cost);
 }
@@ -1878,6 +1906,7 @@ if(c.breakBlock)state.enemy.block=0;
 let actualHits=1;
 if(c.val>0||c.hits>1 || c.godRising){
 let h = c.hits || 1;
+if (c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) h += 1;
 if (c.godRising) {
 let count = 0;
 if(state.enemy.weak > 0) count++;
@@ -1893,6 +1922,8 @@ let comboTotalDmg = 0;
 
 for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
+if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 15;
+if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
 if(k===0 && c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
 if(c.comboDmg&&state.enemy.vuln>0)b+=c.comboDmg;
 if(c.combo&&state.enemy.vuln>0)b+=25;
@@ -1905,8 +1936,11 @@ if(k===0 && state.player.relics.some(r=>r.id==='br_h_flamewing') && state.enemy.
   state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+5);
 }
 let m=state.player.nextDmgMult;
-if(state.player.species.id==='golem')m*=1.25;
+if(state.player.species.id==='golem')m*= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
 if(state.player.species.id==='gali')m*=1.1;
+if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m*=1.15;
+if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
+if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
 if(state.player.currentTurnDouble)m*=2; if(state.enemy.vuln>0)m*=1.5; if(state.player.weak>0)m*=0.75;
 let isCrit=false; let cr=1.0;
 if(c.crit){
@@ -1923,6 +1957,8 @@ state.totalDmgDealt+=tot;
 state.score += (tot * 5);
 if(isCrit && c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.critEnergy);
 if(isCrit && state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
+if(isCrit && state.player.relics.some(r=>r.id==='m_hachimaki')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+2);
+if(isCrit && state.player.relics.some(r=>r.id==='m_konjoame') && Math.random()<0.15) drawCards(1);
 if(state.enemy.block>=tot){state.enemy.block-=tot; showFloatingText(0,'block',ui.enemyNode);}
 else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
@@ -1932,9 +1968,12 @@ if(state.enemy.shock > 0 && state.enemy.hp > 0) {
 await new Promise(r=>setTimeout(r,300));
 let shockDmg = 15;
 if(state.player.relics.some(r=>r.id==='br_ga_royalmask')) shockDmg += 15;
+if(state.player.relics.some(r=>r.id==='ga_raijin_koromo')) shockDmg += 10;
 state.enemy.hp -= shockDmg;
 comboTotalDmg += shockDmg;
 showFloatingText(shockDmg, 'dmg', ui.enemyNode);
+if(state.player.relics.some(r=>r.id==='br_ga_royalmask')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+3);
+if(state.player.relics.some(r=>r.id==='ga_raijin_koromo')) state.player.hp=Math.min(state.player.maxHp,state.player.hp+1);
 updateUI();
 if(state.enemy.hp<=0){
   if(state.enemy.revive && !state.enemy._revived){
@@ -2029,6 +2068,7 @@ function showCelebrationEffect(type) { /* 互換用: 何もしない */ }
 
 function winBattle() {
 if(state.battleEnded) return; state.battleEnded=true;
+if(state.player.relics.some(r=>r.id==='k_chankonabe')) { state.player.hp=Math.min(state.player.maxHp, state.player.hp+15); }
 // ケガカードをバトル後に全除去
 ['drawPile','hand','discardPile','exhaustPile'].forEach(pile=>{
   if(state[pile]) state[pile] = state[pile].filter(c=>!c.isInjury);
@@ -2070,7 +2110,7 @@ ui.rewardList.appendChild(cr); ui.rewardList.appendChild(skipBtn);
 }
 
 function addRelicReward() {
-const pool = ALL_RELICS.filter(x => !x.isRare && !x.eventOnly && !state.player.relics.some(y => y.id === x.id));
+const pool = ALL_RELICS.filter(x => !x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y => y.id === x.id));
 const r = shuffle(pool)[0];
 if(r){
 state.player.relics.push(r); applyRelicEffect(r);
@@ -2149,6 +2189,21 @@ function gameOver(){
   state.battleEnded=true; const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
+function checkHpThresholdRelics() {
+  if(state.player.hp <= 0) return;
+  if(state.player.hp <= state.player.maxHp*0.5) {
+    if(!state.player._gutsBankUsed && state.player.relics.some(r=>r.id==='mo_guts_bank')) {
+      state.player._gutsBankUsed = true;
+      state.player.energy = Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0), state.player.energy+50);
+      showFloatingText('ガッツ+50','heal',ui.playerNode);
+    }
+    if(!state.player._hozonshokuUsed && state.player.relics.some(r=>r.id==='k_hozonshoku')) {
+      state.player._hozonshokuUsed = true;
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp+30);
+      showFloatingText(30,'heal',ui.playerNode);
+    }
+  }
+}
 function applySelfDamage(amount, el) {
   let d = amount;
   if(state.player.relics.some(r=>r.id==='br_k_migawari')) d = Math.ceil(d*0.5);
@@ -2156,6 +2211,7 @@ function applySelfDamage(amount, el) {
   state.player.hp -= d;
   showFloatingText(d,'dmg', el||ui.playerNode);
   if(state.player.hp<=0){ gameOver(); }
+  checkHpThresholdRelics();
 }
 function showModal(t,d){ ui.modal.classList.remove('hidden'); ui.modalTitle.innerText=t; ui.modalDesc.innerText=d; ui.rewardList.innerHTML=''; ui.modalBtn.classList.add('hidden'); ui.modalConfirm.classList.add('hidden'); ui.modalConfirm.innerText="決定"; }
 function showCardRemoval() {
@@ -2240,8 +2296,8 @@ candidates.splice(idx, 1);
 }
 function showChest() {
 showModal("宝箱","遺物を1つ選んでください");
-const normal = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && !state.player.relics.some(y=>y.id===x.id));
-const rare = ALL_RELICS.filter(x=>x.isRare && !state.player.relics.some(y=>y.id===x.id));
+const normal = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y=>y.id===x.id));
+const rare = ALL_RELICS.filter(x=>x.isRare && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y=>y.id===x.id));
 // 3候補を生成: 15%でレア枠1つ混入（通常2枚+レア1枚）
 let pool = [];
 const useRare = rare.length > 0 && Math.random() < 0.15;
@@ -2274,19 +2330,45 @@ ui.rewardList.appendChild(skip);
 function applyRelicEffect(r) {
 const m={
 silver_peach:()=>{state.player.maxHp+=25;state.player.hp+=25},banana:()=>{state.player.maxHp+=5;state.player.hp+=5},torres:()=>{state.player.maxHp+=10;state.player.hp+=10},gold_peach:()=>{state.player.maxHp+=50;state.player.hp+=50},bad_peach:()=>{state.player.maxHp+=15;state.player.hp+=15},oil:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+50),mango:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+20),
-tororon:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=8},catine:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.blockBase+=8},
-crab:()=>{state.player.atkBase+=2;state.player.blockBase+=4},glove:()=>state.player.atkBase+=3,shield_iron:()=>state.player.blockBase+=3,zenon_hammer:()=>{state.player.atkBase+=15;state.player.maxHp+=50;state.player.hp=Math.min(state.player.maxHp,state.player.hp+50);},gali_mantle:()=>{state.player.blockBase+=15;state.player.regenBlock=(state.player.regenBlock||0)+3;},
+tororon:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10},catine:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.blockBase+=10},
+crab:()=>{state.player.atkBase+=3;state.player.blockBase+=5},glove:()=>state.player.atkBase+=3,shield_iron:()=>state.player.blockBase+=3,zenon_hammer:()=>{state.player.atkBase+=15;state.player.maxHp+=50;state.player.hp=Math.min(state.player.maxHp,state.player.hp+50);},gali_mantle:()=>{state.player.blockBase+=15;state.player.regenBlock=(state.player.regenBlock||0)+3;},
 gutsmin:()=>state.player.maxEnergy+=10,gutsmin_s:()=>state.player.maxEnergy+=20,
 sticker_guzi:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atkBase+=6},sticker_ham:()=>{state.player.atkBase+=4;state.player.maxEnergy+=15},sticker_nendro:()=>{state.player.maxHp+=25;state.player.atkBase+=4},sticker_dura:()=>{state.player.blockBase+=6;state.player.atkBase+=5},sticker_metal:()=>{state.player.blockBase+=5;state.player.regenEnergy+=3},
 garo_juice:()=>{state.player.maxHp+=15;state.player.hp=state.player.maxHp;},
 point_card:()=>{},guts_charm:()=>{},gold_card:()=>{},guts_trophy:()=>{},
 // Rare
-torocatin_ex:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-30);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10;state.player.blockBase+=10},
-chucky_soul:()=>{state.player.maxHp+=70;state.player.hp+=70;state.player.atkBase-=3;state.player.blockBase-=3},
-mu_heart:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atkBase+=8;state.player.blockBase+=3},
+torocatin_ex:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-45);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10;state.player.blockBase+=10;},
+chucky_soul:()=>{state.player.maxHp+=100;state.player.hp+=100;state.player.atkBase-=4;state.player.blockBase-=4},
+mu_heart:()=>{state.player.atkBase+=10;},
 munendo_heart:()=>{state.player.maxHp+=50;state.player.hp+=50;state.player.atkBase+=5},
-firewall_heart:()=>{state.player.blockBase+=5},
+firewall_heart:()=>{state.player.blockBase+=8},
 hinotori_heart:()=>{state.player.maxHp+=50;state.player.hp+=50},
+// モッチー専用通常遺物
+m_hachimaki:()=>{state.player.blockBase+=3},
+m_konjoame:()=>{},
+m_mochihou_ougi:()=>{},
+// ゴーレム専用通常遺物
+g_revenge_armor:()=>{},
+g_ganseki_ame:()=>{},
+g_stone_monument:()=>{},
+// モノリス専用通常遺物
+mo_revenge_shield:()=>{},
+mo_guts_bank:()=>{},
+mo_togetoge:()=>{},
+// カワズモー専用通常遺物
+k_chankonabe:()=>{},
+k_menkyokaiden:()=>{},
+k_hozonshoku:()=>{},
+// ガリ専用通常遺物
+ga_seinarutama:()=>{},
+ga_raijin_koromo:()=>{},
+ga_hyouketsu:()=>{},
+// ヒノトリ専用通常遺物
+h_honoo_houseki:()=>{},
+h_enkaku:()=>{},
+// ザン専用通常遺物
+z_kuroi_houseki:()=>{},
+z_eiri_no_ha:()=>{},
 scroll_secret:()=>{upgradeRandomCards(3)},
 scroll_hidden:()=>{upgradeRandomCards(1)},
 scroll_master:()=>{upgradeRandomCards(2)},
@@ -2354,7 +2436,7 @@ function showEvent() {
   const normalEvents = [
     // モンスター遭遇 (通常戦闘と同じ)
     { t:'モンスター遭遇', d:'野生のモンスターが現れた！', rare:false,
-      a:()=>{ nextFloor(); setTimeout(()=>startBattle('normal'),100); }, battle:true },
+      a:()=>{ ui.modal.classList.add('hidden'); setTimeout(()=>startBattle('normal'),100); return 'skip'; }},
     // 毒沼
     { t:'☠️ 毒沼', d:'10ダメージを受ける。スコア10000か何もなしを選べる。', rare:false,
       choices:[
@@ -2495,7 +2577,7 @@ function showEvent() {
       a:()=>{ showChest(); return 'skip'; }},
     // 強敵遭遇
     { t:'💀 強敵遭遇', d:'強敵が現れた！', rare:true,
-      a:()=>{ nextFloor(); setTimeout(()=>startBattle('elite'),100); }, battle:true },
+      a:()=>{ ui.modal.classList.add('hidden'); setTimeout(()=>startBattle('elite'),100); return 'skip'; }},
     // 行商人遭遇
     { t:'💰 行商人遭遇', d:'行商人に出会った', rare:true,
       a:()=>{ window.game.showShop(); return 'skip'; }},
@@ -2612,8 +2694,8 @@ d.className=`card ${bg} ${isSmall?'small':''} p-2 justify-between rarity-${c.rar
 const lrMark = '';
 const nameColor = c.isInjury ? 'style="color:#ff6b6b;font-weight:900;"' : (c.rarity==='LR' ? 'style="background:linear-gradient(90deg,#fff700,#ff00ff,#00ffff,#fff700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;animation:lr-border 1.5s linear infinite;"' : '');
 const costBadge = discounted
-  ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 ${c.upgraded?'card-cost-star':'rounded-full'} flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
-  : `<div class="bg-amber-700 w-5 h-5 ${c.upgraded?'card-cost-star':'rounded-full'} flex items-center justify-center text-[10px] font-black text-white shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
+  ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 ${c.upgraded?'card-cost-star text-amber-950':'rounded-full text-white'} flex items-center justify-center text-[10px] font-black shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
+  : `<div class="bg-amber-700 w-5 h-5 ${c.upgraded?'card-cost-star text-amber-950':'rounded-full text-white'} flex items-center justify-center text-[10px] font-black shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
 d.innerHTML=`${lrMark}<div class="flex justify-between items-start">${costBadge}<div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
 if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); }; return d;
 }
