@@ -327,6 +327,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="flex items-center space-x-2 overflow-hidden justify-end flex-grow">
 <button onclick="window.game.showDeckList()" class="shrink-0 cursor-pointer pixel-font text-amber-500 text-xs bg-black/60 px-3 py-1 rounded border border-amber-900/50 hover:bg-amber-900/20 active:scale-95 transition-transform"><span id="floor-count">1</span>F</button>
 <div class="shrink-0 text-[10px] font-mono text-emerald-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">SCORE</span><span id="score-display">0</span></div>
+<div class="shrink-0 text-[10px] font-mono text-yellow-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">💰GOLD</span><span id="gold-display">0</span></div>
 <div onclick="window.game.showRelicList()" class="shrink cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-0.5 overflow-x-auto no-scrollbar max-w-[90px] sm:max-w-[160px]" id="relics-container"></div>
 </div>
 </div>
@@ -392,8 +393,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
         <li>🥋 <b>修行</b>：カード強化 or 能力向上（力・丈夫さ・ライフ）</li>
         <li>🎁 <b>宝箱</b>：遺物を3択から1つ入手（稀にレア）</li>
         <li>❓ <b>イベント</b>：様々なランダムイベント。レア枠では特別な出来事も</li>
-        <li>💰 <b>行商人</b>：スコアを使ってカードや遺物を購入</li>
-        <li>🧪 <b>怪しい実験場</b>：カード合成（スコア50,000）や怪しい薬に挑戦。危険だが見返りも大きい</li>
+        <li>💰 <b>行商人</b>：ゴールドを使ってカードや遺物を購入</li>
+        <li>🧪 <b>怪しい実験場</b>：カード合成（スコア50,000またはゴールド500）や怪しい薬に挑戦。危険だが見返りも大きい</li>
       </ul>
     </div>
 
@@ -576,7 +577,7 @@ energy: document.getElementById('energy-circle'), drawCount: document.getElement
 rewardList: document.getElementById('reward-list'), modalTitle: document.getElementById('modal-title'), modalDesc: document.getElementById('modal-desc'),
 modalBtn: document.getElementById('modal-restart-btn'), modalConfirm: document.getElementById('modal-confirm-btn'), endTurnBtn: document.getElementById('end-turn-btn'), topBar: document.getElementById('top-bar'), relicUI: document.getElementById('relics-container'),
 enemyStatuses: document.getElementById('enemy-statuses'), enemyNode: document.getElementById('enemy-monster-node'), enemyBlockDisplay: document.getElementById('enemy-block-display'), enemyBlockVal: document.getElementById('enemy-block-val'),
-energyRegen: document.getElementById('energy-regen'), playerStatuses: document.getElementById('player-statuses'), bgLayer: document.getElementById('battle-bg-layer'), scoreDisplay: document.getElementById('score-display'),
+energyRegen: document.getElementById('energy-regen'), playerStatuses: document.getElementById('player-statuses'), bgLayer: document.getElementById('battle-bg-layer'), scoreDisplay: document.getElementById('score-display'), goldDisplay: document.getElementById('gold-display'),
 pAtkStat: document.getElementById('player-stat-atk'), pDefStat: document.getElementById('player-stat-def'), nameInput: document.getElementById('player-name-input'), playerNode: document.getElementById('player-monster-node'),
 energyVal: document.getElementById('energy-val'), energyMax: document.getElementById('energy-max'), diffInput: document.getElementById('difficulty-input')
 };
@@ -613,6 +614,7 @@ if(!spec.img) ui.playerVisual.innerHTML=spec.icon;
 
 // デバッグ用: URLに ?floor=61 のように付けると、その階層から開始できる（動作確認用）
 // 例: index.html?floor=61&boost=1  ※boost=1でライフ・力・丈夫さ・ガッツ上限を底上げ
+// 例2: index.html?boss63=1  ※63階ボスに即挑戦できる特別セットアップ（ライフ300/力丈夫さ60/ガッツ回復+50/MRカード全取得/カード全強化）
 try {
   const params = new URLSearchParams(window.location.search);
   const debugFloor = parseInt(params.get('floor'));
@@ -627,9 +629,31 @@ try {
       state.player.maxEnergy += 30;
     }
   }
+  if (params.get('boss63') === '1') {
+    state.floor = 63;
+    state.legendRush = true;
+    state.player.maxHp = 300; state.player.hp = 300;
+    state.player.atkBase = 60; state.player.blockBase = 60;
+    state.player.regenEnergy = (state.player.regenEnergy||0) + 50;
+    // MRカードを全取得（自分の種族専用 + 種族共通のMRカードすべて）
+    Object.values(CARDS).forEach(c => {
+      if (c.rarity === 'MR' && (!c.mid || c.mid === spec.id) && !c.fusion) {
+        state.deck.push({...c, instanceId: Math.random()});
+      }
+    });
+    // 現在のデッキ全カードを強化状態に
+    state.deck.forEach(c => { if(!c.upgraded) upgradeCard(c); });
+    state.player._debugAutoBoss = true;
+  }
 } catch(e) { console.warn('debug param error', e); }
 
-ui.select.classList.add('hidden'); ui.topBar.classList.remove('hidden'); initMap();
+ui.select.classList.add('hidden'); ui.topBar.classList.remove('hidden');
+if (state.player._debugAutoBoss) {
+  updateUI();
+  startBattle('boss');
+} else {
+  initMap();
+}
 };
 
 let allRankingData = [];
@@ -768,7 +792,7 @@ ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="閉じる
 function resetGameState(name) {
 if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = handleEndTurn; }
 state = {
-playerName:name, score:0, totalDmgDealt:0, totalDmgTaken:0,
+playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
 difficulty: ui.diffInput.value,
 player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
@@ -895,16 +919,27 @@ window.game.showForge = function() {
   try {
     // メインメニュー
 
-    // カード合成ボタン
-    const fuseBtn = document.createElement('button');
-    fuseBtn.className = 'w-full p-3 bg-amber-900 hover:bg-amber-800 border border-amber-500 rounded-xl text-sm font-bold mb-2';
-    fuseBtn.innerHTML = '⚗️ カード合成 <span class="text-yellow-300 text-xs">（スコア50,000消費）</span>';
-    fuseBtn.onclick = () => {
+    // カード合成ボタン(スコア or ゴールド)
+    const fuseBtnScore = document.createElement('button');
+    fuseBtnScore.className = 'w-full p-3 bg-amber-900 hover:bg-amber-800 border border-amber-500 rounded-xl text-sm font-bold mb-1';
+    fuseBtnScore.innerHTML = '⚗️ カード合成 <span class="text-yellow-300 text-xs">（スコア50,000消費）</span>';
+    fuseBtnScore.onclick = () => {
       if(state.score < 50000) {
         alert('スコアが足りません！（必要：50,000）');
         return;
       }
       state.score -= 50000;
+      try { showFuseMenu(); } catch(e) { console.error('showFuseMenu error', e); showForgeErrorFallback(); }
+    };
+    const fuseBtnGold = document.createElement('button');
+    fuseBtnGold.className = 'w-full p-3 bg-amber-900 hover:bg-amber-800 border border-amber-500 rounded-xl text-sm font-bold mb-2';
+    fuseBtnGold.innerHTML = '⚗️ カード合成 <span class="text-emerald-300 text-xs">（ゴールド500消費）</span>';
+    fuseBtnGold.onclick = () => {
+      if((state.gold||0) < 500) {
+        alert('ゴールドが足りません！（必要：500）');
+        return;
+      }
+      state.gold -= 500;
       try { showFuseMenu(); } catch(e) { console.error('showFuseMenu error', e); showForgeErrorFallback(); }
     };
 
@@ -914,7 +949,8 @@ window.game.showForge = function() {
     potionBtn.innerHTML = '🧪 怪しい薬を飲む';
     potionBtn.onclick = () => { try { doPotion(); } catch(e) { console.error('doPotion error', e); showForgeErrorFallback(); } };
 
-    ui.rewardList.appendChild(fuseBtn);
+    ui.rewardList.appendChild(fuseBtnScore);
+    ui.rewardList.appendChild(fuseBtnGold);
     ui.rewardList.appendChild(potionBtn);
     ui.rewardList.appendChild(leaveBtn);
   } catch(e) {
@@ -1103,118 +1139,171 @@ window.game.showForge = function() {
 
 window.game.showShop = function() {
 if(!state.shopPurchaseCounts) state.shopPurchaseCounts = {};
-state.shopTotalPurchases = 0; // 訪問ごとにリセット（購入回数は2回/訪問）
-const MAX_PURCHASES = 2;
-window.game._shopMaxPurchases = MAX_PURCHASES;
+state.shopSoldThisVisit = {}; // 訪問ごとにリセット(サービス品は再入荷)
+
+// ---- 商品カード(7枚)を毎回抽選 ----
+const CARD_PRICE = {N:50,R:150,SR:400,SSR:800,MR:1500};
+const rollCardRarity = () => {
+  const r = Math.random();
+  if(r < 0.20) return 'N';
+  if(r < 0.65) return 'R';
+  if(r < 0.85) return 'SR';
+  if(r < 0.95) return 'SSR';
+  return 'MR';
+};
+const fullCardPool = Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id) && !c.fusion);
+const usedCardIds = new Set();
+const shopCards = [];
+for(let i=0;i<7;i++){
+  const rarity = rollCardRarity();
+  let pool = fullCardPool.filter(c=>c.rarity===rarity && !usedCardIds.has(c.id||c.name));
+  if(pool.length===0) pool = fullCardPool.filter(c=>!usedCardIds.has(c.id||c.name));
+  if(pool.length===0) pool = fullCardPool;
+  const picked = shuffle(pool)[0];
+  if(picked){ usedCardIds.add(picked.id||picked.name); shopCards.push({card:picked, price:CARD_PRICE[picked.rarity]||CARD_PRICE[rarity], sold:false}); }
+}
+
+// ---- 商品遺物(3個)を毎回抽選 ----
+const RELIC_PRICE = {normal:500, rare:1500};
+const normalRelicPool = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y=>y.id===x.id));
+const rareRelicPool = ALL_RELICS.filter(x=>x.isRare && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y=>y.id===x.id));
+const usedRelicIds = new Set();
+const shopRelics = [];
+for(let i=0;i<3;i++){
+  const tier = Math.random() < 0.8 ? 'normal' : 'rare';
+  let pool = (tier==='rare'?rareRelicPool:normalRelicPool).filter(x=>!usedRelicIds.has(x.id));
+  if(pool.length===0) pool = (tier==='rare'?normalRelicPool:rareRelicPool).filter(x=>!usedRelicIds.has(x.id));
+  const picked = shuffle(pool)[0];
+  if(picked){ usedRelicIds.add(picked.id); shopRelics.push({relic:picked, price:RELIC_PRICE[tier], sold:false}); }
+}
 
 const renderShop = () => {
-showModal("行商人", `現在のスコア: ${state.score} S`);
+showModal("行商人", `所持ゴールド: ${state.gold.toLocaleString()} G`);
 ui.modalConfirm.classList.remove('hidden');
 ui.modalConfirm.innerText = "店を出る";
 ui.modalConfirm.onclick = () => { nextFloor(); };
 
-const createShopItem = (id, name, desc, basePrice, action, customFlow) => {
+const wrap = document.createElement('div');
+wrap.className = "w-full flex flex-col gap-2";
+
+const sectionTitle = (txt) => { const d=document.createElement('div'); d.className="text-[11px] text-amber-400 font-bold mt-1 tracking-wide"; d.innerText=txt; return d; };
+
+// カード売り場
+wrap.appendChild(sectionTitle("── 商品カード ──"));
+const cardRow = document.createElement('div');
+cardRow.className = "flex space-x-2 overflow-x-auto w-full no-scrollbar pb-1";
+shopCards.forEach((entry) => {
+  const holder = document.createElement('div');
+  holder.className = "relative shrink-0";
+  const el = createCardUI({...entry.card, instanceId:'shop_'+Math.random()}, -1, true, true);
+  holder.appendChild(el);
+  const priceTag = document.createElement('div');
+  priceTag.className = `text-center text-[10px] font-mono font-bold mt-1 ${entry.sold?'text-zinc-600':(state.gold<entry.price?'text-red-400':'text-emerald-400')}`;
+  priceTag.innerText = entry.sold ? '売却済み' : `${entry.price.toLocaleString()} G`;
+  holder.appendChild(priceTag);
+  if(entry.sold){
+    const overlay = document.createElement('div');
+    overlay.className = "absolute top-0 left-0 right-0 h-[86%] bg-black/70 rounded-xl flex items-center justify-center";
+    overlay.innerHTML = `<span class="text-red-400 font-black text-xs border-2 border-red-400 rounded px-1.5 py-0.5 -rotate-12 bg-black/60">SOLD OUT</span>`;
+    holder.appendChild(overlay);
+  } else {
+    if(state.gold < entry.price) holder.classList.add('opacity-60');
+    el.style.cursor = 'pointer';
+    el.onclick = () => {
+      if(entry.sold || state.gold < entry.price) return;
+      state.gold -= entry.price;
+      entry.sold = true;
+      state.deck.push({...entry.card, instanceId:Math.random()});
+      updateUI();
+      renderShop();
+    };
+  }
+  cardRow.appendChild(holder);
+});
+wrap.appendChild(cardRow);
+
+// 遺物売り場
+wrap.appendChild(sectionTitle("── 商品の遺物 ──"));
+const relicRow = document.createElement('div');
+relicRow.className = "flex space-x-2 overflow-x-auto w-full no-scrollbar pb-1";
+shopRelics.forEach((entry) => {
+  const box = document.createElement('div');
+  const rareBorder = entry.relic.isRare ? 'border-yellow-500 rare-relic-glow' : 'border-zinc-700';
+  box.className = `relative shrink-0 w-28 p-2 bg-zinc-800 border ${rareBorder} rounded-xl text-center`;
+  box.innerHTML = `<div class="text-2xl">${entry.relic.icon}</div><div class="text-[9px] font-bold text-amber-400 mt-1 leading-tight">${entry.relic.name}</div><div class="text-[7px] text-zinc-400 h-8 overflow-hidden leading-tight mt-0.5">${entry.relic.desc}</div><div class="text-[10px] font-mono font-bold mt-1 ${state.gold<entry.price?'text-red-400':'text-emerald-400'}">${entry.price.toLocaleString()} G</div>`;
+  if(entry.sold){
+    const overlay = document.createElement('div');
+    overlay.className = "absolute inset-0 bg-black/75 rounded-xl flex items-center justify-center";
+    overlay.innerHTML = `<span class="text-red-400 font-black text-xs border-2 border-red-400 rounded px-1.5 py-0.5 -rotate-12 bg-black/60">SOLD OUT</span>`;
+    box.appendChild(overlay);
+  } else {
+    if(state.gold < entry.price) box.classList.add('opacity-60');
+    box.onclick = () => {
+      if(entry.sold || state.gold < entry.price) return;
+      state.gold -= entry.price;
+      entry.sold = true;
+      state.player.relics.push(entry.relic);
+      applyRelicEffect(entry.relic);
+      if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; }
+      updateUI();
+      renderShop();
+    };
+  }
+  relicRow.appendChild(box);
+});
+wrap.appendChild(relicRow);
+
+// サービス品
+wrap.appendChild(sectionTitle("── サービス ──"));
+
+const createServiceItem = (id, name, desc, basePrice, action, customFlow) => {
   const count = state.shopPurchaseCounts[id] || 0;
-let price = Math.floor(basePrice * Math.pow(1.5, count));
-// 遺物割引
-if(state.player.relics.some(r=>r.id==='gold_card')) price = Math.floor(price * 0.75);
-else if(state.player.relics.some(r=>r.id==='point_card')) price = Math.floor(price * 0.9);
-  const canAfford = state.score >= price;
-  const canBuy = state.shopTotalPurchases < MAX_PURCHASES;
+  let price = Math.floor(basePrice * Math.pow(1.5, count));
+  if(state.player.relics.some(r=>r.id==='gold_card')) price = Math.floor(price * 0.75);
+  else if(state.player.relics.some(r=>r.id==='point_card')) price = Math.floor(price * 0.9);
+  const soldOut = !!state.shopSoldThisVisit[id];
+  const canAfford = state.gold >= price;
+  const active = canAfford && !soldOut;
   const btn = document.createElement('button');
-  const active = canAfford && canBuy;
   btn.className = `p-3 rounded-xl border flex justify-between items-center transition-all ${active ? 'bg-zinc-800 border-amber-600 hover:bg-zinc-700' : 'bg-zinc-900 border-zinc-700 opacity-50 cursor-not-allowed'}`;
-  const countLabel = count > 0 ? `<span class="text-[9px] text-orange-400 ml-1">(${count}回購入済・${Math.floor(basePrice * Math.pow(1.5, count+1))}S)</span>` : '';
-  btn.innerHTML = `<div class="text-left"><div class="font-bold text-amber-500">${name}${countLabel}</div><div class="text-[10px] text-zinc-400">${desc}</div></div><div class="font-mono font-bold text-emerald-400">${price.toLocaleString()} S</div>`;
+  btn.innerHTML = `<div class="text-left"><div class="font-bold text-amber-500">${name}</div><div class="text-[10px] text-zinc-400">${desc}</div></div><div class="font-mono font-bold ${soldOut?'text-zinc-500':'text-emerald-400'}">${soldOut ? '売却済み' : price.toLocaleString()+' G'}</div>`;
   if(active) {
     btn.onclick = () => {
-      state.score -= price;
+      state.gold -= price;
       state.shopPurchaseCounts[id] = (state.shopPurchaseCounts[id] || 0) + 1;
-      state.shopTotalPurchases++;
+      state.shopSoldThisVisit[id] = true;
       updateUI();
       action();
-      // customFlow: このアイテムは独自のカード選択UIを表示し、選択完了時に自分でnextFloor()を呼ぶため、
-      // ここでrenderShop()やnextFloor()を呼んで画面を上書きしてはいけない
       if(customFlow) return;
-      if(state.shopTotalPurchases >= MAX_PURCHASES) { nextFloor(); return; }
       renderShop();
     };
   }
   return btn;
 };
 
-const list = document.createElement('div');
-list.className = "flex flex-col gap-2 w-full";
-
-// 残り購入回数表示
-const remaining = MAX_PURCHASES - state.shopTotalPurchases;
-const remDiv = document.createElement('div');
-remDiv.className = 'text-center text-xs text-zinc-400 mb-1';
-remDiv.innerText = `あと${remaining}回購入できます`;
-list.appendChild(remDiv);
-
-list.appendChild(createShopItem("kizu", "傷薬", "ライフを30回復する", 1500, () => {
+wrap.appendChild(createServiceItem("kizu", "傷薬", "ライフを30回復する", 50, () => {
   state.player.hp = Math.min(state.player.maxHp, state.player.hp + 30);
 }));
-list.appendChild(createShopItem("atkPotion", "力の薬", "力を5アップ（永続）", 7000, () => {
+wrap.appendChild(createServiceItem("atkPotion", "力の薬", "力を5アップ（永続）", 100, () => {
   state.player.atkBase += 5;
 }));
-list.appendChild(createShopItem("defPotion", "丈夫さの薬", "丈夫さを5アップ（永続）", 7000, () => {
+wrap.appendChild(createServiceItem("defPotion", "丈夫さの薬", "丈夫さを5アップ（永続）", 100, () => {
   state.player.blockBase += 5;
 }));
-list.appendChild(createShopItem("cardUp", "カード強化", "カードを1枚強化する", 15000, () => showShopCardUpgrade(), true));
-list.appendChild(createShopItem("relic", "未知の遺物", "ランダムな通常遺物を獲得", 20000, () => {
-  const normal = ALL_RELICS.filter(x=>!x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y=>y.id===x.id));
-  const r = shuffle(normal)[0];
-  if(r) { state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } showModal("獲得！", `${r.name} を手に入れた！`); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText = "進む"; ui.modalConfirm.onclick = () => { window.game.shopProceed(); }; }
-  else { window.game.shopProceed(); }
-}, true));
-list.appendChild(createShopItem("cardDel", "カード削除", "不要なカードを1枚デッキから除外", 30000, () => showShopCardRemoval(), true));
-list.appendChild(createShopItem("ssrCard", "強力な技", "SSRカードを3枚から1枚獲得", 50000, () => {
-  showModal("強力な技", "カードを選んでください");
-  const cr = document.createElement('div');
-  cr.className = "flex space-x-2 py-2 overflow-x-auto w-full no-scrollbar justify-center";
-  const pool = Object.values(CARDS).filter(c => (!c.mid || c.mid === state.player.species.id) && c.rarity === 'SSR' && !c.fusion);
-  const picks = shuffle(pool).slice(0, 3);
-  picks.forEach((c, i) => { const pk={...c,instanceId:Math.random()}; const el=createCardUI(pk,i,true,true); el.onclick=()=>{ state.deck.push(pk); window.game.shopProceed(); }; cr.appendChild(el); });
-  const skipBtn = document.createElement('button'); skipBtn.className="px-4 py-2 mt-2 bg-zinc-800 border border-zinc-600 rounded text-xs text-zinc-400 hover:bg-zinc-700 w-full"; skipBtn.innerText="スキップ"; skipBtn.onclick=()=>{ window.game.shopProceed(); };
-  ui.rewardList.appendChild(cr); ui.rewardList.appendChild(skipBtn);
-}, true));
-list.appendChild(createShopItem("mrCard", "伝説の技", "MRカードを3枚から1枚獲得", 100000, () => {
-  showModal("伝説の技", "カードを選んでください");
-  const cr = document.createElement('div');
-  cr.className = "flex space-x-2 py-2 overflow-x-auto w-full no-scrollbar justify-center";
-  const pool = Object.values(CARDS).filter(c => (!c.mid || c.mid === state.player.species.id) && c.rarity === 'MR' && !c.fusion);
-  if(pool.length===0){ showModal("在庫切れ","MRカードはまだ存在しないようだ..."); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>window.game.shopProceed(); return; }
-  const picks = shuffle(pool).slice(0,3);
-  picks.forEach((c,i)=>{ const pk={...c,instanceId:Math.random()}; const el=createCardUI(pk,i,true,true); el.onclick=()=>{ if(pk.rarity==='MR') setTimeout(()=>applyMRCardEffect(el),50); state.deck.push(pk); window.game.shopProceed(); }; cr.appendChild(el); if(pk.rarity==='MR') setTimeout(()=>applyMRCardEffect(el),80); });
-  const skipBtn=document.createElement('button'); skipBtn.className="px-4 py-2 mt-2 bg-zinc-800 border border-zinc-600 rounded text-xs text-zinc-400 hover:bg-zinc-700 w-full"; skipBtn.innerText="スキップ"; skipBtn.onclick=()=>{ window.game.shopProceed(); };
-  ui.rewardList.appendChild(cr); ui.rewardList.appendChild(skipBtn);
-}, true));
-list.appendChild(createShopItem("rareRelic", "伝説の遺物", "ランダムな激レア遺物を獲得", 70000, () => {
-  const rare = ALL_RELICS.filter(x => x.isRare && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y => y.id === x.id));
-  const r = shuffle(rare)[0];
-  if(r){ state.player.relics.push(r); applyRelicEffect(r); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } showModal("伝説の遺物","素晴らしい遺物を手に入れた！"); setTimeout(()=>showCelebrationEffect('relic'),200); const d=document.createElement('div'); d.className="p-6 bg-yellow-950 border-2 border-yellow-400 rounded-2xl text-center rare-relic-glow"; d.innerHTML=`<div class="text-5xl mb-3">${r.icon}</div><div class="font-bold text-lg text-yellow-300">${r.name}</div><div class="text-xs mt-2 text-zinc-300">${r.desc}</div>`; ui.rewardList.appendChild(d); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
-  else{ showModal("在庫切れ","激レア遺物はもう残っていないようだ..."); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="進む"; ui.modalConfirm.onclick=()=>{ window.game.shopProceed(); }; }
-}, true));
+wrap.appendChild(createServiceItem("cardUp", "カード強化", "カードを1枚強化する", 200, () => showShopCardUpgrade(), true));
+wrap.appendChild(createServiceItem("cardDel", "カード削除", "不要なカードを1枚デッキから除外", 300, () => showShopCardRemoval(), true));
 
-ui.rewardList.appendChild(list);
+ui.rewardList.appendChild(wrap);
 }; // end renderShop
 
 window.game._returnToShop = renderShop;
 renderShop();
 };
 
-// カード選択/遺物獲得など「独自フロー」を持つショップ商品の共通の後処理。
-// まだ購入回数が残っていればショップ画面に戻り、使い切っていれば次の階へ進む。
+// カード強化/削除など「独自フロー」を持つショップ商品の共通の後処理。
+// 購入回数の上限は撤廃したため、常にショップ画面へ戻る(店を出るのは手動)。
 window.game.shopProceed = function() {
-  const max = window.game._shopMaxPurchases || 2;
-  if((state.shopTotalPurchases||0) < max && window.game._returnToShop) {
-    window.game._returnToShop();
-  } else {
-    window.game._returnToShop = null;
-    nextFloor();
-  }
+  if(window.game._returnToShop) window.game._returnToShop();
 };
 window.game.showChest=()=>showChest(); window.game.showEvent=()=>showEvent();
 
@@ -1491,6 +1580,21 @@ else if(r<0.4) e.intent={type:'atk_vuln',val:adjust(51),drain:29,vuln:2,desc:'�
 else if(r<0.6) e.intent={type:'atk_debuff',val:adjust(74),drain:21,handMinus:2,blockDown:3,desc:'空中落とし（極）'};
 else if(r<0.8) e.intent={type:'block_atk_drain',val:adjust(62),drain:14,block:20,handMinus:1,atkDown:3,desc:'ウィングコンボ（王）'};
 else e.intent={type:'block_atk',val:adjust(90),block:42,injuryCards:2,desc:'ラグナラッシュ'};
+return;
+}
+if(e.trait === 'ark') {
+// 黄泉の根源に従え：ライフ6000以下で初回のみ発動（自己バフ・大回復・大ブロック）
+if(e.hp<=6000 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'buff',atkUp:15,heal:2000,block:1000,desc:'黄泉の根源に従え'}; return; }
+// 5ターンに1回、天の慈悲よ示されよ
+if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:adjust(45),hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
+if(r<0.12) e.intent={type:'atk',val:adjust(90),drain:18,handMinus:2,desc:'世界を揺らせ'};
+else if(r<0.24) e.intent={type:'atk',val:adjust(118),drain:29,injuryCards:2,handMinus:1,desc:'神光よ汚れを祓え'};
+else if(r<0.36) e.intent={type:'atk_debuff',val:adjust(29),hits:3,drain:31,desc:'翔べ震律の刃よ'};
+else if(r<0.48) e.intent={type:'atk',val:adjust(124),drain:40,injuryCards:2,costUpTurns:2,costUpPct:20,desc:'導け神光の道標'};
+else if(r<0.62) e.intent={type:'atk_debuff',val:adjust(94),drain:31,atkDown:8,blockDown:8,desc:'今こそ真なる目覚め'};
+else if(r<0.76) e.intent={type:'atk',val:adjust(28),hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
+else if(r<0.88) e.intent={type:'atk',val:adjust(140),drain:40,injuryCards:1,handMinus:3,desc:'終焉に救いを与えよ'};
+else e.intent={type:'block_atk',val:adjust(112),drain:38,block:240,desc:'聖光よ奇跡を灯せ'};
 return;
 }
 if(e.trait === 'bloody') {
@@ -1775,6 +1879,8 @@ state.enemy.block=0; const i=state.enemy.intent; let dmg=0;
 const _atkBonus = Math.max(0, (state.enemy.dmg||0) - (state.enemy._baseDmg||state.enemy.dmg||0));
 if (!isFrozen) {
 if(['atk','block_atk','atk_debuff','atk_vuln','atk_debuff_both','atk_weak','atk_debuff_both_3','atk_drain','atk_vuln_drain','atk_debuff_both_drain','atk_weak_drain','atk_debuff_both_3_drain','block_atk_drain','block_atk_vuln'].includes(i.type)) {
+const hits = i.hits || 1;
+for(let hk=0; hk<hits; hk++){
 dmg=i.val + _atkBonus; if(state.enemy.weak>0)dmg=Math.floor(dmg*0.75); if(state.player.vuln>0)dmg=Math.floor(dmg*1.5);
 if(state.player.species.id==='monolith')dmg=Math.floor(dmg*0.85);
 if(state.player.species.id==='gali')dmg=Math.floor(dmg*0.95);
@@ -1797,6 +1903,7 @@ if(state.player.relics.some(r=>r.id==='g_revenge_armor')) state.player.energy=Ma
 if(state.player.relics.some(r=>r.id==='mo_revenge_shield')) state.player.nextTurnBlockBonus=(state.player.nextTurnBlockBonus||0)+Math.floor(d*0.25);
 if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_enkaku')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0), state.player.energy+10);
 checkHpThresholdRelics();
+}
 }
 ui.playerVisual.classList.add('shake'); setTimeout(()=>ui.playerVisual.classList.remove('shake'),400);
 }
@@ -2073,6 +2180,12 @@ if(state.player.relics.some(r=>r.id==='k_chankonabe')) { state.player.hp=Math.mi
 ['drawPile','hand','discardPile','exhaustPile'].forEach(pile=>{
   if(state[pile]) state[pile] = state[pile].filter(c=>!c.isInjury);
 });
+// 戦闘勝利ゴールド報酬(スコアより控えめ)
+let goldReward = 0;
+if(state.enemy.mode==='boss') goldReward = 300 + state.floor*5;
+else if(state.enemy.isElite) goldReward = 150 + Math.floor(state.floor*4);
+else goldReward = 60 + Math.floor(state.floor*2);
+state.gold = (state.gold||0) + goldReward;
 if(state.enemy.mode==='boss') {
 const tc=state.enemy.turnCount; let b=0;
 if(tc<=3)b=50000; else if(tc<=5)b=30000; else if(tc<=10)b=15000; else if(tc<=15)b=10000; else if(tc<=20)b=5000;
@@ -2083,7 +2196,7 @@ if([15,30,45].includes(state.floor)){
   state.player.hp = Math.min(state.player.maxHp, state.player.hp + healAmt);
 }
 }
-if(state.enemy.isRareElite) { state.score+=100000; updateUI(); }
+if(state.enemy.isRareElite) { state.score+=100000; state.gold=(state.gold||0)+300+Math.floor(state.floor*10); updateUI(); }
 state.isPlayerTurn=false; state.selectedCardIndex=null;
 setTimeout(()=>{
 if(state.enemy.mode==='boss' && [15,30,45,60].includes(state.floor)) { showBossRelicChoice(); return; }
@@ -2165,7 +2278,7 @@ function nextFloor() {
     gameClear(); return;
   }
   state.floor++;
-  const maxFloor = state.legendRush ? 62 : 60;
+  const maxFloor = state.legendRush ? 63 : 60;
   if(state.floor>maxFloor) gameClear(); else initMap();
 }
 function calculateFinalScore() {
@@ -2175,7 +2288,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全62階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
+function gameClear(){ const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -2329,6 +2442,7 @@ ui.rewardList.appendChild(skip);
 }
 function applyRelicEffect(r) {
 const m={
+ancient_coin:()=>{state.gold=(state.gold||0)+100},silver_lump:()=>{state.gold=(state.gold||0)+300},gold_lump:()=>{state.gold=(state.gold||0)+500},platinum:()=>{state.gold=(state.gold||0)+1000},
 silver_peach:()=>{state.player.maxHp+=25;state.player.hp+=25},banana:()=>{state.player.maxHp+=5;state.player.hp+=5},torres:()=>{state.player.maxHp+=10;state.player.hp+=10},gold_peach:()=>{state.player.maxHp+=50;state.player.hp+=50},bad_peach:()=>{state.player.maxHp+=15;state.player.hp+=15},oil:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+50),mango:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+20),
 tororon:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10},catine:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.blockBase+=10},
 crab:()=>{state.player.atkBase+=3;state.player.blockBase+=5},glove:()=>state.player.atkBase+=3,shield_iron:()=>state.player.blockBase+=3,zenon_hammer:()=>{state.player.atkBase+=15;state.player.maxHp+=50;state.player.hp=Math.min(state.player.maxHp,state.player.hp+50);},gali_mantle:()=>{state.player.blockBase+=15;state.player.regenBlock=(state.player.regenBlock||0)+3;},
@@ -2424,8 +2538,8 @@ if(state.player.maxHp < 1) state.player.maxHp = 1;
 if(state.player.hp > state.player.maxHp) state.player.hp = state.player.maxHp;
 if(state.player.hp < 0) state.player.hp = 0;
 
-const cm={'coin_most':90000,'coin_politoka':90000};
-if(cm[r.id]) { state.score += cm[r.id]; updateUI(); }
+const cm={'coin_most':150000,'coin_politoka':150000};
+if(cm[r.id]) { state.score += cm[r.id]; state.gold=(state.gold||0)+150; updateUI(); }
 }
 function showEvent() {
   const r = Math.random();
@@ -2438,18 +2552,18 @@ function showEvent() {
     { t:'モンスター遭遇', d:'野生のモンスターが現れた！', rare:false,
       a:()=>{ ui.modal.classList.add('hidden'); setTimeout(()=>startBattle('normal'),100); return 'skip'; }},
     // 毒沼
-    { t:'☠️ 毒沼', d:'10ダメージを受ける。スコア10000か何もなしを選べる。', rare:false,
+    { t:'☠️ 毒沼', d:'10ダメージを受ける。ゴールド100か何もなしを選べる。', rare:false,
       choices:[
-        { label:'スコア+10000を受け取る', result:'ライフ <b>−10</b>、スコア <b>+10000</b>！',
-          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} state.score+=10000; }},
+        { label:'ゴールド+100を受け取る', result:'ライフ <b>−10</b>、ゴールド <b>+100</b>！',
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} state.gold=(state.gold||0)+100; }},
         { label:'何もしない', result:'ライフ <b>−10</b>…',
           fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();} }}
       ]},
     // 溶岩
-    { t:'🌋 溶岩地帯', d:'25ダメージを受けるか、10ダメージを受けてスコア+50000か選べる。', rare:false,
+    { t:'🌋 溶岩地帯', d:'25ダメージを受けるか、10ダメージを受けてゴールド+500か選べる。', rare:false,
       choices:[
-        { label:'25ダメージを受けてスコア+50000', result:'ライフ <b>−25</b>、スコア <b>+50000</b>！',
-          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-25); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} state.score+=50000; }},
+        { label:'25ダメージを受けてゴールド+500', result:'ライフ <b>−25</b>、ゴールド <b>+500</b>！',
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-25); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} state.gold=(state.gold||0)+500; }},
         { label:'10ダメージのみ受ける', result:'ライフ <b>−10</b>…',
           fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();} }}
       ]},
@@ -2514,12 +2628,12 @@ function showEvent() {
     // みすぼらしい老人
     { t:'👴 みすぼらしい老人がいる', d:'どうする？', rare:false,
       choices:[
-        { label:'お金を恵んであげる (スコア-10000)', fn:()=>{
-          if(state.score>=10000){
-            state.score-=10000; state.player.maxHp+=30; state.player.hp=Math.min(state.player.maxHp,state.player.hp+30); state.player.atkBase+=2; state.player.blockBase+=2;
-            showResult('老人がお礼に宝物を渡してくれた！🎁<br>スコア <b>−10000</b><br>最大ライフ <b>+30</b>、力 <b>+2</b>、丈夫さ <b>+2</b>');
+        { label:'お金を恵んであげる (ゴールド-100)', fn:()=>{
+          if((state.gold||0)>=100){
+            state.gold-=100; state.player.maxHp+=30; state.player.hp=Math.min(state.player.maxHp,state.player.hp+30); state.player.atkBase+=2; state.player.blockBase+=2;
+            showResult('老人がお礼に宝物を渡してくれた！🎁<br>ゴールド <b>−100</b><br>最大ライフ <b>+30</b>、力 <b>+2</b>、丈夫さ <b>+2</b>');
           } else {
-            showResult('スコアが足りなかった…<br>何もできなかった。');
+            showResult('ゴールドが足りなかった…<br>何もできなかった。');
           }
           return 'skip';
         }},
@@ -2670,6 +2784,13 @@ function showEvent() {
     ui.rewardList.appendChild(b);
   }
 
+  // 万一ボタンが反応しない等の不具合があっても行き詰まらないための保険リンク
+  const escapeLink = document.createElement('div');
+  escapeLink.className = 'w-full text-center mt-3';
+  escapeLink.innerHTML = `<span class="text-[10px] text-zinc-600 underline cursor-pointer">この画面から進めない場合はこちら</span>`;
+  escapeLink.onclick = () => { try { nextFloor(); } catch(e) { console.error('escape nextFloor error', e); } };
+  ui.rewardList.appendChild(escapeLink);
+
   // 何らかの理由でイベント処理が失敗した際、必ず先に進めるようにするフォールバック
   function showEventErrorFallback() {
     ui.rewardList.innerHTML = '';
@@ -2719,7 +2840,7 @@ function showCritEffect(){
 function updateUI(){
 ui.playerHp.innerText=`${Math.ceil(state.player.hp)}/${state.player.maxHp}`; ui.playerHpBar.style.width=`${(state.player.hp/state.player.maxHp)*100}%`; ui.playerBlock.innerText=`🛡️ ${state.player.block}`;
 let maxE=state.player.maxEnergy + (state.player.maxEnergyBattle||0); ui.energyVal.innerText=state.player.energy; ui.energyMax.innerText=`/${maxE}`;
-ui.pAtkStat.innerText=`力${state.player.atkBase + state.player.atkBattle}`; ui.pDefStat.innerText=`丈${state.player.blockBase + state.player.blockBattle}`; ui.scoreDisplay.innerText=`${state.score}`;
+ui.pAtkStat.innerText=`力${state.player.atkBase + state.player.atkBattle}`; ui.pDefStat.innerText=`丈${state.player.blockBase + state.player.blockBattle}`; ui.scoreDisplay.innerText=`${state.score}`; ui.goldDisplay.innerText=`${(state.gold||0).toLocaleString()}`;
 let rec=state.player.species.energyRate + state.player.nextTurnEnergy + state.player.regenEnergy;
 if(state.player.relics.some(r=>r.id==='beans'))rec+=2;
 if(state.player.relics.some(r=>r.id==='candy'))rec+=5;
@@ -2793,7 +2914,7 @@ if(i.type==='buff') {
 } else {
   ui.intentVal.innerText = (dmgVal !== undefined && dmgVal > 0) ? dmgVal : '';
 }
-ui.intentDesc.innerText=i.desc + (i.injuryCards ? ` (ケガ×${i.injuryCards})` : '') + (i.burnCards ? ` (火傷×${i.burnCards})` : '') + (i.costUpTurns ? ` (消費ガッツ+${i.costUpPct}% ${i.costUpTurns}T)` : '') + (i.bleed ? ` (出血+${i.bleed})` : '') + (i.selfEvasion ? ` (自身に回避+${i.selfEvasion})` : '') + (i.atkDown ? ` (力-${i.atkDown})` : '') + (i.blockDown ? ` (丈-${i.blockDown})` : '');
+ui.intentDesc.innerText=i.desc + (i.hits>1 ? ` (連撃×${i.hits})` : '') + (i.injuryCards ? ` (ケガ×${i.injuryCards})` : '') + (i.burnCards ? ` (火傷×${i.burnCards})` : '') + (i.costUpTurns ? ` (消費ガッツ+${i.costUpPct}% ${i.costUpTurns}T)` : '') + (i.bleed ? ` (出血+${i.bleed})` : '') + (i.selfEvasion ? ` (自身に回避+${i.selfEvasion})` : '') + (i.atkDown ? ` (力-${i.atkDown})` : '') + (i.blockDown ? ` (丈-${i.blockDown})` : '');
 if(state.enemy.block>0){ui.enemyBlockDisplay.classList.remove('hidden');ui.enemyBlockVal.innerText=state.enemy.block;} else ui.enemyBlockDisplay.classList.add('hidden');
 ui.enemyStatuses.innerHTML='';
 if(state.enemy.weak>0)ui.enemyStatuses.innerHTML+=`<span class="bg-blue-900 px-1 text-[7px] rounded border border-blue-400/30">攻弱 ${state.enemy.weak}</span>`;
