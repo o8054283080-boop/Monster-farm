@@ -21,9 +21,9 @@ const ALL_RELICS = [
 {id:'sticker_nendro',name:'ネンドロシール',icon:'🏺',desc:'最大ライフ25 力4'},{id:'sticker_dura',name:'デュラハンシール',icon:'🛡️',desc:'力5 丈夫さ6'},
 {id:'sticker_metal',name:'メタルナーシール',icon:'👽',desc:'丈夫さ5 毎ターンガッツ3'},{id:'angel_wing',name:'天使の羽',icon:'🕊️',desc:'毎ターンガッツ回復8',eventOnly:true},
 {id:'zenon_hammer',name:'ゼノンハンマー',icon:'🔨',desc:'力15 ライフ50',eventOnly:true},{id:'gali_mantle',name:'ガリマント',icon:'🧥',desc:'丈夫さ15 毎ターンブロック3',eventOnly:true},
-{id:'point_card',name:'ポイントカード',icon:'🃏',desc:'ショップのコスト-10%'},{id:'guts_charm',name:'ガッツのお守り',icon:'🧿',desc:'カード使用時のガッツ消費が5%減少'},
+{id:'point_card',name:'ポイントカード',icon:'🃏',desc:'ショップのコスト-20%'},{id:'guts_charm',name:'ガッツのお守り',icon:'🧿',desc:'カード使用時のガッツ消費が5%減少'},
 {id:'garo_juice',name:'ガロエジュース',icon:'🧃',desc:'ライフ100%回復 最大ライフ+15'},
-{id:'gold_card',name:'ゴールドカード',icon:'💳',desc:'ショップのコスト-25%',isRare:true},{id:'guts_trophy',name:'ガッツトロフィー',icon:'🏆',desc:'カード使用時のガッツ消費が15%減少',isRare:true},
+{id:'gold_card',name:'ゴールドカード',icon:'💳',desc:'ショップのコスト-50%',isRare:true},{id:'guts_trophy',name:'ガッツトロフィー',icon:'🏆',desc:'カード使用時のガッツ消費が15%減少',isRare:true},
 {id:'scroll_hidden', name:'秘伝の書', icon:'📖', desc:'入手時ランダムに1枚強化'},
 {id:'scroll_master', name:'極意の書', icon:'📚', desc:'入手時ランダムに2枚強化'},
 // Rare

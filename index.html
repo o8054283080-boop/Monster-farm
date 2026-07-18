@@ -1143,6 +1143,8 @@ state.shopSoldThisVisit = {}; // 訪問ごとにリセット(サービス品は�
 
 // ---- 商品カード(7枚)を毎回抽選 ----
 const CARD_PRICE = {N:50,R:150,SR:400,SSR:800,MR:1500};
+const shopDiscountMult = state.player.relics.some(r=>r.id==='gold_card') ? 0.5
+  : (state.player.relics.some(r=>r.id==='point_card') ? 0.8 : 1);
 const rollCardRarity = () => {
   const r = Math.random();
   if(r < 0.20) return 'N';
@@ -1160,7 +1162,7 @@ for(let i=0;i<7;i++){
   if(pool.length===0) pool = fullCardPool.filter(c=>!usedCardIds.has(c.id||c.name));
   if(pool.length===0) pool = fullCardPool;
   const picked = shuffle(pool)[0];
-  if(picked){ usedCardIds.add(picked.id||picked.name); shopCards.push({card:picked, price:CARD_PRICE[picked.rarity]||CARD_PRICE[rarity], sold:false}); }
+  if(picked){ usedCardIds.add(picked.id||picked.name); const basePrice = CARD_PRICE[picked.rarity]||CARD_PRICE[rarity]; shopCards.push({card:picked, price:Math.max(1,Math.floor(basePrice*shopDiscountMult)), sold:false}); }
 }
 
 // ---- 商品遺物(3個)を毎回抽選 ----
@@ -1174,7 +1176,7 @@ for(let i=0;i<3;i++){
   let pool = (tier==='rare'?rareRelicPool:normalRelicPool).filter(x=>!usedRelicIds.has(x.id));
   if(pool.length===0) pool = (tier==='rare'?normalRelicPool:rareRelicPool).filter(x=>!usedRelicIds.has(x.id));
   const picked = shuffle(pool)[0];
-  if(picked){ usedRelicIds.add(picked.id); shopRelics.push({relic:picked, price:RELIC_PRICE[tier], sold:false}); }
+  if(picked){ usedRelicIds.add(picked.id); shopRelics.push({relic:picked, price:Math.max(1,Math.floor(RELIC_PRICE[tier]*shopDiscountMult)), sold:false}); }
 }
 
 const renderShop = () => {
@@ -1259,8 +1261,7 @@ wrap.appendChild(sectionTitle("── サービス ──"));
 const createServiceItem = (id, name, desc, basePrice, action, customFlow) => {
   const count = state.shopPurchaseCounts[id] || 0;
   let price = Math.floor(basePrice * Math.pow(1.5, count));
-  if(state.player.relics.some(r=>r.id==='gold_card')) price = Math.floor(price * 0.75);
-  else if(state.player.relics.some(r=>r.id==='point_card')) price = Math.floor(price * 0.9);
+  price = Math.max(1, Math.floor(price * shopDiscountMult));
   const soldOut = !!state.shopSoldThisVisit[id];
   const canAfford = state.gold >= price;
   const active = canAfford && !soldOut;
