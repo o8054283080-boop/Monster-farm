@@ -1586,13 +1586,13 @@ if(e.trait === 'ark') {
 // 黄泉の根源に従え：ライフ6000以下で初回のみ発動（自己バフ・大回復・大ブロック）
 if(e.hp<=6000 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'buff',atkUp:15,heal:2000,block:1000,desc:'黄泉の根源に従え'}; return; }
 // 5ターンに1回、天の慈悲よ示されよ
-if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:adjust(45),hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
+if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:adjust(120),hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
 if(r<0.12) e.intent={type:'atk',val:adjust(90),drain:18,handMinus:2,desc:'世界を揺らせ'};
 else if(r<0.24) e.intent={type:'atk',val:adjust(118),drain:29,injuryCards:2,handMinus:1,desc:'神光よ汚れを祓え'};
-else if(r<0.36) e.intent={type:'atk_debuff',val:adjust(29),hits:3,drain:31,desc:'翔べ震律の刃よ'};
+else if(r<0.36) e.intent={type:'atk_debuff',val:adjust(104),hits:3,drain:31,desc:'翔べ震律の刃よ'};
 else if(r<0.48) e.intent={type:'atk',val:adjust(124),drain:40,injuryCards:2,costUpTurns:2,costUpPct:20,desc:'導け神光の道標'};
 else if(r<0.62) e.intent={type:'atk_debuff',val:adjust(94),drain:31,atkDown:8,blockDown:8,desc:'今こそ真なる目覚め'};
-else if(r<0.76) e.intent={type:'atk',val:adjust(28),hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
+else if(r<0.76) e.intent={type:'atk',val:adjust(103),hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
 else if(r<0.88) e.intent={type:'atk',val:adjust(140),drain:40,injuryCards:1,handMinus:3,desc:'終焉に救いを与えよ'};
 else e.intent={type:'block_atk',val:adjust(112),drain:38,block:240,desc:'聖光よ奇跡を灯せ'};
 return;
