@@ -565,7 +565,7 @@ try {
 initFirebase();
 try{ const savedName = localStorage.getItem('mf_last_trainer_name'); if(savedName) document.getElementById('player-name-input').value = savedName; }catch(e){}
 
-const CRIT_TABLE = { 'S':{r:0.4, m:2.8}, 'A':{r:0.3, m:2.4}, 'B':{r:0.22, m:2.0}, 'C':{r:0.18, m:1.8}, 'D':{r:0.14, m:1.6}, 'E':{r:0.10, m:1.4}, 'F':{r:0.07, m:1.2}, 'G':{r:0.04, m:1.1} };
+const CRIT_TABLE = { 'S':{r:0.85, m:2.0}, 'A':{r:0.65, m:2.0}, 'B':{r:0.45, m:2.0}, 'C':{r:0.35, m:2.0}, 'D':{r:0.25, m:2.0}, 'E':{r:0.15, m:2.0}, 'F':{r:0.08, m:2.0}, 'G':{r:0.03, m:2.0} };
 
 let state;
 const ui = {
@@ -2057,7 +2057,13 @@ if(c.crit){
     const cg=['G','F','E','D','C','B','A','S']; const ci=cg.indexOf(critTier);
     if(ci>-1&&ci<cg.length-1) critTier=cg[ci+1];
   }
-  if(Math.random()<CRIT_TABLE[critTier].r){cr=CRIT_TABLE[critTier].m; showCritEffect(); isCrit=true;}
+  let critRate = CRIT_TABLE[critTier].r;
+  let critMult = CRIT_TABLE[critTier].m;
+  if(state.player.relics.some(r=>r.id==='crit_charm')){ critRate+=0.03; critMult=Math.max(critMult,2.2); }
+  if(state.player.relics.some(r=>r.id==='seethrough_glasses')){ critRate+=0.08; critMult=Math.max(critMult,2.5); }
+  if(state.player.relics.some(r=>r.id==='br_zan_windgod_blade')){ critRate+=0.15; critMult=Math.max(critMult,2.8); }
+  critRate = Math.min(1, critRate);
+  if(Math.random()<critRate){cr=critMult; showCritEffect(); isCrit=true;}
 }
 let tot=Math.floor(b*m*cr);
 if(state.enemy.evasion>0){ state.enemy.evasion--; tot=0; showFloatingText('回避!','drain',ui.enemyNode); }
@@ -2067,6 +2073,8 @@ if(isCrit && c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(
 if(isCrit && state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
 if(isCrit && state.player.relics.some(r=>r.id==='m_hachimaki')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+2);
 if(isCrit && state.player.relics.some(r=>r.id==='m_konjoame') && Math.random()<0.15) drawCards(1);
+if(isCrit && state.player.relics.some(r=>r.id==='seethrough_glasses')) { state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode); }
+if(isCrit && state.player.relics.some(r=>r.id==='br_zan_windgod_blade')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+5);
 if(state.enemy.block>=tot){state.enemy.block-=tot; showFloatingText(0,'block',ui.enemyNode);}
 else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
@@ -2451,6 +2459,7 @@ gutsmin:()=>state.player.maxEnergy+=10,gutsmin_s:()=>state.player.maxEnergy+=20,
 sticker_guzi:()=>{state.player.maxHp+=20;state.player.hp+=20;state.player.atkBase+=6},sticker_ham:()=>{state.player.atkBase+=4;state.player.maxEnergy+=15},sticker_nendro:()=>{state.player.maxHp+=25;state.player.atkBase+=4},sticker_dura:()=>{state.player.blockBase+=6;state.player.atkBase+=5},sticker_metal:()=>{state.player.blockBase+=5;state.player.regenEnergy+=3},
 garo_juice:()=>{state.player.maxHp+=15;state.player.hp=state.player.maxHp;},
 point_card:()=>{},guts_charm:()=>{},gold_card:()=>{},guts_trophy:()=>{},
+crit_charm:()=>{},seethrough_glasses:()=>{},br_zan_windgod_blade:()=>{},
 // Rare
 torocatin_ex:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-45);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10;state.player.blockBase+=10;},
 chucky_soul:()=>{state.player.maxHp+=100;state.player.hp+=100;state.player.atkBase-=4;state.player.blockBase-=4},

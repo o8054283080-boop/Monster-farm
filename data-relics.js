@@ -1,6 +1,7 @@
 // ==== 遺物データ (ALL_RELICS + BOSS_RELICS) ====
 // 通常の遺物とボス撃破報酬の遺物はここで管理します
 const ALL_RELICS = [
+{id:'crit_charm',name:'会心のお守り',icon:'🍀',desc:'クリティカル率+3% クリティカルダメージ倍率2.2倍に'},
 {id:'ancient_coin',name:'古代の金貨',icon:'🪙',desc:'入手時ゴールド+100'},
 {id:'silver_lump',name:'ぎんのかたまり',icon:'🔩',desc:'入手時ゴールド+300'},
 {id:'gold_lump',name:'きんのかたまり',icon:'🏆',desc:'入手時ゴールド+500'},
@@ -36,6 +37,7 @@ const ALL_RELICS = [
 {id:'scroll_secret', name:'奥義の書', icon:'📜', desc:'入手時ランダムに3枚強化', isRare:true},
 {id:'pixy_wing', name:'ピクシーの羽', icon:'🧚', desc:'最大初期ガッツ+10'},
 {id:'grace_wing', name:'グレイスウィッチの羽', icon:'🪄', desc:'最大初期ガッツ+20 毎ターンガッツ+3', isRare:true},
+{id:'seethrough_glasses', name:'スケスケメガネ', icon:'👓', desc:'クリティカル率+8% クリティカルダメージ倍率2.5倍に クリティカル時ライフ回復3', isRare:true},
 // モッチー専用通常遺物
 {id:'m_hachimaki', mid:'motchi', name:'モストの鉢巻', icon:'🎌', desc:'クリティカル時ガッツ回復2 丈夫さ+3'},
 {id:'m_konjoame', mid:'motchi', name:'根性飴', icon:'🍥', desc:'クリティカル時15%で1枚ドロー'},
@@ -72,7 +74,8 @@ const BOSS_RELICS_COMMON = [
   {id:'br_shield_abundance', name:'豊穣の盾', icon:'🛡️', desc:'毎ターンブロック+15 毎ターンライフ3回復 丈夫さ+5'},
   {id:'br_king_peach', name:'大王黄金モモ', icon:'🍑', desc:'ライフ+100 力+8 丈夫さ+8'},
   {id:'br_conqueror', name:'討伐者の証', icon:'🏅', desc:'消費ガッツ-2 最初の手札+2'},
-  {id:'br_belt_gujira', name:'グジラキングベルト', icon:'🥋', desc:'ライフ+25 力+15 丈夫さ+5'}
+  {id:'br_belt_gujira', name:'グジラキングベルト', icon:'🥋', desc:'ライフ+25 力+15 丈夫さ+5'},
+{id:'br_zan_windgod_blade', name:'風神の刃', icon:'🌪️', desc:'クリティカル率+15% クリティカルダメージ倍率2.8倍に クリティカル時ガッツ回復5'}
 ];
 const BOSS_RELICS_SPECIES = {
   motchi: [
