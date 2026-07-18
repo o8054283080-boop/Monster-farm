@@ -2074,7 +2074,7 @@ showFloatingText(d,'dmg',ui.enemyNode,isCrit);
 if(state.enemy.shock > 0 && state.enemy.hp > 0) {
 await new Promise(r=>setTimeout(r,300));
 let shockDmg = 15;
-if(state.player.relics.some(r=>r.id==='br_ga_royalmask')) shockDmg += 15;
+if(state.player.relics.some(r=>r.id==='br_ga_royalmask')) shockDmg += 30;
 if(state.player.relics.some(r=>r.id==='ga_raijin_koromo')) shockDmg += 10;
 state.enemy.hp -= shockDmg;
 comboTotalDmg += shockDmg;
