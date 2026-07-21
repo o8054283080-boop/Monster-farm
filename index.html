@@ -1995,7 +1995,7 @@ function getCardCost(c) {
   cost = Math.floor(cost * (1 - pct));
   if (state.player.relics.some(r => r.id === 'br_conqueror')) cost -= 2;
   if (c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) cost -= 5;
-  if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) cost = Math.floor(cost*0.75);
+  if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) cost = Math.floor(cost*0.7);
   if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) cost -= 5;
   if (state.player.costUpTurns && state.player.costUpTurns > 0) cost = Math.ceil(cost * (1 + (state.player.costUpPct||0)/100));
   return Math.max(0, cost);
@@ -2030,7 +2030,7 @@ let comboTotalDmg = 0;
 
 for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
-if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 15;
+if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 30;
 if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
 if(k===0 && c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
 if(c.comboDmg&&state.enemy.vuln>0)b+=c.comboDmg;
@@ -2125,7 +2125,7 @@ if(c.name==='いじわる'&&state.enemy.vuln>0)state.player.energy=Math.min(stat
 if(c.name==='モン刺し'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
 if(c.name==='ファイアウェーブ'&&state.enemy.burn>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+15);
 let blk=(c.block||0) + (c.bleedBlock ? (state.enemy.bleed||0) : 0);
-if(blk>0 && state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=5;
+if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=3;
 if(blk>0){
   let bm=state.player.nextBlockMult; if(state.player.currentTurnBlockDouble)bm*=2; state.player.block+=Math.floor(blk*bm);
   if(state.player.relics.some(r=>r.id==='br_g_patience')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);

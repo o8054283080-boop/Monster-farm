@@ -49,7 +49,7 @@ const ALL_RELICS = [
 // モノリス専用通常遺物
 {id:'mo_revenge_shield', mid:'monolith', name:'リベンジシールド', icon:'🛡️', desc:'ダメージを受けた後、その25%のブロックを次のターンに付与'},
 {id:'mo_guts_bank', mid:'monolith', name:'ガッツ貯金箱', icon:'🐷', desc:'ライフが50%を下回ったとき、1戦闘に一度だけガッツ50回復'},
-{id:'mo_togetoge', mid:'monolith', name:'トゲトゲ壁紙', icon:'🧱', desc:'「たおれこみ」「針ぶっ刺し」と名のつくカードの消費ガッツ-25% ダメージ+15'},
+{id:'mo_togetoge', mid:'monolith', name:'トゲトゲ壁紙', icon:'🧱', desc:'「たおれこみ」「針ぶっ刺し」と名のつくカードの消費ガッツ-30% ダメージ+30'},
 // カワズモー専用通常遺物
 {id:'k_chankonabe', mid:'kawazumo', name:'ちゃんこ鍋', icon:'🍲', desc:'戦闘終了時ライフ15回復'},
 {id:'k_menkyokaiden', mid:'kawazumo', name:'免許皆伝', icon:'📜', desc:'「はりて」と名のつくカードの消費ガッツ-5 ダメージ+5'},
@@ -89,8 +89,8 @@ const BOSS_RELICS_SPECIES = {
     {id:'br_g_kindheart', name:'優しい心', icon:'💗', desc:'毎ターンブロック15 カードのガッツ消費-20%'}
   ],
   monolith: [
-    {id:'br_mo_activeshield', name:'アクティブシールド', icon:'🔷', desc:'丈夫さ+5 全カードにブロック+5を付与 毎ターンガッツ回復5'},
-    {id:'br_mo_spikywall', name:'トゲトゲ壁紙', icon:'📌', desc:'力+15 ブロックを付与するカードを使うと相手に10ダメージ'},
+    {id:'br_mo_activeshield', name:'アクティブシールド', icon:'🔷', desc:'丈夫さ+5 全カードにブロック+3を付与 毎ターンガッツ回復5'},
+    {id:'br_mo_spikywall', name:'壁の維持', icon:'📌', desc:'力+15 ブロックを付与するカードを使うと相手に10ダメージ'},
     {id:'br_mo_repairkit', name:'修復キット', icon:'🧰', desc:'ライフ+30 毎ターンライフ回復5 毎ターンブロック8 毎ターンガッツ回復12'}
   ],
   kawazumo: [
