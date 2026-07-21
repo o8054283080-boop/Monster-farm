@@ -94,9 +94,9 @@ const BOSS_RELICS_SPECIES = {
     {id:'br_mo_repairkit', name:'修復キット', icon:'🧰', desc:'ライフ+30 毎ターンライフ回復5 毎ターンブロック8 毎ターンガッツ回復12'}
   ],
   kawazumo: [
-    {id:'br_k_migawari', name:'身代わり人形', icon:'🪆', desc:'丈夫さ+5 自傷ダメージを50%減らす'},
-    {id:'br_k_goldmawashi', name:'黄金のまわし', icon:'👑', desc:'ライフ+30 力+5 丈夫さ+5 毎ターンガッツ回復10'},
-    {id:'br_k_explosivesoul', name:'爆発の魂', icon:'💥', desc:'ライフ+100 力+25 全カードに自傷ダメージ10追加'}
+    {id:'br_k_migawari', name:'身代わり人形', icon:'🪆', desc:'丈夫さ+5 毎ターンライフ3回復 自傷ダメージを50%減らす'},
+    {id:'br_k_goldmawashi', name:'黄金のまわし', icon:'👑', desc:'ライフ+50 力+5 丈夫さ+5 毎ターンガッツ回復12'},
+    {id:'br_k_explosivesoul', name:'爆発の魂', icon:'💥', desc:'ライフ+50 自傷ダメージのあるカードのダメージ1.5倍'}
   ],
   gali: [
     {id:'br_ga_elemental', name:'エレメンタルクローク', icon:'🧣', desc:'状態異常の相手への攻撃時+15ダメージ ガッツ回復3'},

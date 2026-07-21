@@ -329,6 +329,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="shrink-0 text-[10px] font-mono text-emerald-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">SCORE</span><span id="score-display">0</span></div>
 <div class="shrink-0 text-[10px] font-mono text-yellow-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">💰GOLD</span><span id="gold-display">0</span></div>
 <div onclick="window.game.showRelicList()" class="shrink cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-0.5 overflow-x-auto no-scrollbar max-w-[90px] sm:max-w-[160px]" id="relics-container"></div>
+<button onclick="window.game.confirmGiveUp()" title="冒険をあきらめる" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-red-950 border border-zinc-700 hover:border-red-800 text-zinc-500 hover:text-red-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🏳️</button>
 </div>
 </div>
 </header>
@@ -447,6 +448,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 <!-- Enemy -->
 <div id="enemy-monster-node" class="flex flex-col items-center relative w-1/3">
+<div id="boss-effect-icon" onclick="window.game.showBossEffectInfo()" class="hidden absolute -right-2 -top-2 z-30 w-8 h-8 rounded-full bg-purple-950 border-2 border-purple-400 flex items-center justify-center text-lg shadow-lg shadow-purple-500/50 cursor-pointer active:scale-90 transition-transform animate-pulse">✨</div>
 <div id="enemy-intent" class="absolute -left-14 top-0 flex flex-col items-center bg-black/80 p-2 rounded-lg border border-zinc-500 z-20 backdrop-blur-md shadow-xl min-w-[50px]">
 <div id="intent-icon" class="text-2xl drop-shadow-md">⚔️</div>
 <div id="intent-value" class="text-lg font-black text-red-400 pixel-font">0</div>
@@ -576,11 +578,87 @@ enemyVisual: document.getElementById('enemy-visual'), enemyName: document.getEle
 energy: document.getElementById('energy-circle'), drawCount: document.getElementById('draw-count'), discardCount: document.getElementById('discard-count'), floor: document.getElementById('floor-count'),
 rewardList: document.getElementById('reward-list'), modalTitle: document.getElementById('modal-title'), modalDesc: document.getElementById('modal-desc'),
 modalBtn: document.getElementById('modal-restart-btn'), modalConfirm: document.getElementById('modal-confirm-btn'), endTurnBtn: document.getElementById('end-turn-btn'), topBar: document.getElementById('top-bar'), relicUI: document.getElementById('relics-container'),
-enemyStatuses: document.getElementById('enemy-statuses'), enemyNode: document.getElementById('enemy-monster-node'), enemyBlockDisplay: document.getElementById('enemy-block-display'), enemyBlockVal: document.getElementById('enemy-block-val'),
+enemyStatuses: document.getElementById('enemy-statuses'), enemyNode: document.getElementById('enemy-monster-node'), enemyBlockDisplay: document.getElementById('enemy-block-display'), enemyBlockVal: document.getElementById('enemy-block-val'), bossEffectIcon: document.getElementById('boss-effect-icon'),
 energyRegen: document.getElementById('energy-regen'), playerStatuses: document.getElementById('player-statuses'), bgLayer: document.getElementById('battle-bg-layer'), scoreDisplay: document.getElementById('score-display'), goldDisplay: document.getElementById('gold-display'),
 pAtkStat: document.getElementById('player-stat-atk'), pDefStat: document.getElementById('player-stat-def'), nameInput: document.getElementById('player-name-input'), playerNode: document.getElementById('player-monster-node'),
 energyVal: document.getElementById('energy-val'), energyMax: document.getElementById('energy-max'), diffInput: document.getElementById('difficulty-input')
 };
+
+// ==== 自動セーブ／復帰 ====
+// 目的: 端末のキャッシュ削除やアプリの意図しない終了で進行中の冒険が消えてしまうのを防ぐための自動セーブ。
+// 「嫌なことが起きたら閉じてやり直す」という抜け道を塞ぐため、状態が変わるたびに直近の結果を保存し、
+// 保存後に良い状況へ巻き戻すことはできない仕様にしている（ゲームオーバー/クリア時は保存を消去）。
+let __autosaveTimer = null;
+function scheduleAutosave() {
+  if (__autosaveTimer) clearTimeout(__autosaveTimer);
+  __autosaveTimer = setTimeout(doAutosave, 400);
+}
+function doAutosave() {
+  try {
+    if (!state || !state.player || !state.player.species) return;
+    const inBattle = ui.battle && !ui.battle.classList.contains('hidden');
+    const inMap = ui.map && !ui.map.classList.contains('hidden');
+    if (!inBattle && !inMap) return; // 名前入力・選択・結果画面等では保存しない
+    const payload = { scene: inBattle ? 'battle' : 'map', savedAt: Date.now(), state };
+    localStorage.setItem('mf_active_run', JSON.stringify(payload));
+  } catch(e) { console.warn('自動セーブに失敗しました', e); }
+}
+function clearAutosave() {
+  try { localStorage.removeItem('mf_active_run'); } catch(e) {}
+}
+// プレイヤー・敵のスプライト画像を現在のstateから再描画する（通常は選択時/戦闘開始時のみ描画されるため、復帰時にも呼び出して見た目を復元する）
+function renderBattleSprites() {
+  if(state.player && state.player.species){
+    const spec = state.player.species;
+    ui.playerSpeciesName.innerText = spec.name;
+    if(spec.img){ ui.playerVisual.innerHTML = `<img src="${spec.img}" style="width:5.5rem;height:5.5rem;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));">`; }
+    else { ui.playerVisual.innerHTML = spec.icon||''; }
+  }
+  if(state.enemy && state.enemy.hp !== undefined){
+    const t = state.enemy;
+    if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
+    else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
+    else ui.enemyVisual.className='monster-sprite';
+    if(t.img){ ui.enemyVisual.innerHTML = `<img src="${t.img}" style="width:6rem;height:7rem;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">`; }
+    else { ui.enemyVisual.innerHTML = `<span style="font-size:4rem;">${t.icon||''}</span>`; }
+  }
+}
+window.addEventListener('beforeunload', doAutosave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') doAutosave(); });
+
+// ページ読み込み時、進行中の冒険があれば自動で復帰する
+(function tryResumeRun(){
+  try {
+    const raw = localStorage.getItem('mf_active_run');
+    if (!raw) return;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.state || !payload.state.player || !payload.state.player.species) return;
+    state = payload.state;
+    // 種族データを最新のSPECIES定義に再リンク（画像やパラメータを最新化するため）
+    const spId = state.player.species.id;
+    if (spId && typeof SPECIES !== 'undefined' && SPECIES[spId]) state.player.species = SPECIES[spId];
+    ui.nameScene.classList.add('hidden');
+    ui.select.classList.add('hidden');
+    ui.topBar.classList.remove('hidden');
+    ui.modal.classList.add('hidden');
+    if (payload.scene === 'battle' && state.enemy && state.enemy.hp !== undefined) {
+      if (state.battleEnded) {
+        // 報酬選択など戦闘後の途中だった場合は、内容までは再現できないため安全に次の階へ進める
+        ui.battle.classList.add('hidden');
+        nextFloor();
+      } else {
+        ui.map.classList.add('hidden'); ui.battle.classList.remove('hidden');
+        ui.endTurnBtn.disabled = !state.isPlayerTurn; ui.endTurnBtn.onclick = handleEndTurn;
+        renderBattleSprites();
+        renderHand(); updateUI();
+      }
+    } else {
+      // イベント/ショップ等の途中だった場合、内容までは再現できないため選択し直せる状態に戻す
+      state.mapActionTaken = false;
+      renderMapChoices(); updateUI();
+    }
+  } catch(e) { console.warn('セーブデータの復帰に失敗しました。最初から始めます。', e); }
+})();
 
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
 window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); };
@@ -790,6 +868,7 @@ ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="閉じる
 };
 
 function resetGameState(name) {
+clearAutosave();
 if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = handleEndTurn; }
 state = {
 playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
@@ -803,19 +882,19 @@ ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.cla
 
 function initMap() {
 state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden');
-const choices=document.getElementById('map-choices'); choices.innerHTML='';
 let fs=1000; if(state.floor>=31)fs=5000; else if(state.floor>=16)fs=3000;
-if(state.floor>1) { state.score+=fs; updateUI(); }
+if(state.floor>1) { state.score+=fs; }
 const sp={46:'camp',47:'boss',48:'camp',49:'boss',50:'boss',51:'camp',52:'boss',53:'camp',54:'boss',55:'camp',56:'boss',57:'camp',58:'boss',59:'camp',60:'boss'};
 const restFloors = [46, 48, 51, 53, 55, 57, 59];
+let types;
 if (restFloors.includes(state.floor)) {
-choices.appendChild(createMapNode('camp'));
-choices.appendChild(createMapNode(Math.random()<0.5?'training':'shop'));
+types = ['camp', Math.random()<0.5?'training':'shop'];
 } else if(sp[state.floor]) {
-choices.appendChild(createMapNode(sp[state.floor]));
+types = [sp[state.floor]];
 } else if(BOSS_DATA[state.floor]) {
-choices.appendChild(createMapNode('boss'));
+types = ['boss'];
 } else {
+types = [];
 for(let i=0;i<3;i++){
 const r=Math.random();
 let type = 'battle';
@@ -836,10 +915,21 @@ if(state.floor <= 3) {
   else if(r < 0.62) type='rest';
   // r >= 0.62 → battle 38%
 }
-choices.appendChild(createMapNode(type));
+types.push(type);
 }
 }
+// この階の選択肢を保存（再読込時に同じ内容を再現するため。再抽選は不可）
+state.currentMapChoices = types;
+state.mapFloorForChoices = state.floor;
+renderMapChoices();
 updateUI();
+}
+// 保存済みの選択肢(state.currentMapChoices)からマップnoノードを再描画するだけの関数。
+// 抽選は一切行わない（initMapで既に確定した内容をそのまま表示するための関数）
+function renderMapChoices() {
+ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden');
+const choices=document.getElementById('map-choices'); choices.innerHTML='';
+(state.currentMapChoices||[]).forEach(type=>choices.appendChild(createMapNode(type)));
 }
 function createMapNode(type) {
 const n=document.createElement('div'); n.className="flex items-center justify-between p-4 bg-zinc-900 border border-zinc-700 rounded-xl cursor-pointer active:scale-95 transition-all shadow-lg";
@@ -1370,8 +1460,14 @@ t.maxHp = t.hp; // Update maxHp for UI
 }
 
 state.enemy={...t,maxHp:t.hp,mode:mode,weak:0,vuln:0,burn:0,freeze:0,shock:0,block:0,evasion:0,bleed:0,turnCount:0,isElite:mode!=='normal',_baseDmg:t.dmg}; state.battleEnded=false;
+// 61階以降のボスには「伝説の特殊効果」を付与する
+if(mode==='boss' && state.floor>=61){
+  state.enemy.legendaryAura = true;   // 伝説のオーラ: バトル開始時・3ターン目にケガを2枚強制追加
+  state.enemy.legendaryWhim = true;   // 伝説のきまぐれ: 連撃ダメージ半減、連撃のないダメージ2倍
+}
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null;
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
+if(state.enemy.legendaryAura){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
 // 初期ガッツ: 50固定 + 遺物ボーナス
 let initEnergy = 50;
 if(state.player.relics.some(r=>r.id==='pixy_wing')) initEnergy+=10;
@@ -1405,7 +1501,7 @@ if(state.player.relics.some(r=>r.id==='br_g_earthbell')) state.player.regenEnerg
 if(state.player.relics.some(r=>r.id==='torocatin_ex')) state.player.regenBlock=(state.player.regenBlock||0)+5;
 if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) state.player.regenEnergy+=5;
 if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) state.player.regenEnergy+=12;
-if(state.player.relics.some(r=>r.id==='br_k_goldmawashi')) state.player.regenEnergy+=10;
+if(state.player.relics.some(r=>r.id==='br_k_goldmawashi')) state.player.regenEnergy+=12;
 if(state.player.relics.some(r=>r.id==='br_ga_eternal')) state.player.regenEnergy+=5;
 if(state.player.relics.some(r=>r.id==='br_h_wing')) state.player.regenEnergy+=5;
 if(state.player.relics.some(r=>r.id==='br_h_phoenixblessing')) state.player.regenEnergy+=12;
@@ -1427,6 +1523,7 @@ if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) state.player.block+=8;
 if(state.player.relics.some(r=>r.id==='br_ga_eternal')) state.player.block+=5;
 if(state.player.relics.some(r=>r.id==='br_h_wing')) state.player.block+=10;
 state.enemy.turnCount++;
+if(state.enemy.legendaryAura && state.enemy.turnCount===3){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
 if(state.player.relics.some(r=>r.id==='demon_wing')) state.player.hp-=1;
 if(state.player.relics.some(r=>r.id==='bad_peach')) state.player.hp-=1;
 if(state.player.relics.some(r=>r.id==='br_soul_eater')) applySelfDamage(1);
@@ -1434,6 +1531,7 @@ if(state.player.relics.some(r=>r.id==='jug')) {state.player.hp=Math.min(state.pl
 if(state.player.relics.some(r=>r.id==='pot_heal')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='hinotori_heart')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='chucky_soul')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
+if(state.player.relics.some(r=>r.id==='br_k_migawari')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 // ボス遺物: 毎ターンライフ回復系
 if(state.player.relics.some(r=>r.id==='br_shield_abundance')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+5); showFloatingText(5,'heal',ui.playerNode);}
@@ -2027,6 +2125,7 @@ h = Math.max(1, count);
 actualHits=h;
 const isMultiHit = h > 1;
 let comboTotalDmg = 0;
+let anyCritThisAttack = false;
 
 for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
@@ -2049,6 +2148,8 @@ if(state.player.species.id==='gali')m*=1.1;
 if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m*=1.15;
 if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
 if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
+if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m*=1.5;
+if(state.enemy.legendaryWhim) m *= (h>1 ? 0.5 : 2);
 if(state.player.currentTurnDouble)m*=2; if(state.enemy.vuln>0)m*=1.5; if(state.player.weak>0)m*=0.75;
 let isCrit=false; let cr=1.0;
 if(c.crit){
@@ -2063,18 +2164,12 @@ if(c.crit){
   if(state.player.relics.some(r=>r.id==='seethrough_glasses')){ critRate+=0.08; critMult=Math.max(critMult,2.5); }
   if(state.player.relics.some(r=>r.id==='br_zan_windgod_blade')){ critRate+=0.15; critMult=Math.max(critMult,2.8); }
   critRate = Math.min(1, critRate);
-  if(Math.random()<critRate){cr=critMult; showCritEffect(); isCrit=true;}
+  if(Math.random()<critRate){cr=critMult; showCritEffect(); isCrit=true; anyCritThisAttack=true;}
 }
 let tot=Math.floor(b*m*cr);
 if(state.enemy.evasion>0){ state.enemy.evasion--; tot=0; showFloatingText('回避!','drain',ui.enemyNode); }
 state.totalDmgDealt+=tot;
 state.score += (tot * 5);
-if(isCrit && c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.critEnergy);
-if(isCrit && state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
-if(isCrit && state.player.relics.some(r=>r.id==='m_hachimaki')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+2);
-if(isCrit && state.player.relics.some(r=>r.id==='m_konjoame') && Math.random()<0.15) drawCards(1);
-if(isCrit && state.player.relics.some(r=>r.id==='seethrough_glasses')) { state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode); }
-if(isCrit && state.player.relics.some(r=>r.id==='br_zan_windgod_blade')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+5);
 if(state.enemy.block>=tot){state.enemy.block-=tot; showFloatingText(0,'block',ui.enemyNode);}
 else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
@@ -2116,8 +2211,15 @@ if(isMultiHit && comboTotalDmg > 0) {
 // 150以上ダメージで画面揺れ
 if(comboTotalDmg >= 150) showImpactEffect();
 state.player.nextAtkBonus=0; ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
-// ボス遺物: 爆発の魂（攻撃カード使用時に自傷ダメージ+10）
-if(state.player.relics.some(r=>r.id==='br_k_explosivesoul')) { applySelfDamage(10); if(state.player.hp<=0) return; }
+}
+// クリティカル発動時の効果（連撃で何度クリティカルしても、1回の攻撃につき1回のみ発動）
+if(anyCritThisAttack){
+  if(c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.critEnergy);
+  if(state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
+  if(state.player.relics.some(r=>r.id==='m_hachimaki')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+2);
+  if(state.player.relics.some(r=>r.id==='m_konjoame') && Math.random()<0.15) drawCards(1);
+  if(state.player.relics.some(r=>r.id==='seethrough_glasses')) { state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode); }
+  if(state.player.relics.some(r=>r.id==='br_zan_windgod_blade')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+5);
 }
 if(c.comboEnergy&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.comboEnergy);
 if(c.weakCombo&&state.enemy.weak>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.weakCombo);
@@ -2142,7 +2244,7 @@ if(c.heal){state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); 
 if(c.bleedHealHalf){ const bh=Math.floor((state.enemy.bleed||0)/2); if(bh>0){ state.player.hp=Math.min(state.player.maxHp,state.player.hp+bh); showFloatingText(bh,'heal',ui.playerNode); } }
 if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){applySelfDamage(c.selfDmg); if(state.player.hp<=0){return;}}
 const debuffMult = actualHits>1 ? actualHits : 1;
-if(c.weak)state.enemy.weak+=c.weak*debuffMult; if(c.vuln)state.enemy.vuln+=c.vuln*debuffMult;
+if(c.weak)state.enemy.weak+=c.weak; if(c.vuln)state.enemy.vuln+=c.vuln;
 if(c.burn)state.enemy.burn+=c.burn*debuffMult; if(c.freeze)state.enemy.freeze+=c.freeze*debuffMult; if(c.shock)state.enemy.shock+=c.shock*debuffMult;
 if(c.selfBleedOnHit) state.player.bleedOnHit=(state.player.bleedOnHit||0)+c.selfBleedOnHit;
 const isAtkCard = (c.val>0||c.hits>1);
@@ -2265,6 +2367,40 @@ picks.forEach(r => {
 });
 ui.rewardList.appendChild(grid);
 }
+window.game.showBossEffectInfo = function() {
+  if(!state.enemy) return;
+  let lines = [];
+  if(state.enemy.legendaryAura) lines.push('✨ 伝説のオーラ\nバトル開始時と3ターン目に、こちらのデッキへ強制的に「ケガ」を2枚追加する。');
+  if(state.enemy.legendaryWhim) lines.push('🌀 伝説のきまぐれ\nこちらの連撃(複数ヒット)攻撃のダメージが半減する代わりに、連撃のない通常攻撃のダメージが2倍になる。');
+  if(lines.length===0) return;
+  showModal('特殊効果', lines.join('\n\n'));
+  ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText='閉じる'; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');
+};
+window.game.confirmGiveUp = function() {
+  if(!state || !state.player || !state.player.species) return; // 冒険開始前は何もしない
+  showModal("冒険をあきらめますか？", "この冒険を終了します。ここまでのスコアは記録されますが、途中からやり直すことはできません。");
+  const box = document.createElement('div');
+  box.className = 'flex flex-col gap-3 w-full';
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'w-full p-3 bg-red-900 hover:bg-red-800 border border-red-600 rounded-xl text-sm font-bold text-red-100';
+  yesBtn.innerText = '🏳️ あきらめる';
+  yesBtn.onclick = () => { window.game.giveUpRun(); };
+  const noBtn = document.createElement('button');
+  noBtn.className = 'w-full p-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-xl text-sm text-zinc-300';
+  noBtn.innerText = '冒険を続ける';
+  noBtn.onclick = () => { ui.modal.classList.add('hidden'); };
+  box.appendChild(yesBtn); box.appendChild(noBtn);
+  ui.rewardList.appendChild(box);
+};
+window.game.giveUpRun = function() {
+  state.battleEnded = true;
+  clearAutosave();
+  const s = calculateFinalScore();
+  saveScore(s);
+  showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}`);
+  ui.modalBtn.classList.remove('hidden');
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); };
+};
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
   const box = document.createElement('div');
@@ -2297,7 +2433,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -2308,7 +2444,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');};
+  state.battleEnded=true; clearAutosave(); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 function checkHpThresholdRelics() {
@@ -2518,8 +2654,8 @@ br_mo_spikywall:()=>{state.player.atkBase+=15},
 br_mo_repairkit:()=>{state.player.maxHp+=30;state.player.hp+=30},
 // ボス遺物（カワズモー限定）
 br_k_migawari:()=>{state.player.blockBase+=5},
-br_k_goldmawashi:()=>{state.player.maxHp+=30;state.player.hp+=30;state.player.atkBase+=5;state.player.blockBase+=5},
-br_k_explosivesoul:()=>{state.player.maxHp+=100;state.player.hp+=100;state.player.atkBase+=25},
+br_k_goldmawashi:()=>{state.player.maxHp+=50;state.player.hp+=50;state.player.atkBase+=5;state.player.blockBase+=5},
+br_k_explosivesoul:()=>{state.player.maxHp+=50;state.player.hp+=50},
 // ボス遺物（ガリ限定）
 br_ga_elemental:()=>{},
 br_ga_eternal:()=>{state.player.blockBase+=5},
@@ -2895,6 +3031,7 @@ const totalMaxE = state.player.maxEnergy + (state.player.maxEnergyBattle||0);
 if(totalMaxE > 99) ui.playerStatuses.innerHTML+=ps('bg-fuchsia-900','border-fuchsia-400/50','text-fuchsia-200','📈',`G上限${totalMaxE}`);
 if(state.enemy){
 ui.enemyHpBar.style.width=`${(state.enemy.hp/state.enemy.maxHp)*100}%`; ui.enemyHpText.innerText=`${state.enemy.hp}/${state.enemy.maxHp}`;
+if(state.enemy.legendaryAura || state.enemy.legendaryWhim){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
 if(state.enemy.isRareElite){
   ui.enemyName.innerHTML=`<span style="background:linear-gradient(90deg,#ffd700,#ff8c00,#ffd700,#fff700,#ffd700);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:lr-border 1s linear infinite;font-weight:900;filter:drop-shadow(0 0 4px #ffd700);">★ ${state.enemy.name} ★</span>`;
 } else {
@@ -2938,6 +3075,7 @@ if((state.enemy.evasion||0)>0)ui.enemyStatuses.innerHTML+=`<span class="bg-slate
 const atkBonus = state.enemy.dmg - (state.enemy._baseDmg||state.enemy.dmg);
 if(atkBonus>0) ui.enemyStatuses.innerHTML+=`<span class="bg-orange-700 px-1 text-[7px] rounded border border-orange-400/30 font-bold text-white">力+${atkBonus}</span>`;
 }
+scheduleAutosave();
 }
 ui.endTurnBtn.onclick = handleEndTurn;
 
