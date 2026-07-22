@@ -648,8 +648,17 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
         nextFloor();
       } else {
         ui.map.classList.add('hidden'); ui.battle.classList.remove('hidden');
-        ui.endTurnBtn.disabled = !state.isPlayerTurn; ui.endTurnBtn.onclick = handleEndTurn;
         renderBattleSprites();
+        if(!state.isPlayerTurn){
+          // 保存時が敵ターンの演出中などだった場合、操作不能のまま固まらないよう
+          // 手札があればそのままプレイヤーターンとして復旧し、手札が無ければターン開始処理をやり直す
+          if(state.hand && state.hand.length>0){
+            state.isPlayerTurn = true;
+          } else {
+            startPlayerTurn();
+          }
+        }
+        ui.endTurnBtn.disabled = !state.isPlayerTurn; ui.endTurnBtn.onclick = handleEndTurn;
         renderHand(); updateUI();
       }
     } else {
@@ -1929,6 +1938,7 @@ e.intent=r<0.15?{type:'weak',val:0,desc:'攻弱'}:r<0.30?{type:'vuln',val:0,desc
 
 async function handleEndTurn() {
 state.isPlayerTurn=false; state.selectedCardIndex=null; renderHand(); ui.endTurnBtn.disabled=true;
+try {
 state.discardPile.push(...state.hand); state.hand=[]; renderHand(); await new Promise(r=>setTimeout(r,600));
 // Status Effects Before Enemy Attack
 if (state.enemy.burn > 0) {
@@ -1995,7 +2005,7 @@ else {
 let d=dmg-state.player.block;
 state.player.hp-=d;
 state.totalDmgTaken+=d;
-state.score = Math.max(0, state.score - (d * 5));
+state.score = Math.max(0, state.score - (d * 50));
 state.player.block=0;
 showFloatingText(d,'dmg',ui.playerNode);
 if(state.player.relics.some(r=>r.id==='g_revenge_armor')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0), state.player.energy+Math.floor(d*0.3));
@@ -2040,6 +2050,11 @@ if(state.enemy.shock > 0) state.enemy.shock--;
 
 if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } await new Promise(r=>setTimeout(r,600));
 ui.endTurnBtn.disabled=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; startPlayerTurn();
+} catch(e) {
+  console.error('ターン終了処理中にエラーが発生しました。操作を復旧します。', e);
+  if(state.player.hp>0 && !state.battleEnded){ state.isPlayerTurn=true; ui.endTurnBtn.disabled=false; }
+  try{ updateUI(); renderHand(); }catch(e2){ console.error('復旧中の再描画にも失敗しました', e2); }
+}
 }
 
 function showFloatingText(v,t,el,isCritHit) {
@@ -2105,9 +2120,14 @@ let cardCost = getCardCost(c);
 if(state.player.energy<cardCost)return;
 if(!state.isPlayerTurn)return; // 演出中の連打による多重実行を防止
 state.isPlayerTurn=false;
+try {
 state.player.energy-=cardCost;
 if(c.discardTwo&&state.hand.length>1) { for(let k=0;k<2;k++){if(state.hand.length>1){let di=state.hand.findIndex((_,i)=>i!==idx); if(di>-1){state.discardPile.push(state.hand[di]);state.hand.splice(di,1);if(di<idx)idx--;}}} }
 if(c.discardAll){const o=state.hand.filter((_,i)=>i!==idx); o.forEach(x=>state.discardPile.push(x)); state.hand=[state.hand[idx]]; idx=0;}
+// プレイしたカード自体は先に手札から除去し、山札/捨て札に確定させる。
+// （こうしておくことで、この後の効果処理中に万一エラーが起きても、カードが手札に残ったままにならない）
+state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
+updateUI(); renderHand();
 if(c.breakBlock)state.enemy.block=0;
 let actualHits=1;
 if(c.val>0||c.hits>1 || c.godRising){
@@ -2213,6 +2233,7 @@ if(comboTotalDmg >= 150) showImpactEffect();
 state.player.nextAtkBonus=0; ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
 }
 // クリティカル発動時の効果（連撃で何度クリティカルしても、1回の攻撃につき1回のみ発動）
+try {
 if(anyCritThisAttack){
   if(c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.critEnergy);
   if(state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
@@ -2221,11 +2242,17 @@ if(anyCritThisAttack){
   if(state.player.relics.some(r=>r.id==='seethrough_glasses')) { state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode); }
   if(state.player.relics.some(r=>r.id==='br_zan_windgod_blade')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+5);
 }
+} catch(errCrit) { console.error('[playCard:クリティカル発動効果]でエラー', errCrit); }
+
+try {
 if(c.comboEnergy&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.comboEnergy);
 if(c.weakCombo&&state.enemy.weak>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.weakCombo);
 if(c.name==='いじわる'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
 if(c.name==='モン刺し'&&state.enemy.vuln>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
 if(c.name==='ファイアウェーブ'&&state.enemy.burn>0)state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+15);
+} catch(errCombo) { console.error('[playCard:コンボ系効果]でエラー', errCombo); }
+
+try {
 let blk=(c.block||0) + (c.bleedBlock ? (state.enemy.bleed||0) : 0);
 if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=3;
 if(blk>0){
@@ -2234,6 +2261,9 @@ if(blk>0){
   if(state.player.relics.some(r=>r.id==='br_mo_spikywall')) { state.enemy.hp-=10; state.score+=50; showFloatingText(10,'dmg',ui.enemyNode); }
 }
 state.player.nextBlockMult=1;
+} catch(errBlock) { console.error('[playCard:ブロック処理]でエラー', errBlock); }
+
+try {
 if(c.draw)drawCards(c.draw); if(c.nextTurnEnergy)state.player.nextTurnEnergy+=c.nextTurnEnergy;
 if(c.zeroCostHand){ state.player.zeroCostTurn=true; }
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
@@ -2243,6 +2273,9 @@ if(c.maxEnergyBattle)state.player.maxEnergyBattle=(state.player.maxEnergyBattle|
 if(c.heal){state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
 if(c.bleedHealHalf){ const bh=Math.floor((state.enemy.bleed||0)/2); if(bh>0){ state.player.hp=Math.min(state.player.maxHp,state.player.hp+bh); showFloatingText(bh,'heal',ui.playerNode); } }
 if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){applySelfDamage(c.selfDmg); if(state.player.hp<=0){return;}}
+} catch(errMisc) { console.error('[playCard:ドロー/回復/自傷等]でエラー', errMisc); }
+
+try {
 const debuffMult = actualHits>1 ? actualHits : 1;
 if(c.weak)state.enemy.weak+=c.weak; if(c.vuln)state.enemy.vuln+=c.vuln;
 if(c.burn)state.enemy.burn+=c.burn*debuffMult; if(c.freeze)state.enemy.freeze+=c.freeze*debuffMult; if(c.shock)state.enemy.shock+=c.shock*debuffMult;
@@ -2254,7 +2287,8 @@ if(isAtkCard){
   if(state.player.bleedOnHit) bleedAdd+=state.player.bleedOnHit*debuffMult;
 }
 if(bleedAdd>0) state.enemy.bleed=(state.enemy.bleed||0)+bleedAdd;
-state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
+} catch(errDebuff) { console.error('[playCard:デバフ/出血]でエラー', errDebuff); }
+
 updateUI(); renderHand();
 if(state.enemy.hp<=0&&!state.battleEnded){
   if(state.enemy.revive&&!state.enemy._revived){
@@ -2265,6 +2299,24 @@ if(state.enemy.hp<=0&&!state.battleEnded){
   } else { winBattle(); }
 } else if(state.player.hp<=0) gameOver();
 else state.isPlayerTurn=true;
+} catch(e) {
+  console.error('カード使用中にエラーが発生しました。操作を復旧します。', e);
+  try {
+    if(state.enemy && state.enemy.hp<=0 && !state.battleEnded){
+      if(state.enemy.revive && !state.enemy._revived){
+        state.enemy._revived=true; state.enemy.hp=state.enemy.maxHp;
+        if(state.enemy.reviveAtkBuff) state.enemy._reviveAtkBonus=(state.enemy._reviveAtkBonus||0)+state.enemy.reviveAtkBuff;
+        showFloatingText('復活！','heal',ui.enemyNode); ui.enemyVisual.classList.add('aura-gold');
+        state.isPlayerTurn=true;
+      } else {
+        winBattle();
+      }
+    } else if(state.player.hp>0 && !state.battleEnded) {
+      state.isPlayerTurn=true;
+    }
+  } catch(e3) { console.error('復旧中の勝敗判定にも失敗しました', e3); }
+  try{ updateUI(); renderHand(); }catch(e2){ console.error('復旧中の再描画にも失敗しました', e2); }
+}
 }
 
 function applyMRCardEffect(el) {
@@ -2297,6 +2349,11 @@ if(state.enemy.mode==='boss') goldReward = 300 + state.floor*5;
 else if(state.enemy.isElite) goldReward = 150 + Math.floor(state.floor*4);
 else goldReward = 60 + Math.floor(state.floor*2);
 state.gold = (state.gold||0) + goldReward;
+// 通常敵・強敵撃破の基礎スコア(ボスは別枠のボーナスがあるためここでは対象外)
+if(state.enemy.mode!=='boss'){
+  if(state.enemy.isElite) state.score += 1200 * state.floor;
+  else state.score += 500 * state.floor;
+}
 if(state.enemy.mode==='boss') {
 const tc=state.enemy.turnCount; let b=0;
 if(tc<=3)b=50000; else if(tc<=5)b=30000; else if(tc<=10)b=15000; else if(tc<=15)b=10000; else if(tc<=20)b=5000;
