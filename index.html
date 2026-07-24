@@ -1476,6 +1476,7 @@ if(mode==='boss' && state.floor>=61){
 }
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null;
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
+state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
 if(state.enemy.legendaryAura){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
 // 初期ガッツ: 50固定 + 遺物ボーナス
 let initEnergy = 50;
@@ -1518,7 +1519,9 @@ startPlayerTurn();
 }
 
 function startPlayerTurn() {
-state.isPlayerTurn=true; state.player.block=0; state.selectedCardIndex=null; state.player.zeroCostTurn=false;
+state.isPlayerTurn=true; state.selectedCardIndex=null; state.player.zeroCostTurn=false;
+if(state.player.blockPersists){ /* 絶対防御体制: ブロックをリセットしない */ } else { state.player.block=0; }
+if(state.player.regenAtk>0) state.player.atkBattle=(state.player.atkBattle||0)+state.player.regenAtk;
 if(state.enemy.turnCount<2 && state.player.relics.some(r=>r.id==='sticker_mono')) state.player.block+=10;
 if(state.enemy.turnCount<1 && state.player.relics.some(r=>r.id==='shield_iron')) state.player.block+=10;
 if(state.player.relics.some(r=>r.id==='trophy_tough')) state.player.block+=5;
@@ -1577,6 +1580,9 @@ state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBat
 if(state.player.nextTurnDrain>0){ let nd=state.player.nextTurnDrain; if(state.player.relics.some(r=>r.id==='br_g_patience')) nd=Math.max(0,nd-10); state.player.energy=Math.max(0,state.player.energy-nd); showFloatingText(nd,'drain',ui.playerNode); state.player.nextTurnDrain=0; }
 state.player.nextDmgMult=state.player.doubleAtk?2:1; state.player.doubleAtk=false;
 if(state.enemy.weak>0)state.enemy.weak--; if(state.enemy.vuln>0)state.enemy.vuln--; if(state.player.weak>0)state.player.weak--; if(state.player.vuln>0)state.player.vuln--;
+if(state.player.kiaiTurns>0) state.player.kiaiTurns--;
+if(state.player.critDmgBoostTurns>0) state.player.critDmgBoostTurns--;
+if(state.player.drainReduceTurns>0){ state.player.drainReduceTurns--; if(state.player.drainReduceTurns<=0) state.player.drainReduceAmt=0; }
 if(state.player.costUpTurns>0){ state.player.costUpTurns--; if(state.player.costUpTurns<=0)state.player.costUpPct=0; }
 if(state.player.bleed>0){ const bleedDmg=state.player.bleed*2; state.player.hp=Math.max(0,state.player.hp-bleedDmg); showFloatingText(bleedDmg,'dmg',ui.playerNode); state.player.bleed=Math.max(0,state.player.bleed-2); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } checkHpThresholdRelics(); }
 drawCards(5); setEnemyIntent(); updateUI(); renderHand();
@@ -1984,6 +1990,7 @@ showFloatingText("Frozen", 'block', ui.enemyNode);
 }
 
 state.enemy.block=0; const i=state.enemy.intent; let dmg=0;
+let evadedThisAttack = false;
 // 力アップ分（_baseDmgからの増加）をval に加算
 const _atkBonus = Math.max(0, (state.enemy.dmg||0) - (state.enemy._baseDmg||state.enemy.dmg||0));
 if (!isFrozen) {
@@ -1991,6 +1998,7 @@ if(['atk','block_atk','atk_debuff','atk_vuln','atk_debuff_both','atk_weak','atk_
 const hits = i.hits || 1;
 for(let hk=0; hk<hits; hk++){
 dmg=i.val + _atkBonus; if(state.enemy.weak>0)dmg=Math.floor(dmg*0.75); if(state.player.vuln>0)dmg=Math.floor(dmg*1.5);
+if((state.player.evasion||0) > 0) { state.player.evasion--; dmg=0; evadedThisAttack=true; showFloatingText('回避!','block',ui.playerNode); }
 if(state.player.species.id==='monolith')dmg=Math.floor(dmg*0.85);
 if(state.player.species.id==='gali')dmg=Math.floor(dmg*0.95);
 if(state.player.species.id==='suezo')dmg=Math.max(0,dmg-3);
@@ -2017,15 +2025,45 @@ checkHpThresholdRelics();
 ui.playerVisual.classList.add('shake'); setTimeout(()=>ui.playerVisual.classList.remove('shake'),400);
 }
 let dd=(state.enemy.isElite||state.enemy.mode==='boss')?3:2; if(i.type.includes('both_3'))dd=4;
-if(i.type.includes('weak')||i.type.includes('debuff')) state.player.weak=(state.player.weak||0)+dd;
-if(i.type.includes('vuln')||i.type.includes('debuff')) state.player.vuln=(state.player.vuln||0)+dd;
+if((i.type.includes('weak')||i.type.includes('debuff')||i.type.includes('vuln')) && (state.player.statusImmuneCharges||0) > 0) {
+  state.player.statusImmuneCharges--; showFloatingText('無効化!','block',ui.playerNode);
+} else {
+  if(i.type.includes('weak')||i.type.includes('debuff')) state.player.weak=(state.player.weak||0)+dd;
+  if(i.type.includes('vuln')||i.type.includes('debuff')) state.player.vuln=(state.player.vuln||0)+dd;
+}
 if(i.block) state.enemy.block=i.block||0;
-if(i.drain) { let totalDrain=i.drain+(state.enemy._drainBonus||0); if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) totalDrain=Math.max(0,totalDrain-10); state.player.nextTurnDrain=(state.player.nextTurnDrain||0)+totalDrain; showFloatingText(totalDrain,'drain',ui.playerNode); }
-if(i.drawReduce||i.handMinus) { const hm=i.drawReduce||i.handMinus; state.player.nextTurnHandReduce=(state.player.nextTurnHandReduce||0)+hm; showFloatingText(`手札-${hm}`,'drain',ui.playerNode); }
+if(i.drain) {
+  if(evadedThisAttack) {
+    showFloatingText('回避!','block',ui.playerNode);
+  } else {
+    let totalDrain=i.drain+(state.enemy._drainBonus||0); if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) totalDrain=Math.max(0,totalDrain-10);
+    if((state.player.drainReduceTurns||0) > 0) totalDrain = Math.max(0, totalDrain - (state.player.drainReduceAmt||0));
+    state.player.nextTurnDrain=(state.player.nextTurnDrain||0)+totalDrain; showFloatingText(totalDrain,'drain',ui.playerNode);
+  }
+}
+if(i.drawReduce||i.handMinus) {
+  if((state.player.statusImmuneCharges||0) > 0) {
+    state.player.statusImmuneCharges--; showFloatingText('無効化!','block',ui.playerNode);
+  } else {
+    const hm=i.drawReduce||i.handMinus; state.player.nextTurnHandReduce=(state.player.nextTurnHandReduce||0)+hm; showFloatingText(`手札-${hm}`,'drain',ui.playerNode);
+  }
+}
 if(i.injuryCards && i.injuryCards>0) { addInjuryCards(i.injuryCards); showFloatingText(`ケガ×${i.injuryCards}`,  'drain',ui.playerNode); }
 if(i.burnCards && i.burnCards>0) { addBurnCards(i.burnCards); showFloatingText(`火傷×${i.burnCards}`,  'drain',ui.playerNode); }
-if(i.costUpTurns && i.costUpPct) { state.player.costUpTurns=(state.player.costUpTurns||0)+i.costUpTurns; state.player.costUpPct=i.costUpPct; showFloatingText(`ガッツ消費+${i.costUpPct}%`,'drain',ui.playerNode); }
-if(i.bleed) { state.player.bleed=(state.player.bleed||0)+i.bleed; showFloatingText(`出血+${i.bleed}`,'drain',ui.playerNode); }
+if(i.costUpTurns && i.costUpPct) {
+  if((state.player.statusImmuneCharges||0) > 0) {
+    state.player.statusImmuneCharges--; showFloatingText('無効化!','block',ui.playerNode);
+  } else {
+    state.player.costUpTurns=(state.player.costUpTurns||0)+i.costUpTurns; state.player.costUpPct=i.costUpPct; showFloatingText(`ガッツ消費+${i.costUpPct}%`,'drain',ui.playerNode);
+  }
+}
+if(i.bleed) {
+  if((state.player.statusImmuneCharges||0) > 0) {
+    state.player.statusImmuneCharges--; showFloatingText('無効化!','block',ui.playerNode);
+  } else {
+    state.player.bleed=(state.player.bleed||0)+i.bleed; showFloatingText(`出血+${i.bleed}`,'drain',ui.playerNode);
+  }
+}
 if(i.selfEvasion) { state.enemy.evasion=(state.enemy.evasion||0)+i.selfEvasion; showFloatingText(`回避+${i.selfEvasion}`,'heal',ui.enemyNode); }
 // 力アップ（dmgを永続増加）
 if(i.atkUp) { state.enemy.dmg+=i.atkUp; showFloatingText(`力+${i.atkUp}`,'heal',ui.enemyNode); }
@@ -2104,12 +2142,14 @@ function getCardCost(c) {
   if (state.player.relics.some(r => r.id === 'br_g_kindheart')) pct += 0.20;
   if (state.player.relics.some(r => r.id === 'munendo_heart')) pct += 0.05;
   if (state.player.relics.some(r => r.id === 'z_eiri_no_ha')) pct += 0.05;
+  if (state.player.costReducePct) pct += (state.player.costReducePct/100);
   pct = Math.min(pct, 0.6);
   cost = Math.floor(cost * (1 - pct));
   if (state.player.relics.some(r => r.id === 'br_conqueror')) cost -= 2;
   if (c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) cost -= 5;
   if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) cost = Math.floor(cost*0.7);
   if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) cost -= 5;
+  if (c.name && c.name.includes('ゴッド') && state.player.godMiracleCostDown) cost -= 5;
   if (state.player.costUpTurns && state.player.costUpTurns > 0) cost = Math.ceil(cost * (1 + (state.player.costUpPct||0)/100));
   return Math.max(0, cost);
 }
@@ -2130,7 +2170,7 @@ state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else
 updateUI(); renderHand();
 if(c.breakBlock)state.enemy.block=0;
 let actualHits=1;
-if(c.val>0||c.hits>1 || c.godRising){
+if(c.val>0||c.hits>1 || c.godRising || c.dmgEqualsBlock){
 let h = c.hits || 1;
 if (c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) h += 1;
 if (c.godRising) {
@@ -2149,6 +2189,7 @@ let anyCritThisAttack = false;
 
 for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
+if(c.dmgEqualsBlock) b = state.player.block;
 if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 30;
 if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
 if(k===0 && c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
@@ -2169,7 +2210,12 @@ if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) 
 if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
 if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
 if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m*=1.5;
+if(c.selfDmg && state.player.selfDmgCardsDoubled) m*=2;
 if(state.enemy.legendaryWhim) m *= (h>1 ? 0.5 : 2);
+if(c.executeBelow && state.enemy.hp <= state.enemy.maxHp*c.executeBelow) m*=(c.executeMult||2);
+if(state.player.ikkiIssin && !(h>1)) m*=3; // 一撃入魂: 連撃のないカードのダメージ3倍
+if((state.player.permDmgMultBonus||0) > 0) m *= (1+state.player.permDmgMultBonus);
+if(state.player.godCoreDmgBonus>0) m *= (1+state.player.godCoreDmgBonus);
 if(state.player.currentTurnDouble)m*=2; if(state.enemy.vuln>0)m*=1.5; if(state.player.weak>0)m*=0.75;
 let isCrit=false; let cr=1.0;
 if(c.crit){
@@ -2183,6 +2229,8 @@ if(c.crit){
   if(state.player.relics.some(r=>r.id==='crit_charm')){ critRate+=0.03; critMult=Math.max(critMult,2.2); }
   if(state.player.relics.some(r=>r.id==='seethrough_glasses')){ critRate+=0.08; critMult=Math.max(critMult,2.5); }
   if(state.player.relics.some(r=>r.id==='br_zan_windgod_blade')){ critRate+=0.15; critMult=Math.max(critMult,2.8); }
+  if((state.player.kiaiTurns||0) > 0) critRate += 0.30;
+  if((state.player.critDmgBoostTurns||0) > 0) critMult *= 1.25;
   critRate = Math.min(1, critRate);
   if(Math.random()<critRate){cr=critMult; showCritEffect(); isCrit=true; anyCritThisAttack=true;}
 }
@@ -2195,6 +2243,20 @@ else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
 comboTotalDmg += d;
 showFloatingText(d,'dmg',ui.enemyNode,isCrit);
+// ガリ専用: 神核(スタックが5貯まるごとにガッツ回復15、ダメージ10%アップ 最大50%)
+if(state.player.godCoreActive){
+  state.player.godCoreStacks=(state.player.godCoreStacks||0)+1;
+  if(state.player.godCoreStacks%5===0){
+    state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+15);
+    state.player.godCoreDmgBonus=Math.min(0.5,(state.player.godCoreDmgBonus||0)+0.1);
+  }
+}
+// ヒノトリ専用: 炎王(炎上中の敵にダメージを与えるたびライフ回復、炎上値に応じ追加ダメージ)
+if(state.player.enoOhActive && state.enemy.burn>0 && state.enemy.hp>0){
+  state.player.hp=Math.min(state.player.maxHp,state.player.hp+2); showFloatingText(2,'heal',ui.playerNode);
+  let enoBonus=0; if(state.enemy.burn>5)enoBonus+=100; if(state.enemy.burn>15)enoBonus+=100;
+  if(enoBonus>0){ state.enemy.hp-=enoBonus; comboTotalDmg+=enoBonus; showFloatingText(enoBonus,'dmg',ui.enemyNode); }
+}
 if(state.enemy.shock > 0 && state.enemy.hp > 0) {
 await new Promise(r=>setTimeout(r,300));
 let shockDmg = 15;
@@ -2236,11 +2298,15 @@ state.player.nextAtkBonus=0; ui.enemyVisual.classList.add('shake'); setTimeout((
 try {
 if(anyCritThisAttack){
   if(c.critEnergy) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+c.critEnergy);
+  if(c.critBonusDmg){ state.enemy.hp-=c.critBonusDmg; showFloatingText(c.critBonusDmg,'dmg',ui.enemyNode); }
+  if(c.critWeak) state.enemy.weak+=c.critWeak;
+  if(c.critBlock) state.player.block+=c.critBlock;
   if(state.player.relics.some(r=>r.id==='br_m_critbadge')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+10);
   if(state.player.relics.some(r=>r.id==='m_hachimaki')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+2);
   if(state.player.relics.some(r=>r.id==='m_konjoame') && Math.random()<0.15) drawCards(1);
   if(state.player.relics.some(r=>r.id==='seethrough_glasses')) { state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode); }
   if(state.player.relics.some(r=>r.id==='br_zan_windgod_blade')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+5);
+  if(c.critDraw) drawCards(c.critDraw);
 }
 } catch(errCrit) { console.error('[playCard:クリティカル発動効果]でエラー', errCrit); }
 
@@ -2288,6 +2354,41 @@ if(isAtkCard){
 }
 if(bleedAdd>0) state.enemy.bleed=(state.enemy.bleed||0)+bleedAdd;
 } catch(errDebuff) { console.error('[playCard:デバフ/出血]でエラー', errDebuff); }
+
+try {
+if(c.kiaiTurns) state.player.kiaiTurns=Math.max(state.player.kiaiTurns||0, c.kiaiTurns);
+if(c.critDmgBoostTurns) state.player.critDmgBoostTurns=Math.max(state.player.critDmgBoostTurns||0, c.critDmgBoostTurns);
+if(c.drainReduceTurns){ state.player.drainReduceTurns=Math.max(state.player.drainReduceTurns||0, c.drainReduceTurns); state.player.drainReduceAmt=c.drainReduceAmt||0; }
+if(c.regenAtk) state.player.regenAtk=(state.player.regenAtk||0)+c.regenAtk;
+if(c.permDmgMultBonus) state.player.permDmgMultBonus=(state.player.permDmgMultBonus||0)+c.permDmgMultBonus;
+if(c.costReducePct) state.player.costReducePct=Math.min(60,(state.player.costReducePct||0)+c.costReducePct);
+if(c.enemyAtkDown){ state.enemy.dmg=Math.max(0,(state.enemy.dmg||0)-c.enemyAtkDown); state.enemy._baseDmg=Math.max(0,(state.enemy._baseDmg||0)-c.enemyAtkDown); }
+if(c.statusImmune) state.player.statusImmuneCharges=(state.player.statusImmuneCharges||0)+c.statusImmune;
+if(c.grantEvasion) state.player.evasion=(state.player.evasion||0)+c.grantEvasion;
+if(c.selfDmgCardsDoubled) state.player.selfDmgCardsDoubled=true;
+if(c.godCoreActive) state.player.godCoreActive=true;
+if(c.godMiracleCostDown) state.player.godMiracleCostDown=true;
+if(c.enoOhActive) state.player.enoOhActive=true;
+if(c.ikkiIssin) state.player.ikkiIssin=true;
+if(c.blockPersists) state.player.blockPersists=true;
+if(c.cureDebuffs){ state.player.weak=0; state.player.vuln=0; }
+if(c.randomExhaustHand && state.hand.length>0){
+  for(let ri=0; ri<c.randomExhaustHand && state.hand.length>0; ri++){
+    const rj=Math.floor(Math.random()*state.hand.length);
+    const removedCard=state.hand[rj];
+    state.hand.splice(rj,1);
+    state.exhaustPile.push(removedCard);
+  }
+}
+if(c.tempUpgradeHand){
+  state.hand.forEach(hc=>{
+    if(hc!==c && !hc.upgraded){
+      hc._preTempUpgrade = {cost:hc.cost, val:hc.val, block:hc.block, desc:hc.desc};
+      upgradeCard(hc); hc._tempUpgradeFromBattle = true;
+    }
+  });
+}
+} catch(errNewMech) { console.error('[playCard:新規メカニクス]でエラー', errNewMech); }
 
 updateUI(); renderHand();
 if(state.enemy.hp<=0&&!state.battleEnded){
@@ -2338,6 +2439,7 @@ function showCelebrationEffect(type) { /* 互換用: 何もしない */ }
 
 function winBattle() {
 if(state.battleEnded) return; state.battleEnded=true;
+revertTempUpgrades();
 if(state.player.relics.some(r=>r.id==='k_chankonabe')) { state.player.hp=Math.min(state.player.maxHp, state.player.hp+15); }
 // ケガカードをバトル後に全除去
 ['drawPile','hand','discardPile','exhaustPile'].forEach(pile=>{
@@ -2501,9 +2603,20 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; clearAutosave(); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
+// 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
+function revertTempUpgrades(){
+  ['deck','hand','drawPile','discardPile','exhaustPile'].forEach(pile=>{
+    if(state[pile]) state[pile].forEach(c=>{
+      if(c._tempUpgradeFromBattle && c._preTempUpgrade){
+        c.cost=c._preTempUpgrade.cost; c.val=c._preTempUpgrade.val; c.block=c._preTempUpgrade.block; c.desc=c._preTempUpgrade.desc;
+        c.upgraded=false; delete c._preTempUpgrade; delete c._tempUpgradeFromBattle;
+      }
+    });
+  });
+}
 function checkHpThresholdRelics() {
   if(state.player.hp <= 0) return;
   if(state.player.hp <= state.player.maxHp*0.5) {
@@ -2569,6 +2682,7 @@ if(c.freeze)c.freeze+=1;
 if(c.shock)c.shock+=1;
 if(c.bleed)c.bleed=Math.floor(c.bleed*1.25);
 if(c.selfBleedOnHit)c.selfBleedOnHit+=1;
+if(c.statusImmune)c.statusImmune=2;
 // descを全効果で再構築
 const parts=[];
 if(c.val){ if(c.hits)parts.push(`攻${c.val} 連撃${c.hits}`); else parts.push(`攻${c.val}`); }
@@ -2596,6 +2710,7 @@ if(c.bleedHealHalf)parts.push(`出血の半分回復`);
 if(c.bleedBlock)parts.push(`出血分ブロック`);
 if(c.zeroCostHand)parts.push(`手札消費ガッツ0`);
 if(c.selfBleedOnHit)parts.push(`攻撃時出血+${c.selfBleedOnHit}`);
+if(c.statusImmune)parts.push(`状態異常無効×${c.statusImmune}`);
 if(c.crit)parts.push(`会心:${c.crit}`);
 if(parts.length>0)c.desc=parts.join(' ');
 }
@@ -3079,6 +3194,19 @@ if(state.player.relics.some(r=>r.id==='sticker_metal')) totalRegenE+=3;
 if(totalRegenE>0)ui.playerStatuses.innerHTML+=ps('bg-purple-900','border-purple-400/50','text-purple-200','⚡',`毎G ${totalRegenE}`);
 if((state.player.regenBlock||0)>0)ui.playerStatuses.innerHTML+=ps('bg-cyan-900','border-cyan-400/50','text-cyan-200','🔰',`毎防+${state.player.regenBlock}`);
 if((state.player.bleedOnHit||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`攻撃時出血+${state.player.bleedOnHit}`);
+if((state.player.kiaiTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-orange-950','border-orange-500/50','text-orange-300','🔥',`気合い(クリ+30%) ${state.player.kiaiTurns}T`);
+if((state.player.critDmgBoostTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-yellow-950','border-yellow-500/50','text-yellow-300','💥',`クリダメ+25% ${state.player.critDmgBoostTurns}T`);
+if((state.player.drainReduceTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-cyan-950','border-cyan-500/50','text-cyan-300','🛡️',`被ガッツダウン-${state.player.drainReduceAmt||0} ${state.player.drainReduceTurns}T`);
+if((state.player.regenAtk||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','💪',`毎T力+${state.player.regenAtk}`);
+if((state.player.permDmgMultBonus||0)>0)ui.playerStatuses.innerHTML+=ps('bg-rose-950','border-rose-500/50','text-rose-300','⚔️',`ダメージ+${Math.round(state.player.permDmgMultBonus*100)}%`);
+if((state.player.costReducePct||0)>0)ui.playerStatuses.innerHTML+=ps('bg-emerald-950','border-emerald-500/50','text-emerald-300','💧',`消費ガッツ-${state.player.costReducePct}%`);
+if((state.player.statusImmuneCharges||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-950','border-indigo-500/50','text-indigo-300','✨',`状態異常無効×${state.player.statusImmuneCharges}`);
+if((state.player.evasion||0)>0)ui.playerStatuses.innerHTML+=ps('bg-slate-800','border-slate-400/50','text-slate-200','💨',`回避×${state.player.evasion}`);
+if(state.player.selfDmgCardsDoubled)ui.playerStatuses.innerHTML+=ps('bg-purple-950','border-purple-500/50','text-purple-300','💥',`自傷カードダメ2倍`);
+if(state.player.godCoreActive)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','🌟',`神核 ${state.player.godCoreStacks||0}(+${Math.round((state.player.godCoreDmgBonus||0)*100)}%)`);
+if(state.player.enoOhActive)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/50','text-orange-200','🔥',`炎王`);
+if(state.player.ikkiIssin)ui.playerStatuses.innerHTML+=ps('bg-red-900','border-red-400/50','text-red-200','🗡️',`一撃入魂(単発3倍)`);
+if(state.player.blockPersists)ui.playerStatuses.innerHTML+=ps('bg-blue-950','border-blue-500/50','text-blue-300','🧱',`絶対防御`);
 if((state.player.regenDraw||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-900','border-indigo-400/50','text-indigo-200','🃏',`毎ドロー+${state.player.regenDraw}`);
 if(state.player.nextTurnEnergy>0)ui.playerStatuses.innerHTML+=ps('bg-violet-900','border-violet-400/50','text-violet-200','⚡',`次G+${state.player.nextTurnEnergy}`);
 if((state.player.nextTurnDrain||0)>0)ui.playerStatuses.innerHTML+=ps('bg-rose-900','border-rose-400/50','text-rose-200','🌀',`次G-${state.player.nextTurnDrain}`);
