@@ -614,7 +614,11 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <audio id="bgm-menu" src="bgm-menu.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-menu.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-battle-normal" src="bgm-battle-normal.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-battle-normal.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-battle-elite" src="bgm-battle-elite.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-battle-elite.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-battle-elite2" src="bgm-battle-elite2.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-battle-elite2.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-boss-mid" src="bgm-boss-mid.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-mid.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-boss-rush-1" src="bgm-boss-rush-1.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-1.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-boss-rush-2" src="bgm-boss-rush-2.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-2.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-boss-rush-3" src="bgm-boss-rush-3.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-3.mp3 が見つからないか壊れています', this.error)"></audio>
 
 <script src="data-species.js"></script>
 <script src="data-enemies.js"></script>
@@ -839,11 +843,19 @@ function stopMenuBGM() {
 // ==== BGM（バトル：通常敵／強敵／ボス） ====
 const __bgmBattleNormal = document.getElementById('bgm-battle-normal');
 const __bgmBattleElite = document.getElementById('bgm-battle-elite');
+const __bgmBattleElite2 = document.getElementById('bgm-battle-elite2');
 const __bgmBossMid = document.getElementById('bgm-boss-mid');
+const __bgmBossRush = [
+  document.getElementById('bgm-boss-rush-1'),
+  document.getElementById('bgm-boss-rush-2'),
+  document.getElementById('bgm-boss-rush-3')
+].filter(Boolean);
 function stopBattleBGM() {
   if (__bgmBattleNormal) __bgmBattleNormal.pause();
   if (__bgmBattleElite) __bgmBattleElite.pause();
+  if (__bgmBattleElite2) __bgmBattleElite2.pause();
   if (__bgmBossMid) __bgmBossMid.pause();
+  __bgmBossRush.forEach(el => el.pause());
 }
 function playBattleBGM(mode, floor) {
   stopMenuBGM();
@@ -851,8 +863,11 @@ function playBattleBGM(mode, floor) {
   if (!soundEnabled) return;
   let el = null;
   if (mode === 'normal') el = __bgmBattleNormal;
-  else if (mode === 'elite') el = __bgmBattleElite;
-  else if (mode === 'boss' && [15,30,45].includes(floor)) el = __bgmBossMid;
+  else if (mode === 'elite') el = (floor >= 16) ? __bgmBattleElite2 : __bgmBattleElite;
+  else if (mode === 'boss') {
+    if ([15,30,45].includes(floor)) el = __bgmBossMid;
+    else if (floor >= 46 && __bgmBossRush.length > 0) el = __bgmBossRush[Math.floor(Math.random() * __bgmBossRush.length)];
+  }
   if (!el) return;
   ensureAudioCtx();
   connectBgmElement(el);
