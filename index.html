@@ -611,7 +611,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </main>
 <div id="drag-card-ghost" class="card small p-2 justify-between hidden" style="width:72px;height:100px;"></div>
 <div id="drag-dmg-preview">⚔️ 0</div>
-<audio id="bgm-menu" src="bgm-menu.mp3" loop preload="auto"></audio>
+<audio id="bgm-menu" src="bgm-menu.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-menu.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-battle-normal" src="bgm-battle-normal.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-battle-normal.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-battle-elite" src="bgm-battle-elite.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-battle-elite.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-boss-mid" src="bgm-boss-mid.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-mid.mp3 が見つからないか壊れています', this.error)"></audio>
 
 <script src="data-species.js"></script>
 <script src="data-enemies.js"></script>
@@ -684,6 +687,8 @@ energyVal: document.getElementById('energy-val'), energyMax: document.getElement
 // 外部音声ファイルを使わず、Web Audio APIで効果音をその場で合成する軽量なSE再生システム。
 let __audioCtx = null;
 let __seGain = null;
+let __bgmGain = null;
+const __bgmConnected = new WeakSet();
 let soundEnabled = true;
 let seVolume = 1.0;
 try { soundEnabled = localStorage.getItem('mf_sound_enabled') !== '0'; } catch(e) {}
@@ -694,6 +699,7 @@ function ensureAudioCtx() {
     if (!__audioCtx) __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (__audioCtx.state === 'suspended') __audioCtx.resume();
     if (!__seGain) { __seGain = __audioCtx.createGain(); __seGain.gain.value = seVolume; __seGain.connect(__audioCtx.destination); }
+    if (!__bgmGain) { __bgmGain = __audioCtx.createGain(); __bgmGain.gain.value = bgmVolume; __bgmGain.connect(__audioCtx.destination); }
   } catch(e) { return null; }
   return __audioCtx;
 }
@@ -768,7 +774,7 @@ window.game.toggleSound = function() {
   const panelBtn = document.getElementById('volume-panel-master-toggle');
   if (panelBtn) panelBtn.textContent = soundEnabled ? '🔊' : '🔇';
   if (soundEnabled) playSfx('select');
-  if (soundEnabled) { playMenuBGM(); } else { stopMenuBGM(); }
+  if (soundEnabled) { resumeCurrentBGM(); } else { stopMenuBGM(); stopBattleBGM(); }
 };
 window.game.toggleVolumePanel = function() {
   const p = document.getElementById('volume-panel');
@@ -783,7 +789,17 @@ function showGlobalVolumeBtn() { const b = document.getElementById('global-volum
 const __bgmMenu = document.getElementById('bgm-menu');
 let bgmVolume = 0.35;
 try { const _v = localStorage.getItem('mf_bgm_volume'); if (_v !== null) bgmVolume = parseFloat(_v); } catch(e) {}
-if (__bgmMenu) { __bgmMenu.volume = bgmVolume; }
+// iOSのSafariは<audio>の.volumeプロパティを無視する仕様のため、
+// Web Audio APIのGainNodeを経由させて音量調整する（connectBgmElementで配線）。
+function connectBgmElement(el) {
+  if (!el || !__audioCtx || !__bgmGain) return;
+  if (__bgmConnected.has(el)) return;
+  try {
+    const src = __audioCtx.createMediaElementSource(el);
+    src.connect(__bgmGain);
+    __bgmConnected.add(el);
+  } catch(e) { /* 既に接続済み、または未対応環境。無視して通常再生に任せる */ }
+}
 const __bgmVolumeSlider = document.getElementById('bgm-volume-slider');
 const __bgmVolumeLabel = document.getElementById('bgm-volume-label');
 if (__bgmVolumeSlider) {
@@ -791,7 +807,7 @@ if (__bgmVolumeSlider) {
   if (__bgmVolumeLabel) __bgmVolumeLabel.textContent = Math.round(bgmVolume * 100) + '%';
   __bgmVolumeSlider.addEventListener('input', () => {
     bgmVolume = Number(__bgmVolumeSlider.value) / 100;
-    if (__bgmMenu) __bgmMenu.volume = bgmVolume;
+    if (__bgmGain) __bgmGain.gain.value = bgmVolume;
     if (__bgmVolumeLabel) __bgmVolumeLabel.textContent = Math.round(bgmVolume * 100) + '%';
     try { localStorage.setItem('mf_bgm_volume', String(bgmVolume)); } catch(e) {}
   });
@@ -812,18 +828,49 @@ if (__seVolumeSlider) {
 function playMenuBGM() {
   if (!__bgmMenu || !soundEnabled) return;
   if (!__bgmMenu.paused) return;
-  __bgmMenu.play().catch(()=>{ /* 自動再生制限：後続の操作で再試行される */ });
+  ensureAudioCtx();
+  connectBgmElement(__bgmMenu);
+  __bgmMenu.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）: menu', err && err.name); });
 }
 function stopMenuBGM() {
   if (!__bgmMenu) return;
   __bgmMenu.pause();
 }
-// 自動再生制限対策：最初のユーザー操作時に、まだメニュー画面ならBGMを開始する
+// ==== BGM（バトル：通常敵／強敵／ボス） ====
+const __bgmBattleNormal = document.getElementById('bgm-battle-normal');
+const __bgmBattleElite = document.getElementById('bgm-battle-elite');
+const __bgmBossMid = document.getElementById('bgm-boss-mid');
+function stopBattleBGM() {
+  if (__bgmBattleNormal) __bgmBattleNormal.pause();
+  if (__bgmBattleElite) __bgmBattleElite.pause();
+  if (__bgmBossMid) __bgmBossMid.pause();
+}
+function playBattleBGM(mode, floor) {
+  stopMenuBGM();
+  stopBattleBGM();
+  if (!soundEnabled) return;
+  let el = null;
+  if (mode === 'normal') el = __bgmBattleNormal;
+  else if (mode === 'elite') el = __bgmBattleElite;
+  else if (mode === 'boss' && [15,30,45].includes(floor)) el = __bgmBossMid;
+  if (!el) return;
+  ensureAudioCtx();
+  connectBgmElement(el);
+  try { el.currentTime = 0; } catch(e) {}
+  el.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）:', mode, err && err.name); });
+}
+function resumeCurrentBGM() {
+  if (!soundEnabled) return;
+  if (ui.battle && !ui.battle.classList.contains('hidden') && state && state.enemy && state.enemy.mode) {
+    playBattleBGM(state.enemy.mode, state.floor);
+  } else if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) {
+    playMenuBGM();
+  }
+}
+// 自動再生制限対策：最初のユーザー操作時に、現在の画面に応じたBGMを開始する
 ['pointerdown','touchstart','click'].forEach(ev => document.addEventListener(ev, () => {
-  if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) playMenuBGM();
+  resumeCurrentBGM();
 }, { once:true, passive:true }));
-// ページ読み込み時点でメニュー画面が表示されていればBGM再生を試みる（多くのブラウザではユーザー操作まで実際には鳴らない）
-if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) playMenuBGM();
 
 // あらゆる選択操作（ボタン、カード、マップのマス、種族選択、イベントの選択肢など）に
 // 共通の選択音を鳴らす。タグの種類やonclickの付け方に関わらず拾えるよう、
@@ -880,9 +927,9 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 (function tryResumeRun(){
   try {
     const raw = localStorage.getItem('mf_active_run');
-    if (!raw) return;
+    if (!raw) { resumeCurrentBGM(); return; }
     const payload = JSON.parse(raw);
-    if (!payload || !payload.state || !payload.state.player || !payload.state.player.species) return;
+    if (!payload || !payload.state || !payload.state.player || !payload.state.player.species) { resumeCurrentBGM(); return; }
     state = payload.state;
     // 種族データを最新のSPECIES定義に再リンク（画像やパラメータを最新化するため）
     const spId = state.player.species.id;
@@ -917,7 +964,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
       state.mapActionTaken = false;
       renderMapChoices(); updateUI();
     }
-  } catch(e) { console.warn('セーブデータの復帰に失敗しました。最初から始めます。', e); }
+    resumeCurrentBGM();
+  } catch(e) { console.warn('セーブデータの復帰に失敗しました。最初から始めます。', e); resumeCurrentBGM(); }
 })();
 
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
@@ -1137,11 +1185,11 @@ player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[],
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
 };
-ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn();
+ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn(); stopBattleBGM();
 }
 
 function initMap() {
-state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden');
+state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM();
 let fs=1000; if(state.floor>=31)fs=5000; else if(state.floor>=16)fs=3000;
 if(state.floor>1) { state.score+=fs; }
 const sp={46:'camp',47:'boss',48:'camp',49:'boss',50:'boss',51:'camp',52:'boss',53:'camp',54:'boss',55:'camp',56:'boss',57:'camp',58:'boss',59:'camp',60:'boss'};
@@ -1187,7 +1235,7 @@ updateUI();
 // 保存済みの選択肢(state.currentMapChoices)からマップnoノードを再描画するだけの関数。
 // 抽選は一切行わない（initMapで既に確定した内容をそのまま表示するための関数）
 function renderMapChoices() {
-ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden');
+ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM();
 const choices=document.getElementById('map-choices'); choices.innerHTML='';
 (state.currentMapChoices||[]).forEach(type=>choices.appendChild(createMapNode(type)));
 }
@@ -1669,6 +1717,7 @@ function getFloorEnemyPool(floor) {
 function startBattle(mode) {
 ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = handleEndTurn;
 ui.map.classList.add('hidden'); ui.battle.classList.remove('hidden');
+if (mode === 'normal' || mode === 'elite' || mode === 'boss') { playBattleBGM(mode, state.floor); } else { stopMenuBGM(); stopBattleBGM(); }
 let bgClass = 'bg-boss';
 if (mode === 'boss') { bgClass = shuffle(['bg-boss-hourglass','bg-boss-sky','bg-boss-mushroom','bg-boss-ice','bg-boss-deepsea','bg-boss-demon','bg-boss-cosmic'])[0]; }
 else { bgClass = shuffle(['bg-photo-grass','bg-photo-desert','bg-photo-beach','bg-photo-snow','bg-photo-volcano','bg-photo-forest'])[0]; }
@@ -2812,7 +2861,7 @@ window.game.giveUpRun = function() {
   saveScore(s);
   showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}`);
   ui.modalBtn.classList.remove('hidden');
-  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); playMenuBGM(); showGlobalVolumeBtn(); };
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); playMenuBGM(); showGlobalVolumeBtn(); };
 };
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
@@ -2846,7 +2895,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();showGlobalVolumeBtn();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();playMenuBGM();showGlobalVolumeBtn();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -2857,7 +2906,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();showGlobalVolumeBtn();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();playMenuBGM();showGlobalVolumeBtn();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
