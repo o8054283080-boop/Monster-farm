@@ -68,6 +68,55 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
 .bg-gali { background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%); color: #78350f; }
 .bg-hinotori { background: linear-gradient(135deg, #fff7ed 0%, #fdba74 100%); color: #7c2d12; }
 .bg-common { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #334155; }
+/* ==== ダンジョン風UI（タイトル・種族選択・マップ画面共通） ==== */
+.dungeon-bg {
+  position: relative;
+  background:
+    radial-gradient(circle at 6% 22%, rgba(255,150,60,0.4) 0%, rgba(255,110,30,0.14) 10%, transparent 22%),
+    radial-gradient(circle at 94% 22%, rgba(255,150,60,0.4) 0%, rgba(255,110,30,0.14) 10%, transparent 22%),
+    radial-gradient(ellipse at 50% -5%, rgba(90,65,40,0.45) 0%, transparent 50%),
+    linear-gradient(180deg, #201810 0%, #140f0b 35%, #0b0806 100%) !important;
+  background-color: #0b0806 !important;
+}
+.dungeon-bg::after {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
+  opacity:0.55; mix-blend-mode: overlay;
+}
+.dungeon-bg > * { position: relative; z-index: 1; }
+.ornate-panel {
+  position: relative;
+  background: linear-gradient(180deg, #1a1310, #0d0a08);
+  border: 2px solid #6b4a24;
+  box-shadow: inset 0 0 0 1px rgba(190,140,70,0.3), 0 2px 8px rgba(0,0,0,0.65);
+}
+.ornate-panel::before, .ornate-panel::after {
+  content:''; position:absolute; width:6px; height:6px; background:#c98a3a;
+  transform:rotate(45deg); box-shadow: 0 0 4px rgba(201,138,58,0.8);
+}
+.ornate-panel::before { top:-3px; left:-3px; }
+.ornate-panel::after { top:-3px; right:-3px; }
+.ornate-panel-bl, .ornate-panel-br { display:none; }
+.ornate-title {
+  font-family: inherit;
+  color: #ffb648;
+  text-shadow: 0 0 8px rgba(255,170,50,0.8), 0 0 20px rgba(255,120,20,0.5), 0 2px 0 #5a2e05;
+}
+.ornate-gold-btn {
+  position: relative;
+  background: linear-gradient(180deg, #4a2f10, #2a1a08);
+  border: 2px solid #c98a3a;
+  box-shadow: inset 0 0 0 1px rgba(255,190,100,0.35), 0 0 14px rgba(255,140,40,0.35), 0 3px 0 #1a0f04;
+  color: #ffd9a0;
+  text-shadow: 0 0 10px rgba(255,150,50,0.8);
+}
+.ornate-gold-btn::before, .ornate-gold-btn::after {
+  content:''; position:absolute; width:7px; height:7px; background:#ffcf7a;
+  transform:rotate(45deg); box-shadow: 0 0 6px rgba(255,210,130,0.9);
+}
+.ornate-gold-btn::before { top:-3.5px; left:-3.5px; }
+.ornate-gold-btn::after { top:-3.5px; right:-3.5px; }
+
 .rarity-N { border-color: #e2e8f0 !important; }
 .rarity-R { border-color: #0ea5e9 !important; box-shadow: 0 0 8px rgba(14, 165, 233, 0.5); }
 .rarity-SR { border-color: #eab308 !important; box-shadow: 0 0 10px rgba(234, 179, 8, 0.6); }
@@ -355,21 +404,25 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 
 <main class="flex-grow relative overflow-hidden">
 <!-- NAME ENTRY -->
-<section id="name-scene" class="absolute inset-0 z-[120] flex flex-col items-center justify-center bg-zinc-950 p-6 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
-<h1 class="text-3xl md:text-5xl font-black text-amber-500 mb-2 pixel-font italic text-center drop-shadow-[0_0_15px_rgba(245,158,11,0.6)]">モンスターファーム<br><span class="text-2xl md:text-4xl text-white">デッキサバイバル</span></h1>
-<div class="w-full max-w-xs space-y-4 text-center mt-10">
-<p class="text-zinc-400 text-xs mb-1">ブリーダー名を入力してください</p>
-<input type="text" id="player-name-input" placeholder="名無し" maxlength="8" class="w-full p-3 bg-zinc-900 border-2 border-amber-700 rounded text-center text-white text-lg focus:outline-none focus:border-amber-400 transition-colors shadow-inner">
-<select id="difficulty-input" class="w-full p-3 bg-zinc-900 border border-zinc-600 rounded text-center text-zinc-300 text-sm focus:outline-none focus:border-amber-400 transition-colors mb-2">
+<section id="name-scene" class="dungeon-bg absolute inset-0 z-[120] flex flex-col items-center justify-center p-6">
+<div class="text-4xl mb-2 drop-shadow-[0_0_10px_rgba(255,150,50,0.7)]">🐲</div>
+<div class="ornate-panel px-5 py-3 mb-1">
+<h1 class="text-2xl md:text-4xl font-black ornate-title pixel-font italic text-center">モンスターファーム</h1>
+</div>
+<p class="text-white text-base md:text-xl pixel-font mt-2 mb-8 tracking-widest">◇ デッキサバイバル ◇</p>
+<div class="w-full max-w-xs space-y-4 text-center">
+<p class="text-amber-200/70 text-xs mb-1">— ブリーダー名を入力してください —</p>
+<input type="text" id="player-name-input" placeholder="名無し" maxlength="8" class="ornate-panel w-full p-3 text-center text-amber-100 text-lg focus:outline-none focus:border-amber-400 transition-colors rounded-sm">
+<select id="difficulty-input" class="ornate-panel w-full p-3 text-center text-zinc-300 text-sm focus:outline-none focus:border-amber-400 transition-colors mb-2 rounded-sm">
 <option value="normal">難易度：ノーマル</option>
 <option value="hard">難易度：ハード (敵攻撃力 1.2倍 / 最終スコア 1.2倍)</option>
 <option value="expert">難易度：エキスパート (敵ステ 1.25倍 / 最終スコア 1.5倍)</option>
 <option value="veryhard">難易度：ベリーハード (敵ステ 1.3倍 / 最終スコア 1.75倍 / レジェンドボスラッシュ解放)</option>
 </select>
 
-<button onclick="window.game.confirmName()" class="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded shadow-lg transition-all active:scale-95 border-b-4 border-amber-900">ゲーム開始</button>
-<button onclick="document.getElementById('howto-modal').classList.remove('hidden')" class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-bold rounded border border-zinc-600 transition-all active:scale-95">📖 遊び方</button>
-<button onclick="window.game.showRanking()" class="text-xs text-zinc-500 underline mt-4 hover:text-white">ランキングを見る</button>
+<button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
+<button onclick="document.getElementById('howto-modal').classList.remove('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-sm font-bold rounded-sm transition-all active:scale-95">📖 遊び方</button>
+<button onclick="window.game.showRanking()" class="text-xs text-amber-200/60 underline mt-4 hover:text-amber-200">◇ ランキングを見る ◇</button>
 </div>
 </section>
 
@@ -446,8 +499,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 
 <!-- SELECT -->
-<section id="select-scene" class="hidden absolute inset-0 z-[100] flex flex-col items-center justify-start pt-10 pb-4 bg-zinc-950 px-4 overflow-y-auto no-scrollbar">
-<h2 class="text-xl font-bold text-amber-500 mb-6 pixel-font shrink-0">パートナー選択</h2>
+<section id="select-scene" class="dungeon-bg hidden absolute inset-0 z-[100] flex flex-col items-center justify-start pt-10 pb-4 px-4 overflow-y-auto no-scrollbar">
+<div class="ornate-panel px-5 py-2 mb-6 shrink-0"><h2 class="text-xl font-bold ornate-title pixel-font">パートナー選択</h2></div>
 <div id="select-grid" class="grid grid-cols-1 gap-3 w-full max-w-sm pb-10"></div>
 </div>
 </section>
@@ -506,7 +559,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </section>
 
 <!-- MAP -->
-<section id="map-scene" class="hidden h-full flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] bg-zinc-950">
+<section id="map-scene" class="dungeon-bg hidden h-full flex flex-col items-center justify-center p-4">
 <h2 class="text-3xl font-black text-amber-500 mb-8 pixel-font italic text-center drop-shadow-lg">冒険ルート</h2>
 <div id="map-choices" class="flex flex-col gap-4 w-full max-w-sm overflow-y-auto no-scrollbar py-2 px-2"></div>
 </section>
@@ -539,6 +592,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </main>
 <div id="drag-card-ghost" class="card small p-2 justify-between hidden" style="width:72px;height:100px;"></div>
 <div id="drag-dmg-preview">⚔️ 0</div>
+<audio id="bgm-menu" src="bgm-menu.mp3" loop preload="auto"></audio>
 
 <script src="data-species.js"></script>
 <script src="data-enemies.js"></script>
@@ -689,7 +743,27 @@ window.game.toggleSound = function() {
   const btn = document.getElementById('sound-toggle-btn');
   if (btn) btn.textContent = soundEnabled ? '🔊' : '🔇';
   if (soundEnabled) playSfx('select');
+  if (soundEnabled) { playMenuBGM(); } else { stopMenuBGM(); }
 };
+
+// ==== BGM（メニュー画面） ====
+const __bgmMenu = document.getElementById('bgm-menu');
+if (__bgmMenu) { __bgmMenu.volume = 0.45; }
+function playMenuBGM() {
+  if (!__bgmMenu || !soundEnabled) return;
+  if (!__bgmMenu.paused) return;
+  __bgmMenu.play().catch(()=>{ /* 自動再生制限：後続の操作で再試行される */ });
+}
+function stopMenuBGM() {
+  if (!__bgmMenu) return;
+  __bgmMenu.pause();
+}
+// 自動再生制限対策：最初のユーザー操作時に、まだメニュー画面ならBGMを開始する
+['pointerdown','touchstart','click'].forEach(ev => document.addEventListener(ev, () => {
+  if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) playMenuBGM();
+}, { once:true, passive:true }));
+// ページ読み込み時点でメニュー画面が表示されていればBGM再生を試みる（多くのブラウザではユーザー操作まで実際には鳴らない）
+if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) playMenuBGM();
 
 // あらゆる選択操作（ボタン、カード、マップのマス、種族選択、イベントの選択肢など）に
 // 共通の選択音を鳴らす。タグの種類やonclickの付け方に関わらず拾えるよう、
@@ -786,7 +860,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 })();
 
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
-window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); };
+window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); stopMenuBGM(); };
 function renderSpeciesSelect(){
   const grid = document.getElementById('select-grid');
   if(!grid) return;
@@ -2677,7 +2751,7 @@ window.game.giveUpRun = function() {
   saveScore(s);
   showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}`);
   ui.modalBtn.classList.remove('hidden');
-  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); };
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); playMenuBGM(); };
 };
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
@@ -2711,7 +2785,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -2722,7 +2796,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
