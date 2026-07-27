@@ -362,6 +362,25 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-black text-zinc-100">
+<button id="global-volume-btn" onclick="window.game.toggleVolumePanel()" title="音量設定" class="fixed top-2 left-2 z-[190] cursor-pointer bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-full w-9 h-9 flex items-center justify-center text-base shadow-lg backdrop-blur-sm">🔊</button>
+<div id="volume-panel" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
+<div class="ornate-panel w-full max-w-xs p-5 space-y-4">
+<h2 class="text-amber-200 text-sm font-bold pixel-font text-center mb-2">🔊 音量設定</h2>
+<div class="flex items-center justify-between">
+<span class="text-zinc-300 text-xs">サウンド全体</span>
+<button id="volume-panel-master-toggle" onclick="window.game.toggleSound()" class="cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-8 h-8 flex items-center justify-center text-sm">🔊</button>
+</div>
+<div>
+<div class="flex justify-between text-[11px] text-zinc-400 mb-1"><span>BGM音量</span><span id="bgm-volume-label">35%</span></div>
+<input type="range" id="bgm-volume-slider" min="0" max="100" value="35" class="w-full accent-amber-500 h-1">
+</div>
+<div>
+<div class="flex justify-between text-[11px] text-zinc-400 mb-1"><span>SE音量</span><span id="se-volume-label">100%</span></div>
+<input type="range" id="se-volume-slider" min="0" max="100" value="100" class="w-full accent-amber-500 h-1">
+</div>
+<button onclick="document.getElementById('volume-panel').classList.add('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-sm font-bold rounded-sm transition-all active:scale-95 mt-2">閉じる</button>
+</div>
+</div>
 <div id="impact-flash"></div>
 <div id="last-update-tag" style="position:fixed;left:6px;bottom:calc(6px + env(safe-area-inset-bottom, 0px));z-index:9999;font-size:10px;color:rgba(212,212,216,0.65);pointer-events:none;user-select:none;"></div>
 <script>
@@ -396,7 +415,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="shrink-0 text-[10px] font-mono text-emerald-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">SCORE</span><span id="score-display">0</span></div>
 <div class="shrink-0 text-[10px] font-mono text-yellow-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">💰GOLD</span><span id="gold-display">0</span></div>
 <div onclick="window.game.showRelicList()" class="shrink cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-0.5 overflow-x-auto no-scrollbar max-w-[90px] sm:max-w-[160px]" id="relics-container"></div>
-<button id="sound-toggle-btn" onclick="window.game.toggleSound()" title="サウンドのON/OFF" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🔊</button>
+<button id="sound-toggle-btn" onclick="window.game.toggleVolumePanel()" title="音量設定" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🔊</button>
 <button onclick="window.game.confirmGiveUp()" title="冒険をあきらめる" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-red-950 border border-zinc-700 hover:border-red-800 text-zinc-500 hover:text-red-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🏳️</button>
 </div>
 </div>
@@ -664,13 +683,17 @@ energyVal: document.getElementById('energy-val'), energyMax: document.getElement
 // ==== サウンド ====
 // 外部音声ファイルを使わず、Web Audio APIで効果音をその場で合成する軽量なSE再生システム。
 let __audioCtx = null;
+let __seGain = null;
 let soundEnabled = true;
+let seVolume = 1.0;
 try { soundEnabled = localStorage.getItem('mf_sound_enabled') !== '0'; } catch(e) {}
+try { const _sv = localStorage.getItem('mf_se_volume'); if (_sv !== null) seVolume = parseFloat(_sv); } catch(e) {}
 try { const _sb = document.getElementById('sound-toggle-btn'); if(_sb) _sb.textContent = soundEnabled ? '🔊' : '🔇'; } catch(e) {}
 function ensureAudioCtx() {
   try {
     if (!__audioCtx) __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (__audioCtx.state === 'suspended') __audioCtx.resume();
+    if (!__seGain) { __seGain = __audioCtx.createGain(); __seGain.gain.value = seVolume; __seGain.connect(__audioCtx.destination); }
   } catch(e) { return null; }
   return __audioCtx;
 }
@@ -691,7 +714,7 @@ function playSfx(type) {
     g.gain.setValueAtTime(0.0001, now+start);
     g.gain.exponentialRampToValueAtTime(vol, now+start+0.008);
     g.gain.exponentialRampToValueAtTime(0.0001, now+start+dur);
-    osc.connect(g); g.connect(ctx.destination);
+    osc.connect(g); g.connect(__seGain);
     osc.start(now+start); osc.stop(now+start+dur+0.03);
   }
   // 打撃感のある「衝撃音」。フィルターをかけたノイズ + 低音のサブ成分で「ドスッ」という手応えを出す
@@ -706,7 +729,7 @@ function playSfx(type) {
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol, now+start);
     g.gain.exponentialRampToValueAtTime(0.0001, now+start+dur);
-    src.connect(filt); filt.connect(g); g.connect(ctx.destination);
+    src.connect(filt); filt.connect(g); g.connect(__seGain);
     src.start(now+start); src.stop(now+start+dur+0.02);
     if (subFreq) {
       const osc = ctx.createOscillator(); osc.type='sine';
@@ -715,7 +738,7 @@ function playSfx(type) {
       const sg = ctx.createGain();
       sg.gain.setValueAtTime(vol*1.1, now+start);
       sg.gain.exponentialRampToValueAtTime(0.0001, now+start+dur*0.8);
-      osc.connect(sg); sg.connect(ctx.destination);
+      osc.connect(sg); sg.connect(__seGain);
       osc.start(now+start); osc.stop(now+start+dur*0.8+0.02);
     }
   }
@@ -742,13 +765,50 @@ window.game.toggleSound = function() {
   try { localStorage.setItem('mf_sound_enabled', soundEnabled ? '1' : '0'); } catch(e) {}
   const btn = document.getElementById('sound-toggle-btn');
   if (btn) btn.textContent = soundEnabled ? '🔊' : '🔇';
+  const panelBtn = document.getElementById('volume-panel-master-toggle');
+  if (panelBtn) panelBtn.textContent = soundEnabled ? '🔊' : '🔇';
   if (soundEnabled) playSfx('select');
   if (soundEnabled) { playMenuBGM(); } else { stopMenuBGM(); }
 };
+window.game.toggleVolumePanel = function() {
+  const p = document.getElementById('volume-panel');
+  if (!p) return;
+  p.classList.toggle('hidden');
+  if (!p.classList.contains('hidden')) ensureAudioCtx();
+};
+function hideGlobalVolumeBtn() { const b = document.getElementById('global-volume-btn'); if (b) b.classList.add('hidden'); }
+function showGlobalVolumeBtn() { const b = document.getElementById('global-volume-btn'); if (b) b.classList.remove('hidden'); }
 
 // ==== BGM（メニュー画面） ====
 const __bgmMenu = document.getElementById('bgm-menu');
-if (__bgmMenu) { __bgmMenu.volume = 0.45; }
+let bgmVolume = 0.35;
+try { const _v = localStorage.getItem('mf_bgm_volume'); if (_v !== null) bgmVolume = parseFloat(_v); } catch(e) {}
+if (__bgmMenu) { __bgmMenu.volume = bgmVolume; }
+const __bgmVolumeSlider = document.getElementById('bgm-volume-slider');
+const __bgmVolumeLabel = document.getElementById('bgm-volume-label');
+if (__bgmVolumeSlider) {
+  __bgmVolumeSlider.value = String(Math.round(bgmVolume * 100));
+  if (__bgmVolumeLabel) __bgmVolumeLabel.textContent = Math.round(bgmVolume * 100) + '%';
+  __bgmVolumeSlider.addEventListener('input', () => {
+    bgmVolume = Number(__bgmVolumeSlider.value) / 100;
+    if (__bgmMenu) __bgmMenu.volume = bgmVolume;
+    if (__bgmVolumeLabel) __bgmVolumeLabel.textContent = Math.round(bgmVolume * 100) + '%';
+    try { localStorage.setItem('mf_bgm_volume', String(bgmVolume)); } catch(e) {}
+  });
+}
+// ==== SE（効果音）音量 ====
+const __seVolumeSlider = document.getElementById('se-volume-slider');
+const __seVolumeLabel = document.getElementById('se-volume-label');
+if (__seVolumeSlider) {
+  __seVolumeSlider.value = String(Math.round(seVolume * 100));
+  if (__seVolumeLabel) __seVolumeLabel.textContent = Math.round(seVolume * 100) + '%';
+  __seVolumeSlider.addEventListener('input', () => {
+    seVolume = Number(__seVolumeSlider.value) / 100;
+    if (__seGain) __seGain.gain.value = seVolume;
+    if (__seVolumeLabel) __seVolumeLabel.textContent = Math.round(seVolume * 100) + '%';
+    try { localStorage.setItem('mf_se_volume', String(seVolume)); } catch(e) {}
+  });
+}
 function playMenuBGM() {
   if (!__bgmMenu || !soundEnabled) return;
   if (!__bgmMenu.paused) return;
@@ -830,6 +890,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
     ui.nameScene.classList.add('hidden');
     ui.select.classList.add('hidden');
     ui.topBar.classList.remove('hidden');
+    hideGlobalVolumeBtn();
     ui.modal.classList.add('hidden');
     if (payload.scene === 'battle' && state.enemy && state.enemy.hp !== undefined) {
       if (state.battleEnded) {
@@ -924,7 +985,7 @@ try {
   }
 } catch(e) { console.warn('debug param error', e); }
 
-ui.select.classList.add('hidden'); ui.topBar.classList.remove('hidden');
+ui.select.classList.add('hidden'); ui.topBar.classList.remove('hidden'); hideGlobalVolumeBtn();
 if (state.player._debugAutoBoss) {
   updateUI();
   startBattle('boss');
@@ -1076,7 +1137,7 @@ player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[],
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
 };
-ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden');
+ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn();
 }
 
 function initMap() {
@@ -2751,7 +2812,7 @@ window.game.giveUpRun = function() {
   saveScore(s);
   showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}`);
   ui.modalBtn.classList.remove('hidden');
-  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); playMenuBGM(); };
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); playMenuBGM(); showGlobalVolumeBtn(); };
 };
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
@@ -2785,7 +2846,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();showGlobalVolumeBtn();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -2796,7 +2857,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');playMenuBGM();showGlobalVolumeBtn();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
