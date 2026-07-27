@@ -620,7 +620,6 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <audio id="bgm-boss-rush-2" src="bgm-boss-rush-2.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-2.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-boss-rush-3" src="bgm-boss-rush-3.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-3.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-victory" src="bgm-victory.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-victory.mp3 が見つからないか壊れています', this.error)"></audio>
-<audio id="se-select" src="se-select.wav" preload="auto" onerror="console.error('SE読み込み失敗: se-select.wav が見つからないか壊れています', this.error)"></audio>
 
 <script src="data-species.js"></script>
 <script src="data-enemies.js"></script>
@@ -700,12 +699,27 @@ let seVolume = 1.0;
 try { soundEnabled = localStorage.getItem('mf_sound_enabled') !== '0'; } catch(e) {}
 try { const _sv = localStorage.getItem('mf_se_volume'); if (_sv !== null) seVolume = parseFloat(_sv); } catch(e) {}
 try { const _sb = document.getElementById('sound-toggle-btn'); if(_sb) _sb.textContent = soundEnabled ? '🔊' : '🔇'; } catch(e) {}
+// 選択音（実音声ファイル）はHTMLMediaElement.play()だと再生開始までのわずかな遅延が
+// 体感できてしまうため、Web Audio APIで事前デコードしたバッファを都度即時再生する。
+let __seSelectBuffer = null;
+let __seSelectLoading = false;
+function loadSeSelectBuffer() {
+  if (__seSelectBuffer || __seSelectLoading || !__audioCtx) return;
+  __seSelectLoading = true;
+  fetch('se-select.wav')
+    .then(r => r.arrayBuffer())
+    .then(buf => __audioCtx.decodeAudioData(buf))
+    .then(decoded => { __seSelectBuffer = decoded; })
+    .catch(err => { console.warn('選択音の読み込みに失敗しました（合成音で代用します）:', err); })
+    .finally(() => { __seSelectLoading = false; });
+}
 function ensureAudioCtx() {
   try {
     if (!__audioCtx) __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (__audioCtx.state === 'suspended') __audioCtx.resume();
     if (!__seGain) { __seGain = __audioCtx.createGain(); __seGain.gain.value = seVolume; __seGain.connect(__audioCtx.destination); }
     if (!__bgmGain) { __bgmGain = __audioCtx.createGain(); __bgmGain.gain.value = bgmVolume; __bgmGain.connect(__audioCtx.destination); }
+    loadSeSelectBuffer();
   } catch(e) { return null; }
   return __audioCtx;
 }
@@ -756,14 +770,16 @@ function playSfx(type) {
   }
   switch(type) {
     case 'select': {
-      const se = document.getElementById('se-select');
-      if (se) {
-        ensureAudioCtx();
-        connectSeElement(se);
-        try { se.currentTime = 0; } catch(e) {}
-        se.play().catch(()=>{ tone(720,0,0.05,'square',0.06); });
+      ensureAudioCtx();
+      if (__seSelectBuffer && __audioCtx) {
+        try {
+          const src = __audioCtx.createBufferSource();
+          src.buffer = __seSelectBuffer;
+          src.connect(__seGain);
+          src.start(0);
+        } catch(e) { tone(720,0,0.05,'square',0.06); }
       } else {
-        tone(720,0,0.05,'square',0.06);
+        tone(720,0,0.05,'square',0.06); // バッファ読み込み前・失敗時のフォールバック
       }
       break;
     }
