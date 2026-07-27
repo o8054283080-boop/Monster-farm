@@ -619,6 +619,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <audio id="bgm-boss-rush-1" src="bgm-boss-rush-1.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-1.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-boss-rush-2" src="bgm-boss-rush-2.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-2.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-boss-rush-3" src="bgm-boss-rush-3.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-3.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-victory" src="bgm-victory.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-victory.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="se-select" src="se-select.mp3" preload="auto" onerror="console.error('SE読み込み失敗: se-select.mp3 が見つからないか壊れています', this.error)"></audio>
 
 <script src="data-species.js"></script>
 <script src="data-enemies.js"></script>
@@ -753,7 +755,18 @@ function playSfx(type) {
     }
   }
   switch(type) {
-    case 'select': tone(720,0,0.05,'square',0.06); break;
+    case 'select': {
+      const se = document.getElementById('se-select');
+      if (se) {
+        ensureAudioCtx();
+        connectSeElement(se);
+        try { se.currentTime = 0; } catch(e) {}
+        se.play().catch(()=>{ tone(720,0,0.05,'square',0.06); });
+      } else {
+        tone(720,0,0.05,'square',0.06);
+      }
+      break;
+    }
     case 'play': tone(340,0,0.07,'triangle',0.10); tone(520,0.035,0.08,'triangle',0.08); break;
     case 'dmg': hit(0,0.09,0.5,2200,120); break;
     case 'crit': hit(0,0.05,0.45,3000,90); hit(0.045,0.12,0.55,2600,150); tone(1400,0.05,0.09,'square',0.08,2200); break;
@@ -778,7 +791,7 @@ window.game.toggleSound = function() {
   const panelBtn = document.getElementById('volume-panel-master-toggle');
   if (panelBtn) panelBtn.textContent = soundEnabled ? '🔊' : '🔇';
   if (soundEnabled) playSfx('select');
-  if (soundEnabled) { resumeCurrentBGM(); } else { stopMenuBGM(); stopBattleBGM(); }
+  if (soundEnabled) { resumeCurrentBGM(); } else { stopMenuBGM(); stopBattleBGM(); stopVictoryBGM(); }
 };
 window.game.toggleVolumePanel = function() {
   const p = document.getElementById('volume-panel');
@@ -801,6 +814,16 @@ function connectBgmElement(el) {
   try {
     const src = __audioCtx.createMediaElementSource(el);
     src.connect(__bgmGain);
+    __bgmConnected.add(el);
+  } catch(e) { /* 既に接続済み、または未対応環境。無視して通常再生に任せる */ }
+}
+// SE用の音声ファイル（合成音ではなく実際の音声ファイルを使うSE）をSE音量に連動させる
+function connectSeElement(el) {
+  if (!el || !__audioCtx || !__seGain) return;
+  if (__bgmConnected.has(el)) return;
+  try {
+    const src = __audioCtx.createMediaElementSource(el);
+    src.connect(__seGain);
     __bgmConnected.add(el);
   } catch(e) { /* 既に接続済み、または未対応環境。無視して通常再生に任せる */ }
 }
@@ -873,6 +896,20 @@ function playBattleBGM(mode, floor) {
   connectBgmElement(el);
   try { el.currentTime = 0; } catch(e) {}
   el.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）:', mode, err && err.name); });
+}
+// ==== BGM（勝利後のカード選択画面） ====
+const __bgmVictory = document.getElementById('bgm-victory');
+function playVictoryBGM() {
+  if (!__bgmVictory || !soundEnabled) return;
+  stopMenuBGM();
+  stopBattleBGM();
+  ensureAudioCtx();
+  connectBgmElement(__bgmVictory);
+  try { __bgmVictory.currentTime = 0; } catch(e) {}
+  __bgmVictory.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）: victory', err && err.name); });
+}
+function stopVictoryBGM() {
+  if (__bgmVictory) __bgmVictory.pause();
 }
 function resumeCurrentBGM() {
   if (!soundEnabled) return;
@@ -1200,11 +1237,11 @@ player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[],
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
 };
-ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn(); stopBattleBGM();
+ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn(); stopBattleBGM(); stopVictoryBGM();
 }
 
 function initMap() {
-state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM();
+state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM(); stopVictoryBGM();
 let fs=1000; if(state.floor>=31)fs=5000; else if(state.floor>=16)fs=3000;
 if(state.floor>1) { state.score+=fs; }
 const sp={46:'camp',47:'boss',48:'camp',49:'boss',50:'boss',51:'camp',52:'boss',53:'camp',54:'boss',55:'camp',56:'boss',57:'camp',58:'boss',59:'camp',60:'boss'};
@@ -1250,7 +1287,7 @@ updateUI();
 // 保存済みの選択肢(state.currentMapChoices)からマップnoノードを再描画するだけの関数。
 // 抽選は一切行わない（initMapで既に確定した内容をそのまま表示するための関数）
 function renderMapChoices() {
-ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM();
+ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM(); stopVictoryBGM();
 const choices=document.getElementById('map-choices'); choices.innerHTML='';
 (state.currentMapChoices||[]).forEach(type=>choices.appendChild(createMapNode(type)));
 }
@@ -2789,6 +2826,7 @@ state.isPlayerTurn=false; state.selectedCardIndex=null;
 setTimeout(()=>{
 if(state.enemy.mode==='boss' && [15,30,45,60].includes(state.floor)) { showBossRelicChoice(); return; }
 showModal(state.enemy.isRareElite && state.enemy.trait==='narikillog'?"🐸 ナリキロッグ撃破！":"勝利！", state.enemy.isRareElite && state.enemy.trait==='narikillog'?"MRカード3枚から選択！":"報酬を選択してください");
+playVictoryBGM();
 let r={N:0.4,R:0.30,SR:0.22,SSR:0.08,MR:0}; if(state.enemy.isRareElite && state.enemy.trait==='narikillog')r={N:0,R:0,SR:0,SSR:0,MR:1.0}; else if(state.enemy.isRareElite)r={N:0,R:0,SR:0,SSR:0,MR:1.0}; else if(state.enemy.isElite)r={N:0.15,R:0.35,SR:0.30,SSR:0.17,MR:0.03}; if(state.enemy.mode==='boss')r={N:0,R:0,SR:0,SSR:0.75,MR:0.25};
 const cr=document.createElement('div'); cr.className="flex space-x-2 py-2 overflow-x-auto w-full no-scrollbar justify-center";
 const pool=Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id)&&!c.isStarter);
@@ -2876,7 +2914,7 @@ window.game.giveUpRun = function() {
   saveScore(s);
   showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}`);
   ui.modalBtn.classList.remove('hidden');
-  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); playMenuBGM(); showGlobalVolumeBtn(); };
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); stopVictoryBGM(); playMenuBGM(); showGlobalVolumeBtn(); };
 };
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
@@ -2895,6 +2933,7 @@ function showLegendRushChoice() {
 }
 function nextFloor() {
   ui.modal.classList.add('hidden');
+  stopVictoryBGM();
   if (state.floor === 60 && !state.legendRush) {
     if (state.difficulty === 'veryhard') { showLegendRushChoice(); return; }
     gameClear(); return;
@@ -2910,7 +2949,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();playMenuBGM();showGlobalVolumeBtn();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -2921,7 +2960,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();playMenuBGM();showGlobalVolumeBtn();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
