@@ -950,7 +950,10 @@ document.addEventListener('click', (e) => {
   let el = e.target;
   for (let depth=0; depth<6 && el; depth++, el=el.parentElement) {
     if (el.tagName === 'BUTTON' || typeof el.onclick === 'function') {
-      if (!el.disabled && el.dataset.noSelectSe !== '1') playSfx('select');
+      if (!el.disabled) {
+        ensureAudioCtx(); // 音を鳴らすかに関わらず、AudioContextはこの操作で必ず起こしておく
+        if (el.dataset.noSelectSe !== '1') playSfx('select');
+      }
       break;
     }
   }
@@ -3792,7 +3795,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
         const h=getHand();
         if(h && h.contains(cardEl)){
           const idx=[...h.children].indexOf(cardEl);
-          if(idx>=0) { clickCard(idx); }
+          if(idx>=0) { ensureAudioCtx(); clickCard(idx); }
         }
       }
       return;
