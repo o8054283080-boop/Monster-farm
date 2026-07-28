@@ -84,6 +84,13 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
   opacity:0.55; mix-blend-mode: overlay;
 }
 .dungeon-bg > * { position: relative; z-index: 1; }
+/* タイトル画面とルート選択画面だけは、合成グラデーションではなく実写背景に差し替える */
+#name-scene.dungeon-bg, #map-scene.dungeon-bg {
+  background:
+    linear-gradient(rgba(5,3,2,0.45), rgba(5,3,2,0.65)),
+    url('bg-dungeon.jpg') center/cover no-repeat !important;
+  background-color:#0b0806 !important;
+}
 .ornate-panel {
   position: relative;
   background: linear-gradient(180deg, #1a1310, #0d0a08);
@@ -424,11 +431,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <main class="flex-grow relative overflow-hidden">
 <!-- NAME ENTRY -->
 <section id="name-scene" class="dungeon-bg absolute inset-0 z-[120] flex flex-col items-center justify-center p-6">
-<div class="text-4xl mb-2 drop-shadow-[0_0_10px_rgba(255,150,50,0.7)]">🐲</div>
-<div class="ornate-panel px-5 py-3 mb-1">
-<h1 class="text-2xl md:text-4xl font-black ornate-title pixel-font italic text-center">モンスターファーム</h1>
-</div>
-<p class="text-white text-base md:text-xl pixel-font mt-2 mb-8 tracking-widest">◇ デッキサバイバル ◇</p>
+<img src="title-logo.png" alt="Monster Farm DS モンスターファーム デッキサバイバル" class="w-full max-w-[280px] md:max-w-sm mb-6 drop-shadow-[0_6px_16px_rgba(0,0,0,0.85)]">
 <div class="w-full max-w-xs space-y-4 text-center">
 <p class="text-amber-200/70 text-xs mb-1">— ブリーダー名を入力してください —</p>
 <input type="text" id="player-name-input" placeholder="名無し" maxlength="8" class="ornate-panel w-full p-3 text-center text-amber-100 text-lg focus:outline-none focus:border-amber-400 transition-colors rounded-sm">
