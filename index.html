@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>モンスターファーム デッキサバイバル v23.2</title>
+<link rel="preload" as="image" href="title-logo.webp" type="image/webp">
+<link rel="preload" as="image" href="bg-dungeon.webp" type="image/webp">
 <!-- PWA (ホーム画面追加) 対応 -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#18181b">
@@ -88,7 +90,7 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
 #name-scene.dungeon-bg, #map-scene.dungeon-bg {
   background:
     linear-gradient(rgba(5,3,2,0.45), rgba(5,3,2,0.65)),
-    url('bg-dungeon.jpg') center/cover no-repeat !important;
+    url('bg-dungeon.webp') center/cover no-repeat !important;
   background-color:#0b0806 !important;
 }
 .ornate-panel {
@@ -431,7 +433,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <main class="flex-grow relative overflow-hidden">
 <!-- NAME ENTRY -->
 <section id="name-scene" class="dungeon-bg absolute inset-0 z-[120] flex flex-col items-center justify-center p-6">
+<picture>
+<source srcset="title-logo.webp" type="image/webp">
 <img src="title-logo.png" alt="Monster Farm DS モンスターファーム デッキサバイバル" class="w-full max-w-[280px] md:max-w-sm mb-6 drop-shadow-[0_6px_16px_rgba(0,0,0,0.85)]">
+</picture>
 <div class="w-full max-w-xs space-y-4 text-center">
 <p class="text-amber-200/70 text-xs mb-1">— ブリーダー名を入力してください —</p>
 <input type="text" id="player-name-input" placeholder="名無し" maxlength="8" class="ornate-panel w-full p-3 text-center text-amber-100 text-lg focus:outline-none focus:border-amber-400 transition-colors rounded-sm">
