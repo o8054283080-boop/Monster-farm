@@ -699,19 +699,30 @@ let seVolume = 1.0;
 try { soundEnabled = localStorage.getItem('mf_sound_enabled') !== '0'; } catch(e) {}
 try { const _sv = localStorage.getItem('mf_se_volume'); if (_sv !== null) seVolume = parseFloat(_sv); } catch(e) {}
 try { const _sb = document.getElementById('sound-toggle-btn'); if(_sb) _sb.textContent = soundEnabled ? '🔊' : '🔇'; } catch(e) {}
-// 選択音（実音声ファイル）はHTMLMediaElement.play()だと再生開始までのわずかな遅延が
-// 体感できてしまうため、Web Audio APIで事前デコードしたバッファを都度即時再生する。
-let __seSelectBuffer = null;
-let __seSelectLoading = false;
-function loadSeSelectBuffer() {
-  if (__seSelectBuffer || __seSelectLoading || !__audioCtx) return;
-  __seSelectLoading = true;
-  fetch('se-select.wav')
+// 実音声ファイルのSE（選択音・ダメージ音など）はHTMLMediaElement.play()だと再生開始までの
+// わずかな遅延が体感できてしまうため、Web Audio APIで事前デコードしたバッファを都度即時再生する。
+const __seBuffers = {};
+const __seBufferLoading = {};
+function loadSeBuffer(key, url) {
+  if (__seBuffers[key] || __seBufferLoading[key] || !__audioCtx) return;
+  __seBufferLoading[key] = true;
+  fetch(url)
     .then(r => r.arrayBuffer())
     .then(buf => __audioCtx.decodeAudioData(buf))
-    .then(decoded => { __seSelectBuffer = decoded; })
-    .catch(err => { console.warn('選択音の読み込みに失敗しました（合成音で代用します）:', err); })
-    .finally(() => { __seSelectLoading = false; });
+    .then(decoded => { __seBuffers[key] = decoded; })
+    .catch(err => { console.warn(`SE「${key}」の読み込みに失敗しました（合成音で代用します）:`, err); })
+    .finally(() => { __seBufferLoading[key] = false; });
+}
+function playSeBuffer(key) {
+  const buf = __seBuffers[key];
+  if (!buf || !__audioCtx || !__seGain) return false;
+  try {
+    const src = __audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(__seGain);
+    src.start(0);
+    return true;
+  } catch(e) { return false; }
 }
 function ensureAudioCtx() {
   try {
@@ -719,7 +730,8 @@ function ensureAudioCtx() {
     if (__audioCtx.state === 'suspended') __audioCtx.resume();
     if (!__seGain) { __seGain = __audioCtx.createGain(); __seGain.gain.value = seVolume; __seGain.connect(__audioCtx.destination); }
     if (!__bgmGain) { __bgmGain = __audioCtx.createGain(); __bgmGain.gain.value = bgmVolume; __bgmGain.connect(__audioCtx.destination); }
-    loadSeSelectBuffer();
+    loadSeBuffer('select', 'se-select.wav');
+    loadSeBuffer('damage', 'se-damage.wav');
   } catch(e) { return null; }
   return __audioCtx;
 }
@@ -771,20 +783,11 @@ function playSfx(type) {
   switch(type) {
     case 'select': {
       ensureAudioCtx();
-      if (__seSelectBuffer && __audioCtx) {
-        try {
-          const src = __audioCtx.createBufferSource();
-          src.buffer = __seSelectBuffer;
-          src.connect(__seGain);
-          src.start(0);
-        } catch(e) { tone(720,0,0.05,'square',0.06); }
-      } else {
-        tone(720,0,0.05,'square',0.06); // バッファ読み込み前・失敗時のフォールバック
-      }
+      if (!playSeBuffer('select')) tone(720,0,0.05,'square',0.06);
       break;
     }
     case 'play': tone(340,0,0.07,'triangle',0.10); tone(520,0.035,0.08,'triangle',0.08); break;
-    case 'dmg': hit(0,0.09,0.5,2200,120); break;
+    case 'dmg': if (!playSeBuffer('damage')) hit(0,0.09,0.5,2200,120); break;
     case 'crit': hit(0,0.05,0.45,3000,90); hit(0.045,0.12,0.55,2600,150); tone(1400,0.05,0.09,'square',0.08,2200); break;
     case 'heal': tone(520,0,0.11,'sine',0.14,780); break;
     case 'block': tone(220,0,0.08,'square',0.13); break;
@@ -947,7 +950,7 @@ document.addEventListener('click', (e) => {
   let el = e.target;
   for (let depth=0; depth<6 && el; depth++, el=el.parentElement) {
     if (el.tagName === 'BUTTON' || typeof el.onclick === 'function') {
-      if (!el.disabled) playSfx('select');
+      if (!el.disabled && el.dataset.noSelectSe !== '1') playSfx('select');
       break;
     }
   }
@@ -3509,7 +3512,9 @@ const costBadge = discounted
   ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 ${c.upgraded?'card-cost-star text-amber-950':'rounded-full text-white'} flex items-center justify-center text-[10px] font-black shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
   : `<div class="bg-amber-700 w-5 h-5 ${c.upgraded?'card-cost-star text-amber-950':'rounded-full text-white'} flex items-center justify-center text-[10px] font-black shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
 d.innerHTML=`${lrMark}<div class="flex justify-between items-start">${costBadge}<div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
-if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); }; return d;
+if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); };
+if(!isR) d.dataset.noSelectSe = '1';
+return d;
 }
 function renderHand(){ ui.hand.innerHTML=''; state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true))); }
 function shuffle(a){let r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
