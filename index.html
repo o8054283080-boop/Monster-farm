@@ -3792,7 +3792,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
         const h=getHand();
         if(h && h.contains(cardEl)){
           const idx=[...h.children].indexOf(cardEl);
-          if(idx>=0) { playSfx('select'); clickCard(idx); }
+          if(idx>=0) { clickCard(idx); }
         }
       }
       return;
