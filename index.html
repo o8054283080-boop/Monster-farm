@@ -990,11 +990,35 @@ function doAutosave() {
     const inMap = ui.map && !ui.map.classList.contains('hidden');
     if (!inBattle && !inMap) return; // 名前入力・選択・結果画面等では保存しない
     const payload = { scene: inBattle ? 'battle' : 'map', savedAt: Date.now(), state };
-    localStorage.setItem('mf_active_run', JSON.stringify(payload));
+    // 画像データ(img)は容量が大きくlocalStorageの上限に達しやすいため保存対象から除外し、
+    // 復帰時に最新の種族／敵データから再リンクする（再リンク失敗時の見た目崩れ・保存失敗を防止）
+    const json = JSON.stringify(payload, (key, value) => key === 'img' ? undefined : value);
+    localStorage.setItem('mf_active_run', json);
   } catch(e) { console.warn('自動セーブに失敗しました', e); }
 }
 function clearAutosave() {
   try { localStorage.removeItem('mf_active_run'); } catch(e) {}
+}
+// trait名から敵の画像を引けるルックアップを、ENEMY_NAMESとBOSS_DATA全体から一度だけ構築する
+let __enemyImgLookup = null;
+function buildEnemyImgLookup() {
+  const map = {};
+  function scan(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj)) { obj.forEach(scan); return; }
+    if (obj.trait && obj.img) map[obj.trait] = obj.img;
+    Object.keys(obj).forEach(k => scan(obj[k]));
+  }
+  try {
+    if (typeof ENEMY_NAMES !== 'undefined') scan(ENEMY_NAMES);
+    if (typeof BOSS_DATA !== 'undefined') scan(BOSS_DATA);
+  } catch(e) {}
+  return map;
+}
+function relinkEnemyImg(enemy) {
+  if (!enemy || !enemy.trait) return;
+  if (!__enemyImgLookup) __enemyImgLookup = buildEnemyImgLookup();
+  if (__enemyImgLookup[enemy.trait]) enemy.img = __enemyImgLookup[enemy.trait];
 }
 // プレイヤー・敵のスプライト画像を現在のstateから再描画する（通常は選択時/戦闘開始時のみ描画されるため、復帰時にも呼び出して見た目を復元する）
 function renderBattleSprites() {
@@ -1027,6 +1051,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
     // 種族データを最新のSPECIES定義に再リンク（画像やパラメータを最新化するため）
     const spId = state.player.species.id;
     if (spId && typeof SPECIES !== 'undefined' && SPECIES[spId]) state.player.species = SPECIES[spId];
+    // 敵データの画像も、trait名から最新のデータに再リンクする
+    if (state.enemy) relinkEnemyImg(state.enemy);
     ui.nameScene.classList.add('hidden');
     ui.select.classList.add('hidden');
     ui.topBar.classList.remove('hidden');
@@ -1039,6 +1065,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
         nextFloor();
       } else {
         ui.map.classList.add('hidden'); ui.battle.classList.remove('hidden');
+        ui.bgLayer.className = `battle-bg ${state.battleBgClass || 'bg-boss'}`;
         renderBattleSprites();
         if(!state.isPlayerTurn){
           // 保存時が敵ターンの演出中などだった場合、操作不能のまま固まらないよう
@@ -1815,6 +1842,7 @@ let bgClass = 'bg-boss';
 if (mode === 'boss') { bgClass = shuffle(['bg-boss-hourglass','bg-boss-sky','bg-boss-mushroom','bg-boss-ice','bg-boss-deepsea','bg-boss-demon','bg-boss-cosmic'])[0]; }
 else { bgClass = shuffle(['bg-photo-grass','bg-photo-desert','bg-photo-beach','bg-photo-snow','bg-photo-volcano','bg-photo-forest'])[0]; }
 ui.bgLayer.className = `battle-bg ${bgClass}`;
+state.battleBgClass = bgClass;
 let t; if(mode==='boss'){ t={...BOSS_DATA[state.floor]}; }
 else { 
   let elitePool;
@@ -2995,7 +3023,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -3006,7 +3034,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
