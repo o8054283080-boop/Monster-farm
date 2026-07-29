@@ -88,10 +88,11 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
 .dungeon-bg > * { position: relative; z-index: 1; }
 /* タイトル画面とルート選択画面だけは、合成グラデーションではなく実写背景に差し替える */
 #name-scene.dungeon-bg, #map-scene.dungeon-bg {
-  background:
-    linear-gradient(rgba(5,3,2,0.45), rgba(5,3,2,0.65)),
-    url('bg-dungeon.webp') center/cover no-repeat !important;
-  background-color:#0b0806 !important;
+  background-color: #0b0806 !important;
+  background-image: linear-gradient(rgba(5,3,2,0.45), rgba(5,3,2,0.65)), url('bg-dungeon.webp') !important;
+  background-size: cover, cover !important;
+  background-position: center center, center center !important;
+  background-repeat: no-repeat, no-repeat !important;
 }
 .ornate-panel {
   position: relative;
@@ -371,6 +372,16 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-black text-zinc-100">
+<script>
+(function(){
+  ['bg-dungeon.webp','title-logo.webp','title-logo.png'].forEach(function(url){
+    var img = new Image();
+    img.onload = function(){ console.log('画像の読み込みに成功: ' + url); };
+    img.onerror = function(){ console.error('画像の読み込みに失敗（ファイルが無いかパスが違います）: ' + url); };
+    img.src = url;
+  });
+})();
+</script>
 <button id="global-volume-btn" onclick="window.game.toggleVolumePanel()" title="音量設定" class="fixed top-2 left-2 z-[190] cursor-pointer bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-full w-9 h-9 flex items-center justify-center text-base shadow-lg backdrop-blur-sm">🔊</button>
 <div id="volume-panel" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
 <div class="ornate-panel w-full max-w-xs p-5 space-y-4">
@@ -1804,7 +1815,7 @@ let bgClass = 'bg-boss';
 if (mode === 'boss') { bgClass = shuffle(['bg-boss-hourglass','bg-boss-sky','bg-boss-mushroom','bg-boss-ice','bg-boss-deepsea','bg-boss-demon','bg-boss-cosmic'])[0]; }
 else { bgClass = shuffle(['bg-photo-grass','bg-photo-desert','bg-photo-beach','bg-photo-snow','bg-photo-volcano','bg-photo-forest'])[0]; }
 ui.bgLayer.className = `battle-bg ${bgClass}`;
-let t; if(mode==='boss'){ t={...BOSS_DATA[state.floor]}; const b={15:5000,30:10000,45:20000,47:30000,49:50000,50:80000,52:100000,54:100000,56:100000,58:125000,60:170000}; if(b[state.floor])state.score+=b[state.floor]; else if(state.floor>=61){ state.score += 500000 + (state.floor-61)*100000; } }
+let t; if(mode==='boss'){ t={...BOSS_DATA[state.floor]}; }
 else { 
   let elitePool;
   if(state.floor <= 14) elitePool = ENEMY_NAMES.elite_early;
@@ -2756,7 +2767,7 @@ if(c.godMiracleCostDown) state.player.godMiracleCostDown=true;
 if(c.enoOhActive) state.player.enoOhActive=true;
 if(c.ikkiIssin) state.player.ikkiIssin=true;
 if(c.blockPersists) state.player.blockPersists=true;
-if(c.cureDebuffs){ state.player.weak=0; state.player.vuln=0; }
+if(c.cureDebuffs){ state.player.weak=0; state.player.vuln=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.nextTurnHandReduce=0; state.player.nextTurnDrain=0; }
 if(c.randomExhaustHand && state.hand.length>0){
   for(let ri=0; ri<c.randomExhaustHand && state.hand.length>0; ri++){
     const rj=Math.floor(Math.random()*state.hand.length);
@@ -2842,6 +2853,11 @@ if(state.enemy.mode!=='boss'){
   else state.score += 500 * state.floor;
 }
 if(state.enemy.mode==='boss') {
+// 階層到達ボーナス(以前はバトル開始時に付与していたが、タスクキル→再戦闘で
+// 二重付与されてしまう不具合があったため、撃破時にまとめて付与するよう変更)
+const floorBonus={15:5000,30:10000,45:20000,47:30000,49:50000,50:80000,52:100000,54:100000,56:100000,58:125000,60:170000};
+if(floorBonus[state.floor]) state.score+=floorBonus[state.floor];
+else if(state.floor>=61){ state.score += 500000 + (state.floor-61)*100000; }
 const tc=state.enemy.turnCount; let b=0;
 if(tc<=3)b=50000; else if(tc<=5)b=30000; else if(tc<=10)b=15000; else if(tc<=15)b=10000; else if(tc<=20)b=5000;
 if(b>0){ state.score+=b; updateUI(); }
