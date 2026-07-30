@@ -732,6 +732,8 @@ function loadSeBuffer(key, url) {
     .catch(err => { console.warn(`SE「${key}」の読み込みに失敗しました（合成音で代用します）:`, err); })
     .finally(() => { __seBufferLoading[key] = false; });
 }
+// 再生中のSE(単発音声バッファ)を把握しておき、必要なタイミングで即座に止められるようにする
+const __activeSeSources = [];
 function playSeBuffer(key) {
   const buf = __seBuffers[key];
   if (!buf || !__audioCtx || !__seGain) return false;
@@ -739,9 +741,21 @@ function playSeBuffer(key) {
     const src = __audioCtx.createBufferSource();
     src.buffer = buf;
     src.connect(__seGain);
+    src.addEventListener('ended', () => {
+      const idx = __activeSeSources.indexOf(src);
+      if (idx !== -1) __activeSeSources.splice(idx, 1);
+    });
+    __activeSeSources.push(src);
     src.start(0);
     return true;
   } catch(e) { return false; }
+}
+// 戦闘勝利など場面転換時に、鳴りかけのダメージ音などが次の場面まで残ってしまわないよう強制停止する
+function stopAllSe() {
+  while (__activeSeSources.length) {
+    const src = __activeSeSources.pop();
+    try { src.stop(0); } catch(e) {}
+  }
 }
 function ensureAudioCtx() {
   try {
@@ -2862,7 +2876,7 @@ function applyMRCardEffect(el) {
 function showCelebrationEffect(type) { /* 互換用: 何もしない */ }
 
 function winBattle() {
-if(state.battleEnded) return; state.battleEnded=true; playSfx('victory');
+if(state.battleEnded) return; state.battleEnded=true; stopAllSe(); playSfx('victory');
 revertTempUpgrades();
 if(state.player.relics.some(r=>r.id==='k_chankonabe')) { state.player.hp=Math.min(state.player.maxHp, state.player.hp+15); }
 // ケガカードをバトル後に全除去
@@ -2937,6 +2951,7 @@ ui.rewardList.appendChild(d);
 // 15F/30F/45Fのボス撃破時：ボス遺物を3つから1つ選んで獲得
 function showBossRelicChoice() {
 showModal("🏆 ボス撃破！", "ボス遺物を1つ選んでください");
+playVictoryBGM();
 const speciesPool = BOSS_RELICS_SPECIES[state.player.species.id] || [];
 const pool = shuffle([...BOSS_RELICS_COMMON, ...speciesPool]).filter(r => !state.player.relics.some(y => y.id === r.id));
 const picks = pool.slice(0, 3);
