@@ -3748,6 +3748,19 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(en && !en.contains(highlight)) en.appendChild(highlight);
   }
 
+  function positionPreview(el, x, y){
+    // 画面の高さが小さい端末(ホームボタン付きなど)でも、トップバーに隠れたり
+    // 画面外にはみ出したりしないよう、表示位置を安全な範囲にクランプする
+    const topBarRect = ui.topBar.getBoundingClientRect();
+    const minTop = topBarRect.bottom + 24;
+    const maxTop = window.innerHeight - 24;
+    let top = y - 80;
+    if (top < minTop) top = minTop;
+    if (top > maxTop) top = maxTop;
+    el.style.left = x + 'px';
+    el.style.top = top + 'px';
+  }
+
   function moveDrag(x,y){
     if(!dragging) return;
     ghost.style.left=x+'px'; ghost.style.top=y+'px';
@@ -3758,15 +3771,13 @@ ui.endTurnBtn.onclick = handleEndTurn;
       const info=calcPreviewDmg(c);
       if(info){
         dmgPreview.style.display='block';
-        dmgPreview.style.left=x+'px';
-        dmgPreview.style.top=(y-80)+'px';
+        positionPreview(dmgPreview, x, y);
         dmgPreview.innerHTML=info.block>0&&info.net<info.raw
           ? `⚔️ <span style="text-decoration:line-through;opacity:0.5">${info.raw}</span> → ${info.net}`
           : `⚔️ ${info.raw}`;
       } else if(c.block){
         dmgPreview.style.display='block';
-        dmgPreview.style.left=x+'px';
-        dmgPreview.style.top=(y-80)+'px';
+        positionPreview(dmgPreview, x, y);
         dmgPreview.innerHTML=`🛡️ ${(c.block||0)+state.player.blockBase+state.player.blockBattle}`;
       } else { dmgPreview.style.display='none'; }
     } else { dmgPreview.style.display='none'; }
