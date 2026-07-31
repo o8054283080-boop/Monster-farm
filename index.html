@@ -225,16 +225,29 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 /* 画面が低い端末(ホームボタン付きなど)向け：戦闘画面を自動でコンパクト化し、
    攻撃予告や各種UIが上部バーと重なったり画面外に出たりしないようにする */
 @media (max-height: 700px) {
+  #top-bar > div:first-child { padding-top: 0.25rem !important; padding-bottom: 0.125rem !important; }
+  #top-bar > div:last-child { padding-bottom: 0.25rem !important; }
   .player-sprite-img { width: 4.2rem; height: 4.2rem; }
   .enemy-sprite-img { width: 4.6rem; height: 5.4rem; }
   .enemy-sprite-icon { font-size: 3rem; }
   .battle-monster-area { padding-top: 0.5rem !important; padding-bottom: 0.25rem !important; }
   #control-area { padding-top: 0.5rem !important; }
   #player-hand { height: 128px !important; }
-  .card { width: 84px !important; height: 124px !important; }
-  .card .card-desc { font-size: 6px !important; height: 24px !important; padding: 1px !important; line-height: 1.05 !important; }
-  .card .card-name { font-size: 7px !important; height: 11px !important; }
+  .card:not(.small) { width: 84px !important; height: 124px !important; }
+  .card:not(.small) .card-desc { font-size: 6px !important; height: 24px !important; padding: 1px !important; line-height: 1.05 !important; }
+  .card:not(.small) .card-name { font-size: 7px !important; height: 11px !important; }
 }
+/* 手札の枚数に応じてカードサイズを自動的に詰めて、横スクロールなしで全部見えるようにする */
+#player-hand[data-density="sm"] .card.small { width: 56px !important; height: 80px !important; border-width: 2px !important; }
+#player-hand[data-density="sm"] .card.small .card-cost { width: 14px !important; height: 14px !important; font-size: 7px !important; }
+#player-hand[data-density="sm"] .card.small .card-name { font-size: 6px !important; height: 10px !important; margin-bottom: 0 !important; }
+#player-hand[data-density="sm"] .card.small .card-val { font-size: 1rem !important; }
+#player-hand[data-density="sm"] .card.small .card-desc { font-size: 5px !important; padding: 1px !important; height: 22px !important; line-height: 1.05 !important; }
+#player-hand[data-density="xs"] .card.small { width: 46px !important; height: 66px !important; border-width: 1px !important; }
+#player-hand[data-density="xs"] .card.small .card-cost { width: 12px !important; height: 12px !important; font-size: 6px !important; }
+#player-hand[data-density="xs"] .card.small .card-name { font-size: 5px !important; height: 8px !important; margin-bottom: 0 !important; }
+#player-hand[data-density="xs"] .card.small .card-val { font-size: 0.8rem !important; }
+#player-hand[data-density="xs"] .card.small .card-desc { font-size: 4.2px !important; padding: 0px !important; height: 18px !important; line-height: 1 !important; }
 @keyframes idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .battle-bg { position: absolute; inset: 0; transition: background 1.2s ease; z-index: 0; overflow: hidden;}
 .battle-bg::before { content: ""; position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 1; transition: all 1.2s ease; }
@@ -432,7 +445,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 
 <!-- TOP BAR -->
 <header id="top-bar" class="hidden shrink-0 flex flex-col bg-zinc-900/90 border-b border-zinc-700 z-50 shadow-lg backdrop-blur-sm">
-<div class="flex justify-between items-center px-2 py-2 gap-1 sm:gap-2">
+<div class="flex justify-between items-center px-2 pt-2 pb-1 gap-1 sm:gap-2">
 <div class="flex items-center space-x-2 shrink-0">
 <div class="flex flex-col w-20 sm:w-28">
 <div id="player-species-name" class="font-bold text-amber-500 text-xs leading-tight">---</div>
@@ -447,13 +460,16 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 </div>
 <div class="flex items-center space-x-2 overflow-hidden justify-end flex-grow">
-<button onclick="window.game.showDeckList()" class="shrink-0 cursor-pointer pixel-font text-amber-500 text-xs bg-black/60 px-3 py-1 rounded border border-amber-900/50 hover:bg-amber-900/20 active:scale-95 transition-transform"><span id="floor-count">1</span>F</button>
+<div class="shrink-0 pixel-font text-amber-500 text-xs bg-black/60 px-3 py-1 rounded border border-amber-900/50"><span id="floor-count">1</span>F</div>
 <div class="shrink-0 text-[10px] font-mono text-emerald-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">SCORE</span><span id="score-display">0</span></div>
 <div class="shrink-0 text-[10px] font-mono text-yellow-400 drop-shadow flex flex-col items-end leading-tight"><span class="text-[8px] text-zinc-500">💰GOLD</span><span id="gold-display">0</span></div>
-<div onclick="window.game.showRelicList()" class="shrink cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-0.5 overflow-x-auto no-scrollbar max-w-[90px] sm:max-w-[160px]" id="relics-container"></div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 px-2 pb-1.5">
+<div onclick="window.game.showRelicList()" class="flex-grow cursor-pointer bg-zinc-800 p-1 rounded hover:bg-zinc-700 transition flex space-x-1 overflow-x-auto no-scrollbar min-w-0" id="relics-container"></div>
+<button onclick="window.game.showDeckList()" title="デッキ一覧" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🎴</button>
 <button id="sound-toggle-btn" onclick="window.game.toggleVolumePanel()" title="音量設定" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🔊</button>
 <button onclick="window.game.confirmGiveUp()" title="冒険をあきらめる" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-red-950 border border-zinc-700 hover:border-red-800 text-zinc-500 hover:text-red-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🏳️</button>
-</div>
 </div>
 </header>
 
@@ -476,6 +492,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 
 <button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
 <button onclick="document.getElementById('howto-modal').classList.remove('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-sm font-bold rounded-sm transition-all active:scale-95">📖 遊び方</button>
+<button onclick="window.game.showMetaShop()" class="ornate-panel w-full py-2 text-amber-200 text-sm font-bold rounded-sm transition-all active:scale-95">🏯 継承ショップ</button>
 <button onclick="window.game.showRanking()" class="text-xs text-amber-200/60 underline mt-4 hover:text-amber-200">◇ ランキングを見る ◇</button>
 </div>
 </section>
@@ -607,7 +624,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="text-[10px] text-zinc-500 font-bold text-center pixel-font">Deck<br><span id="draw-count" class="text-white text-lg">0</span></div>
 </div>
 <!-- カードエリア：スクロール対応 -->
-<div id="player-hand" class="flex justify-start items-end h-[152px] w-full mb-1.5 space-x-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
+<div id="player-hand" class="flex justify-start items-end h-[152px] w-full mb-1.5 gap-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
 <div class="flex justify-center">
 <button id="end-turn-btn" class="w-40 py-3 bg-gradient-to-b from-red-800 to-red-950 text-white font-black rounded-full border-2 border-red-600/50 text-sm pixel-font tracking-widest shadow-lg active:scale-95 hover:brightness-110 disabled:grayscale disabled:opacity-50">ターン終了</button>
 </div>
@@ -1138,9 +1155,163 @@ function renderSpeciesSelect(){
     grid.appendChild(btn);
   });
 }
+// ==================== 継承ショップ(メタ通貨システム) ====================
+// 冒険を終えるたび「継承ポイント」が貯まり、次の冒険以降に永続的に反映される強化を購入できる。
+const META_STORAGE_KEY = 'mf_meta_progress';
+const META_SHOP_ITEMS = [
+  { key:'life', label:'開始ライフ', type:'stat', maxLevel:10, perLevel:5, costs:[40,55,75,100,130,165,205,250,300,360] },
+  { key:'pow', label:'開始チカラ', type:'stat', maxLevel:5, perLevel:3, costs:[60,110,180,270,380] },
+  { key:'def', label:'開始丈夫さ', type:'stat', maxLevel:5, perLevel:3, costs:[60,110,180,270,380] },
+  { key:'gutsRegen', label:'ガッツ回復量', type:'stat', maxLevel:5, perLevel:1, costs:[80,150,240,350,480] },
+  { key:'gutsCap', label:'ガッツ上限', type:'stat', maxLevel:5, perLevel:4, costs:[70,130,200,290,400] },
+  { key:'ssr', label:'SSRカード確率アップ', type:'percent', maxLevel:3, totalPct:[0,0.5,1.0,1.5], costs:[500,1000,2000] },
+  { key:'mr', label:'MRカード確率アップ', type:'percent', maxLevel:3, totalPct:[0,0.25,0.5,1.0], costs:[750,1500,3000] },
+  { key:'rareRelic', label:'レア遺物確率アップ', type:'percent', maxLevel:3, totalPct:[0,2,4,7], costs:[700,1400,2500] },
+];
+const META_RELIC_UNLOCK_COST = 1000;
+// 初期遺物解放で持ち込める遺物の候補(仮。相談後に候補を差し替える)
+const STARTER_RELIC_POOL = [];
+
+function loadMetaProgress(){
+  const fallback = { points:0, levels:{life:0,pow:0,def:0,gutsRegen:0,gutsCap:0,ssr:0,mr:0,rareRelic:0}, relicUnlocked:false };
+  try{
+    const raw = localStorage.getItem(META_STORAGE_KEY);
+    if(!raw) return fallback;
+    const mp = JSON.parse(raw);
+    mp.levels = Object.assign({}, fallback.levels, mp.levels||{});
+    mp.points = mp.points || 0;
+    mp.relicUnlocked = !!mp.relicUnlocked;
+    return mp;
+  }catch(e){ console.warn('継承データの読み込みに失敗しました', e); return fallback; }
+}
+function saveMetaProgress(mp){
+  try{ localStorage.setItem(META_STORAGE_KEY, JSON.stringify(mp)); }catch(e){ console.warn('継承データの保存に失敗しました', e); }
+}
+function metaItemCurrentValue(item, lv){
+  if(item.type==='stat') return item.perLevel * lv;
+  if(item.type==='percent') return item.totalPct[lv];
+  return 0;
+}
+// 難易度に応じた継承ポイントの倍率(最終スコアの倍率と揃えてある)
+function getMetaDifficultyMult(){
+  if(state.difficulty==='veryhard') return 1.75;
+  if(state.difficulty==='expert') return 1.5;
+  if(state.difficulty==='hard') return 1.2;
+  return 1.0;
+}
+const META_BOSS_BONUS = {15:20,30:40,45:60,60:100,63:150};
+// 冒険終了時(勝利/敗北/ギブアップ共通)に継承ポイントを付与し、獲得量を返す
+function awardMetaPoints(){
+  const floor = state.floor || 1;
+  let pts = Math.floor(floor * 3 * getMetaDifficultyMult());
+  Object.keys(META_BOSS_BONUS).forEach(f => { if(floor >= parseInt(f)) pts += META_BOSS_BONUS[f]; });
+  const mp = loadMetaProgress();
+  mp.points += pts;
+  saveMetaProgress(mp);
+  return pts;
+}
+// 冒険開始時(種族選択直後)に、購入済みの継承ショップ効果をプレイヤーへ適用する
+function applyMetaShopBonuses(){
+  const mp = loadMetaProgress();
+  const lv = mp.levels;
+  state.player.maxHp += (lv.life||0) * 5;
+  state.player.hp = state.player.maxHp;
+  state.player.atkBase += (lv.pow||0) * 3;
+  state.player.blockBase += (lv.def||0) * 3;
+  state.player.regenEnergy += (lv.gutsRegen||0) * 1;
+  state.player.maxEnergy += (lv.gutsCap||0) * 4;
+  if(mp.relicUnlocked && STARTER_RELIC_POOL.length){
+    const startRelic = {...STARTER_RELIC_POOL[0]};
+    state.player.relics.push(startRelic);
+    applyRelicEffect(startRelic);
+  }
+}
+// 現在の継承ショップ効果(カード/遺物の確率アップ)をまとめて取得
+function getMetaProbabilityBonus(){
+  const mp = loadMetaProgress();
+  const lv = mp.levels;
+  return {
+    ssr: metaItemCurrentValue(META_SHOP_ITEMS.find(i=>i.key==='ssr'), lv.ssr||0) / 100,
+    mr: metaItemCurrentValue(META_SHOP_ITEMS.find(i=>i.key==='mr'), lv.mr||0) / 100,
+    rareRelic: metaItemCurrentValue(META_SHOP_ITEMS.find(i=>i.key==='rareRelic'), lv.rareRelic||0) / 100,
+  };
+}
+function renderMetaShop(){
+  const mp = loadMetaProgress();
+  ui.modalDesc.innerText = `所持ポイント: ${mp.points}pt`;
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'flex flex-col gap-2 w-full';
+  META_SHOP_ITEMS.forEach(item => {
+    const lv = mp.levels[item.key] || 0;
+    const maxed = lv >= item.maxLevel;
+    const nextCost = maxed ? null : item.costs[lv];
+    const curVal = metaItemCurrentValue(item, lv);
+    const nextVal = maxed ? null : metaItemCurrentValue(item, lv+1);
+    const fmt = v => item.type==='percent' ? `+${v}%` : `+${v}`;
+    const row = document.createElement('div');
+    row.className = 'p-3 bg-zinc-800/80 border border-zinc-600 rounded-xl flex items-center justify-between gap-2';
+    const info = document.createElement('div');
+    info.className = 'text-left';
+    info.innerHTML = `<div class="text-xs font-bold text-amber-200">${item.label} (Lv.${lv}/${item.maxLevel})</div><div class="text-[10px] text-zinc-400 mt-0.5">現在 ${fmt(curVal)}${maxed?'(MAX)':` → 次 ${fmt(nextVal)}`}</div>`;
+    const canBuy = !maxed && mp.points >= nextCost;
+    const btn = document.createElement('button');
+    btn.className = maxed ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-500'
+      : (canBuy ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-amber-700 hover:bg-amber-600 text-amber-100 active:scale-95 transition' : 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-500');
+    btn.innerText = maxed ? 'MAX' : `${nextCost}pt`;
+    if(canBuy){
+      btn.onclick = () => {
+        const mp2 = loadMetaProgress();
+        const cost2 = (mp2.levels[item.key]||0) >= item.maxLevel ? null : item.costs[mp2.levels[item.key]||0];
+        if(cost2==null || mp2.points < cost2) return;
+        mp2.points -= cost2;
+        mp2.levels[item.key] = (mp2.levels[item.key]||0) + 1;
+        saveMetaProgress(mp2);
+        playSfx('select');
+        renderMetaShop();
+      };
+    }
+    row.appendChild(info); row.appendChild(btn);
+    wrap.appendChild(row);
+  });
+  const relicRow = document.createElement('div');
+  relicRow.className = 'p-3 bg-zinc-800/80 border border-yellow-700 rounded-xl flex items-center justify-between gap-2';
+  const relicInfo = document.createElement('div');
+  relicInfo.className = 'text-left';
+  relicInfo.innerHTML = `<div class="text-xs font-bold text-yellow-300">✨ 初期遺物解放</div><div class="text-[10px] text-zinc-400 mt-0.5">冒険開始時に遺物を1つ持てるようになる(中身は近日追加)</div>`;
+  const relicBtn = document.createElement('button');
+  const relicCanBuy = !mp.relicUnlocked && mp.points >= META_RELIC_UNLOCK_COST;
+  relicBtn.className = mp.relicUnlocked ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-400'
+    : (relicCanBuy ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-yellow-700 hover:bg-yellow-600 text-yellow-100 active:scale-95 transition' : 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-500');
+  relicBtn.innerText = mp.relicUnlocked ? '解放済み' : `${META_RELIC_UNLOCK_COST}pt`;
+  if(relicCanBuy){
+    relicBtn.onclick = () => {
+      const mp2 = loadMetaProgress();
+      if(mp2.relicUnlocked || mp2.points < META_RELIC_UNLOCK_COST) return;
+      mp2.points -= META_RELIC_UNLOCK_COST;
+      mp2.relicUnlocked = true;
+      saveMetaProgress(mp2);
+      playSfx('select');
+      renderMetaShop();
+    };
+  }
+  relicRow.appendChild(relicInfo); relicRow.appendChild(relicBtn);
+  wrap.appendChild(relicRow);
+  ui.rewardList.appendChild(wrap);
+}
+window.game.showMetaShop = function(){
+  showModal('🏯 継承ショップ', '');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '閉じる';
+  ui.modalConfirm.onclick = () => ui.modal.classList.add('hidden');
+  renderMetaShop();
+};
+// ==================== 継承ショップここまで ====================
+
 window.game.selectMonster = function(key) {
 const spec = SPECIES[key];
 state.player.species=spec; state.player.maxHp=spec.hp; state.player.hp=spec.hp;
+applyMetaShopBonuses();
 state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
 ui.playerSpeciesName.innerText=spec.name;
 if(spec.img){
@@ -1722,7 +1893,8 @@ const rareRelicPool = ALL_RELICS.filter(x=>x.isRare && (!x.mid||x.mid===state.pl
 const usedRelicIds = new Set();
 const shopRelics = [];
 for(let i=0;i<3;i++){
-  const tier = Math.random() < 0.8 ? 'normal' : 'rare';
+  const rareTierChance = 0.2 + getMetaProbabilityBonus().rareRelic;
+  const tier = Math.random() < rareTierChance ? 'rare' : 'normal';
   let pool = (tier==='rare'?rareRelicPool:normalRelicPool).filter(x=>!usedRelicIds.has(x.id));
   if(pool.length===0) pool = (tier==='rare'?normalRelicPool:rareRelicPool).filter(x=>!usedRelicIds.has(x.id));
   const picked = shuffle(pool)[0];
@@ -2934,6 +3106,16 @@ if(state.enemy.mode==='boss' && [15,30,45,60].includes(state.floor)) { showBossR
 showModal(state.enemy.isRareElite && state.enemy.trait==='narikillog'?"🐸 ナリキロッグ撃破！":"勝利！", state.enemy.isRareElite && state.enemy.trait==='narikillog'?"MRカード3枚から選択！":"報酬を選択してください");
 playVictoryBGM();
 let r={N:0.4,R:0.30,SR:0.22,SSR:0.08,MR:0}; if(state.enemy.isRareElite && state.enemy.trait==='narikillog')r={N:0,R:0,SR:0,SSR:0,MR:1.0}; else if(state.enemy.isRareElite)r={N:0,R:0,SR:0,SSR:0,MR:1.0}; else if(state.enemy.isElite)r={N:0.15,R:0.35,SR:0.30,SSR:0.17,MR:0.03}; if(state.enemy.mode==='boss')r={N:0,R:0,SR:0,SSR:0.75,MR:0.25};
+// 継承ショップの確率アップ効果を反映(通常のカード報酬のみ。MR/レア確定枠には影響しない)
+if(!(state.enemy.isRareElite) && state.enemy.mode!=='boss'){
+  const mpBonus = getMetaProbabilityBonus();
+  const addSsr = Math.max(0, mpBonus.ssr); const addMr = Math.max(0, mpBonus.mr);
+  const totalAdd = addSsr + addMr;
+  if(totalAdd > 0 && (r.N + r.R) > totalAdd){
+    const takeFromN = totalAdd * (r.N/(r.N+r.R)); const takeFromR = totalAdd - takeFromN;
+    r.N -= takeFromN; r.R -= takeFromR; r.SSR += addSsr; r.MR += addMr;
+  }
+}
 const cr=document.createElement('div'); cr.className="flex space-x-2 py-2 overflow-x-auto w-full no-scrollbar justify-center";
 const pool=Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id)&&!c.isStarter);
 for(let i=0;i<3;i++){
@@ -2955,8 +3137,12 @@ ui.rewardList.appendChild(cr); ui.rewardList.appendChild(skipBtn);
 }
 
 function addRelicReward() {
-const pool = ALL_RELICS.filter(x => !x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y => y.id === x.id));
-const r = shuffle(pool)[0];
+const rareBonus = getMetaProbabilityBonus().rareRelic;
+const rarePool = ALL_RELICS.filter(x => x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y => y.id === x.id));
+const normalPool = ALL_RELICS.filter(x => !x.isRare && !x.eventOnly && (!x.mid||x.mid===state.player.species.id) && !state.player.relics.some(y => y.id === x.id));
+const useRare = rareBonus > 0 && rarePool.length > 0 && Math.random() < rareBonus;
+const pool = useRare ? rarePool : normalPool;
+const r = shuffle(pool)[0] || shuffle(normalPool)[0];
 if(r){
 state.player.relics.push(r); applyRelicEffect(r);
 const d=document.createElement('div');
@@ -3019,7 +3205,8 @@ window.game.giveUpRun = function() {
   clearAutosave();
   const s = calculateFinalScore();
   saveScore(s);
-  showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}`);
+  const mpt = awardMetaPoints();
+  showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}\n継承ポイント +${mpt}pt`);
   ui.modalBtn.classList.remove('hidden');
   ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); stopVictoryBGM(); playMenuBGM(); showGlobalVolumeBtn(); };
 };
@@ -3056,7 +3243,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const msg = state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -3067,7 +3254,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}\n継承ポイント +${mpt}pt`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
@@ -3604,7 +3791,16 @@ if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; 
 if(!isR) d.dataset.noSelectSe = '1';
 return d;
 }
-function renderHand(){ ui.hand.innerHTML=''; state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true))); }
+function renderHand(){
+  ui.hand.innerHTML='';
+  const n = state.hand.length;
+  let density = 'normal', gap = 8;
+  if(n >= 7){ density='xs'; gap=3; }
+  else if(n >= 5){ density='sm'; gap=5; }
+  ui.hand.dataset.density = density;
+  ui.hand.style.gap = gap+'px';
+  state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true)));
+}
 function shuffle(a){let r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 function drawCards(n){ for(let i=0;i<n;i++){ if(state.drawPile.length===0){if(state.discardPile.length===0)break;state.drawPile=shuffle(state.discardPile);state.discardPile=[];} state.hand.push(state.drawPile.pop()); } }
 function showCritEffect(){
@@ -3703,6 +3899,9 @@ if(state.player.species.id === 'gali') dmgVal = Math.floor(dmgVal * 0.95);
 if(state.player.species.id === 'suezo') dmgVal = Math.max(0, dmgVal - 3);
 if(state.player.species.id === 'ham') dmgVal = Math.max(0, dmgVal - 3);
 if(state.player.species.id === 'kolope') dmgVal = Math.max(0, dmgVal - 4);
+if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) dmgVal = Math.floor(dmgVal * 0.9);
+if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_enkaku')) dmgVal = Math.floor(dmgVal * 0.9);
+if(state.enemy.bleed>0 && state.player.relics.some(r=>r.id==='z_kuroi_houseki')) dmgVal = Math.floor(dmgVal * 0.9);
 const playerDef = (state.player.blockBase || 0) + (state.player.blockBattle || 0);
 dmgVal = Math.max(0, dmgVal - playerDef);
 }
@@ -3745,16 +3944,33 @@ ui.endTurnBtn.onclick = handleEndTurn;
   function getHand(){ return document.getElementById('player-hand'); }
 
   function calcPreviewDmg(c) {
-    if(!c || !c.val || c.val <= 0) return null;
+    if(!c) return null;
+    if(!c.dmgEqualsBlock && (!c.val || c.val <= 0)) return null;
+    const hits = c.hits || 1;
     let b = (c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
+    if(c.dmgEqualsBlock) b = state.player.block;
+    if(c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 30;
+    if(c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
+    if(c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
+    if(c.comboDmg && state.enemy && state.enemy.vuln>0) b += c.comboDmg;
+    if(c.combo && state.enemy && state.enemy.vuln>0) b += 25;
+    if(state.player.relics.some(r=>r.id==='br_ga_elemental') && state.enemy && (state.enemy.weak>0||state.enemy.vuln>0||state.enemy.burn>0||state.enemy.freeze>0||state.enemy.shock>0)) b += 15;
     let m = state.player.nextDmgMult || 1;
-    if(state.player.species && state.player.species.id==='golem') m*=1.25;
-    if(state.player.species && state.player.species.id==='gali')  m*=1.1;
-    if(state.player.currentTurnDouble) m*=2;
-    if(state.player.vuln>0) m*=1.5;
-    if(state.player.weak>0) m*=0.75;
-    // 敵の守弱（被ダメ増加）
-    if(state.enemy && state.enemy.vuln>0) m*=1.5;
+    if(state.player.species && state.player.species.id==='golem') m *= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
+    if(state.player.species && state.player.species.id==='gali')  m *= 1.1;
+    if(state.enemy && state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m *= 1.15;
+    if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m *= 1.1;
+    if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m *= 1.5;
+    if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m *= 1.5;
+    if(c.selfDmg && state.player.selfDmgCardsDoubled) m *= 2;
+    if(state.enemy && state.enemy.legendaryWhim) m *= (hits>1 ? 0.5 : 2);
+    if(c.executeBelow && state.enemy && state.enemy.hp <= state.enemy.maxHp*c.executeBelow) m *= (c.executeMult||2);
+    if(state.player.ikkiIssin && !(hits>1)) m *= 3;
+    if((state.player.permDmgMultBonus||0) > 0) m *= (1+state.player.permDmgMultBonus);
+    if(state.player.godCoreDmgBonus>0) m *= (1+state.player.godCoreDmgBonus);
+    if(state.player.currentTurnDouble) m *= 2;
+    if(state.enemy && state.enemy.vuln>0) m *= 1.5;
+    if(state.player.weak>0) m *= 0.75;
     const raw = Math.floor(b*m);
     const blk = (state.enemy && state.enemy.block)||0;
     return { raw, net: Math.max(0,raw-blk), block: blk };
