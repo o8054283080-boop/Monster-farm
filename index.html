@@ -59,7 +59,7 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
 .card.small .card-name { font-size: 7px; height: 12px; margin-bottom: 0; }
 .card.small .card-val { font-size: 1.25rem; }
 .card.small .card-desc { font-size: 6px; padding: 1px; height: 28px; line-height: 1.1; }
-@media (min-height: 700px) { .card { width: 120px; height: 176px; } .card.small { width: 80px; height: 110px; } }
+@media (min-height: 700px) { .card { width: 120px; height: 176px; } .card.small { width: 80px; height: 110px; } #player-hand { height: 182px !important; } }
 .card:active { transform: scale(0.95); }
 .card.disabled { filter: grayscale(0.9) brightness(0.4) !important; cursor: not-allowed; animation: none !important; }
 
@@ -219,6 +219,22 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 50% { box-shadow: 0 0 16px rgba(253,224,71,0.85), 0 0 5px rgba(255,255,255,0.7) inset; }
 }
 .monster-sprite { animation: idle 3s ease-in-out infinite; display: inline-block; font-size: 5rem; line-height: 1; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+.player-sprite-img { width: 5.5rem; height: 5.5rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
+.enemy-sprite-img { width: 6rem; height: 7rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
+.enemy-sprite-icon { font-size: 4rem; }
+/* 画面が低い端末(ホームボタン付きなど)向け：戦闘画面を自動でコンパクト化し、
+   攻撃予告や各種UIが上部バーと重なったり画面外に出たりしないようにする */
+@media (max-height: 700px) {
+  .player-sprite-img { width: 4.2rem; height: 4.2rem; }
+  .enemy-sprite-img { width: 4.6rem; height: 5.4rem; }
+  .enemy-sprite-icon { font-size: 3rem; }
+  .battle-monster-area { padding-top: 0.5rem !important; padding-bottom: 0.25rem !important; }
+  #control-area { padding-top: 0.5rem !important; }
+  #player-hand { height: 128px !important; }
+  .card { width: 84px !important; height: 124px !important; }
+  .card .card-desc { font-size: 6px !important; height: 24px !important; padding: 1px !important; line-height: 1.05 !important; }
+  .card .card-name { font-size: 7px !important; height: 11px !important; }
+}
 @keyframes idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .battle-bg { position: absolute; inset: 0; transition: background 1.2s ease; z-index: 0; overflow: hidden;}
 .battle-bg::before { content: ""; position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 1; transition: all 1.2s ease; }
@@ -547,37 +563,39 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <section id="battle-scene" class="hidden h-full flex flex-col justify-between relative">
 <div id="battle-bg-layer" class="battle-bg"></div>
 <!-- Monster Area -->
-<div class="flex-grow flex items-end justify-around px-2 min-h-0 relative z-10 pt-8 pb-4">
+<div class="flex-grow flex items-end justify-around px-2 min-h-0 relative z-10 pt-3 pb-1 battle-monster-area">
 <!-- Player -->
 <div id="player-monster-node" class="flex flex-col items-center relative w-1/3">
-<div class="mb-3 flex flex-col items-center w-full">
-<div class="bg-blue-900/80 px-3 py-1 rounded-full border border-blue-400/50 shadow-lg backdrop-blur-sm mb-1"><span id="player-block" class="font-bold text-blue-200 text-sm">🛡️ 0</span></div>
-<div id="player-statuses" class="flex flex-wrap justify-center gap-1 w-full"></div>
+<div class="mb-1.5 flex flex-wrap items-center justify-center gap-1 w-full">
+<span id="player-block" class="bg-blue-900/80 px-2 py-0.5 rounded-full border border-blue-400/50 shadow-lg backdrop-blur-sm font-bold text-blue-200 text-[10px] whitespace-nowrap">🛡️ 0</span>
+<div id="player-statuses" class="flex flex-wrap justify-center gap-1"></div>
 </div>
 <div id="player-visual" class="monster-sprite transition-transform"></div>
 </div>
 <!-- Enemy -->
 <div id="enemy-monster-node" class="flex flex-col items-center relative w-1/3">
 <div id="boss-effect-icon" onclick="window.game.showBossEffectInfo()" class="hidden absolute -right-2 -top-2 z-30 w-8 h-8 rounded-full bg-purple-950 border-2 border-purple-400 flex items-center justify-center text-lg shadow-lg shadow-purple-500/50 cursor-pointer active:scale-90 transition-transform animate-pulse">✨</div>
-<div id="enemy-intent" class="mb-3 flex flex-col items-center bg-black/80 p-2 rounded-lg border border-zinc-500 z-20 backdrop-blur-md shadow-xl min-w-[50px]">
-<div id="intent-icon" class="text-2xl drop-shadow-md">⚔️</div>
-<div id="intent-value" class="text-lg font-black text-red-400 pixel-font">0</div>
-<div id="intent-desc" class="text-[8px] text-zinc-300 mt-0.5 whitespace-nowrap font-bold">攻撃</div>
+<div id="enemy-intent" class="mb-1.5 flex items-center gap-1.5 bg-black/80 px-2.5 py-1.5 rounded-lg border border-zinc-500 z-20 backdrop-blur-md shadow-xl min-w-[50px]">
+<span id="intent-icon" class="text-base leading-none drop-shadow-md">⚔️</span>
+<span id="intent-desc" class="text-[9px] text-zinc-300 whitespace-nowrap font-bold">攻撃</span>
+<span id="intent-value" class="text-base font-black text-red-400 pixel-font leading-none">0</span>
 </div>
-<div class="mb-3 w-36 bg-zinc-900/90 p-2 rounded-lg border border-zinc-600 shadow-xl backdrop-blur-sm">
+<div class="mb-1.5 w-36 bg-zinc-900/90 p-2 rounded-lg border border-zinc-600 shadow-xl backdrop-blur-sm">
 <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden mb-1 border border-zinc-700">
 <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-600 to-orange-500 h-full transition-all" style="width: 100%"></div>
 </div>
 <div class="flex justify-between text-[10px] font-bold mb-1"><span id="enemy-name" class="truncate w-32 text-zinc-200">Enemy</span><span id="enemy-hp-text" class="text-red-300">0/0</span></div>
-<div id="enemy-block-display" class="text-[10px] text-blue-300 font-bold hidden flex justify-center border-t border-zinc-700 pt-1">🛡️ <span id="enemy-block-val">0</span></div>
-<div id="enemy-statuses" class="flex flex-wrap gap-1 mt-1 justify-center"></div>
+<div class="flex flex-wrap gap-1 justify-center items-center">
+<span id="enemy-block-display" class="text-[10px] text-blue-300 font-bold hidden bg-blue-950/60 px-1 rounded border border-blue-400/30">🛡️ <span id="enemy-block-val">0</span></span>
+<div id="enemy-statuses" class="flex flex-wrap gap-1 justify-center"></div>
+</div>
 </div>
 <div id="enemy-visual" class="monster-sprite aura-red transition-transform"></div>
 </div>
 </div>
 <!-- Controls -->
-<div class="bg-gradient-to-t from-black via-zinc-900/95 to-transparent pt-6 pb-4 shrink-0 z-10 px-1" id="control-area">
-<div class="flex items-center justify-center space-x-6 mb-3">
+<div class="bg-gradient-to-t from-black via-zinc-900/95 to-transparent pt-2 pb-4 shrink-0 z-10 px-1" id="control-area">
+<div class="flex items-center justify-center space-x-6 mb-1.5">
 <div class="text-[10px] text-zinc-500 font-bold text-center pixel-font">Grave<br><span id="discard-count" class="text-white text-lg">0</span></div>
 <div class="relative group flex flex-col items-center">
 <div id="energy-circle" class="w-14 h-14 rounded-full bg-amber-600 border-4 border-amber-800 flex flex-col items-center justify-center shadow-[0_0_20px_rgba(217,119,6,0.6)] z-10 relative">
@@ -589,7 +607,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="text-[10px] text-zinc-500 font-bold text-center pixel-font">Deck<br><span id="draw-count" class="text-white text-lg">0</span></div>
 </div>
 <!-- カードエリア：スクロール対応 -->
-<div id="player-hand" class="flex justify-start items-end h-[170px] w-full mb-3 space-x-2 overflow-x-auto px-4 pb-4 no-scrollbar scroll-smooth"></div>
+<div id="player-hand" class="flex justify-start items-end h-[152px] w-full mb-1.5 space-x-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
 <div class="flex justify-center">
 <button id="end-turn-btn" class="w-40 py-3 bg-gradient-to-b from-red-800 to-red-950 text-white font-black rounded-full border-2 border-red-600/50 text-sm pixel-font tracking-widest shadow-lg active:scale-95 hover:brightness-110 disabled:grayscale disabled:opacity-50">ターン終了</button>
 </div>
@@ -1039,7 +1057,7 @@ function renderBattleSprites() {
   if(state.player && state.player.species){
     const spec = state.player.species;
     ui.playerSpeciesName.innerText = spec.name;
-    if(spec.img){ ui.playerVisual.innerHTML = `<img src="${spec.img}" style="width:5.5rem;height:5.5rem;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));">`; }
+    if(spec.img){ ui.playerVisual.innerHTML = `<img src="${spec.img}" class="player-sprite-img">`; }
     else { ui.playerVisual.innerHTML = spec.icon||''; }
   }
   if(state.enemy && state.enemy.hp !== undefined){
@@ -1047,8 +1065,8 @@ function renderBattleSprites() {
     if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
     else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
     else ui.enemyVisual.className='monster-sprite';
-    if(t.img){ ui.enemyVisual.innerHTML = `<img src="${t.img}" style="width:6rem;height:7rem;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">`; }
-    else { ui.enemyVisual.innerHTML = `<span style="font-size:4rem;">${t.icon||''}</span>`; }
+    if(t.img){ ui.enemyVisual.innerHTML = `<img src="${t.img}" class="enemy-sprite-img">`; }
+    else { ui.enemyVisual.innerHTML = `<span class="enemy-sprite-icon">${t.icon||''}</span>`; }
   }
 }
 window.addEventListener('beforeunload', doAutosave);
@@ -1126,7 +1144,7 @@ state.player.species=spec; state.player.maxHp=spec.hp; state.player.hp=spec.hp;
 state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
 ui.playerSpeciesName.innerText=spec.name;
 if(spec.img){
-  ui.playerVisual.innerHTML=`<img src="${spec.img}" style="width:5.5rem;height:5.5rem;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));">`;
+  ui.playerVisual.innerHTML=`<img src="${spec.img}" class="player-sprite-img">`;
 } else {
   ui.playerVisual.innerText=spec.icon||'';
 }
@@ -1922,9 +1940,9 @@ if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
 else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
 else ui.enemyVisual.className='monster-sprite';
 if(t.img){
-  ui.enemyVisual.innerHTML=`<img src="${t.img}" style="width:6rem;height:7rem;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));">`;
+  ui.enemyVisual.innerHTML=`<img src="${t.img}" class="enemy-sprite-img">`;
 } else {
-  ui.enemyVisual.innerHTML=`<span style="font-size:4rem;">${t.icon||''}</span>`;
+  ui.enemyVisual.innerHTML=`<span class="enemy-sprite-icon">${t.icon||''}</span>`;
 }
 let dt=1; if(state.player.relics.some(r=>r.id==='joker'||r.id==='gali')) dt=2;
 if(state.player.relics.some(r=>r.id==='joker')) state.enemy.vuln=dt; if(state.player.relics.some(r=>r.id==='gali')) state.enemy.weak=dt;
