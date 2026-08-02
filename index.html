@@ -543,10 +543,18 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <h3 id="acc-picker-title" class="text-amber-400 font-black text-sm mb-3 text-center">アクセサリを選択</h3>
     <div id="acc-picker-grid" class="grid grid-cols-4 gap-2 mb-4"></div>
     <div id="acc-picker-customize" class="hidden border-t border-zinc-700 pt-3">
+      <div class="flex justify-center mb-3">
+        <div id="acc-picker-preview" class="relative w-36 h-36 flex items-center justify-center bg-zinc-950/60 rounded-xl border border-zinc-700 overflow-hidden touch-none">
+          <img id="acc-picker-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
+          <img id="acc-picker-preview-acc" class="absolute z-20 cursor-grab active:cursor-grabbing" src="" style="touch-action:none;">
+        </div>
+      </div>
+      <div class="text-[9px] text-zinc-500 text-center mb-2">アクセサリをドラッグして位置を調整できます</div>
       <div class="text-[11px] text-zinc-400 mb-1">色相 <span id="acc-hue-val">0</span>°</div>
       <input type="range" id="acc-hue-slider" min="0" max="359" value="0" class="w-full mb-3">
       <div class="text-[11px] text-zinc-400 mb-1">角度 <span id="acc-rotate-val">0</span>°</div>
-      <input type="range" id="acc-rotate-slider" min="0" max="359" value="0" class="w-full">
+      <input type="range" id="acc-rotate-slider" min="0" max="359" value="0" class="w-full mb-3">
+      <button onclick="resetAccPosition()" class="w-full py-1.5 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-600">位置をリセット</button>
     </div>
   </div>
 </div>
@@ -1523,7 +1531,7 @@ function loadCosmetics(){
   const fallback = {
     ownedSkins: [],           // 所持スキンidの配列
     equippedSkin: {},         // {種族id: スキンid} 未設定/nullなら通常見た目
-    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0}}
+    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0, offsetX:0, offsetY:0}}
     equippedAccessories: { hat:null, mask:null, other:null, weapon:null },
     ownedAuras: [],           // 所持オーラidの配列
     equippedAura: null,
@@ -1561,7 +1569,7 @@ function getEquippedSkinImg(speciesId){
 window.game.debugUnlockAllCosmetics = function(){
   const c = loadCosmetics();
   for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(!c.ownedSkins.includes(s.id)) c.ownedSkins.push(s.id); }); }
-  ACCESSORIES.forEach(a=>{ if(!c.ownedAccessories[a.id]) c.ownedAccessories[a.id] = {hue:0, rotate:0}; });
+  ACCESSORIES.forEach(a=>{ if(!c.ownedAccessories[a.id]) c.ownedAccessories[a.id] = {hue:0, rotate:0, offsetX:0, offsetY:0}; });
   AURAS.forEach(a=>{ if(!c.ownedAuras.includes(a.id)) c.ownedAuras.push(a.id); });
   saveCosmetics(c);
   if(typeof renderLoadoutScene === 'function') renderLoadoutScene();
@@ -1613,14 +1621,16 @@ function renderLoadoutPreview(){
     const acc = ACCESSORIES.find(a=>a.id===accId);
     if(!acc) return;
     const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
-    const custom = c.ownedAccessories[accId] || {hue:0, rotate:0};
+    const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0};
+    const finalX = pos.x + (custom.offsetX||0);
+    const finalY = pos.y + (custom.offsetY||0);
     const totalRotate = (pos.rotate||0) + (custom.rotate||0);
     const img = document.createElement('img');
     img.src = acc.img;
     img.style.width = pos.w+'px';
     img.style.height = pos.h+'px';
-    img.style.left = (pos.x - pos.w/2) + 'px';
-    img.style.top = (pos.y - pos.h/2) + 'px';
+    img.style.left = (finalX - pos.w/2) + 'px';
+    img.style.top = (finalY - pos.h/2) + 'px';
     img.style.transform = `rotate(${totalRotate}deg)`;
     img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
     layer.appendChild(img);
@@ -1701,15 +1711,16 @@ function renderAccPickerGrid(){
     el.appendChild(btn);
   });
 }
+let accDragHandlers = null;
 function selectAccInPicker(accId){
   const c = loadCosmetics();
   c.equippedAccessories[accPickerCategory] = accId;
   saveCosmetics(c);
   renderAccPickerGrid();
-  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0};
   document.getElementById('acc-picker-customize').classList.remove('hidden');
   const hueSlider = document.getElementById('acc-hue-slider');
   const rotSlider = document.getElementById('acc-rotate-slider');
+  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0};
   hueSlider.value = custom.hue||0;
   rotSlider.value = custom.rotate||0;
   document.getElementById('acc-hue-val').innerText = custom.hue||0;
@@ -1717,19 +1728,102 @@ function selectAccInPicker(accId){
   hueSlider.oninput = () => {
     document.getElementById('acc-hue-val').innerText = hueSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
     c2.ownedAccessories[accId].hue = parseInt(hueSlider.value);
     saveCosmetics(c2);
+    renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
   rotSlider.oninput = () => {
     document.getElementById('acc-rotate-val').innerText = rotSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
     c2.ownedAccessories[accId].rotate = parseInt(rotSlider.value);
     saveCosmetics(c2);
+    renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
+  renderAccPickerPreview(accId);
+  setupAccDrag(accId);
+  renderLoadoutPreview();
+}
+function renderAccPickerPreview(accId){
+  const c = loadCosmetics();
+  const sp = SPECIES[loadoutSelectedSpecies];
+  const skinId = c.equippedSkin[loadoutSelectedSpecies];
+  const skin = skinId ? findSkinById(skinId) : null;
+  document.getElementById('acc-picker-preview-img').src = skin ? skin.img : sp.img;
+  const acc = ACCESSORIES.find(a=>a.id===accId);
+  if(!acc) return;
+  const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
+  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0};
+  const finalX = pos.x + (custom.offsetX||0);
+  const finalY = pos.y + (custom.offsetY||0);
+  const totalRotate = (pos.rotate||0) + (custom.rotate||0);
+  const img = document.getElementById('acc-picker-preview-acc');
+  img.src = acc.img;
+  img.style.width = pos.w+'px';
+  img.style.height = pos.h+'px';
+  // プレビュー枠(144px = w-36)の中心を基準に配置
+  img.style.left = (72 + finalX - pos.w/2) + 'px';
+  img.style.top = (72 + finalY - pos.h/2) + 'px';
+  img.style.transform = `rotate(${totalRotate}deg)`;
+  img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
+}
+function setupAccDrag(accId){
+  const img = document.getElementById('acc-picker-preview-acc');
+  const newImg = img.cloneNode(true); // 古いイベントリスナーを掃除
+  img.parentNode.replaceChild(newImg, img);
+  if(accDragHandlers){
+    document.removeEventListener('mousemove', accDragHandlers.move);
+    document.removeEventListener('touchmove', accDragHandlers.move);
+    document.removeEventListener('mouseup', accDragHandlers.up);
+    document.removeEventListener('touchend', accDragHandlers.up);
+  }
+  let dragging = false, startX=0, startY=0, startOffsetX=0, startOffsetY=0;
+  function pointerDown(e){
+    dragging = true;
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY;
+    const c = loadCosmetics();
+    const custom = c.ownedAccessories[accId] || {offsetX:0, offsetY:0};
+    startOffsetX = custom.offsetX||0; startOffsetY = custom.offsetY||0;
+    e.preventDefault();
+  }
+  function pointerMove(e){
+    if(!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX, dy = pt.clientY - startY;
+    const c = loadCosmetics();
+    c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
+    c.ownedAccessories[accId].offsetX = Math.round(startOffsetX + dx);
+    c.ownedAccessories[accId].offsetY = Math.round(startOffsetY + dy);
+    saveCosmetics(c);
+    renderAccPickerPreview(accId);
+    e.preventDefault();
+  }
+  function pointerUp(){
+    if(!dragging) return;
+    dragging = false;
+    renderLoadoutPreview();
+  }
+  newImg.addEventListener('mousedown', pointerDown);
+  newImg.addEventListener('touchstart', pointerDown, {passive:false});
+  document.addEventListener('mousemove', pointerMove);
+  document.addEventListener('touchmove', pointerMove, {passive:false});
+  document.addEventListener('mouseup', pointerUp);
+  document.addEventListener('touchend', pointerUp);
+  accDragHandlers = { move: pointerMove, up: pointerUp };
+}
+function resetAccPosition(){
+  const c = loadCosmetics();
+  const accId = c.equippedAccessories[accPickerCategory];
+  if(!accId) return;
+  c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
+  c.ownedAccessories[accId].offsetX = 0;
+  c.ownedAccessories[accId].offsetY = 0;
+  saveCosmetics(c);
+  renderAccPickerPreview(accId);
   renderLoadoutPreview();
 }
 function renderLoadoutAuraGrid(){
@@ -1801,7 +1895,7 @@ function resolveGachaTier(tier){
       const mp = loadMetaProgress(); mp.points += 50; saveMetaProgress(mp);
       return { tier, rewardType:'dupe', item:acc, amount:50 };
     }
-    c.ownedAccessories[acc.id] = {hue:0, rotate:0};
+    c.ownedAccessories[acc.id] = {hue:0, rotate:0, offsetX:0, offsetY:0};
     saveCosmetics(c);
     return { tier, rewardType:'new', item:acc };
   }
