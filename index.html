@@ -539,7 +539,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <!-- アクセサリ選択・カスタマイズ用サブモーダル -->
 <div id="acc-picker-modal" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
   <div class="bg-zinc-900 border border-amber-600 rounded-2xl w-full max-w-sm max-h-[85vh] overflow-y-auto p-4 relative">
-    <button onclick="document.getElementById('acc-picker-modal').classList.add('hidden')" class="absolute top-3 right-3 text-zinc-400 hover:text-white text-lg font-bold">✕</button>
+    <button onclick="closeAccPicker()" class="absolute top-3 right-3 text-zinc-400 hover:text-white text-lg font-bold">✕</button>
     <h3 id="acc-picker-title" class="text-amber-400 font-black text-sm mb-3 text-center">アクセサリを選択</h3>
     <div id="acc-picker-grid" class="grid grid-cols-4 gap-2 mb-4"></div>
     <div id="acc-picker-customize" class="hidden border-t border-zinc-700 pt-3">
@@ -550,11 +550,14 @@ background: linear-gradient(135deg, #300000, #3f2e00);
         </div>
       </div>
       <div class="text-[9px] text-zinc-500 text-center mb-2">アクセサリをドラッグして位置を調整できます</div>
+      <div class="text-[11px] text-zinc-400 mb-1">大きさ <span id="acc-scale-val">100</span>%</div>
+      <input type="range" id="acc-scale-slider" min="30" max="250" value="100" class="w-full mb-3">
       <div class="text-[11px] text-zinc-400 mb-1">色相 <span id="acc-hue-val">0</span>°</div>
       <input type="range" id="acc-hue-slider" min="0" max="359" value="0" class="w-full mb-3">
       <div class="text-[11px] text-zinc-400 mb-1">角度 <span id="acc-rotate-val">0</span>°</div>
       <input type="range" id="acc-rotate-slider" min="0" max="359" value="0" class="w-full mb-3">
-      <button onclick="resetAccPosition()" class="w-full py-1.5 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-600">位置をリセット</button>
+      <button onclick="resetAccPosition()" class="w-full py-1.5 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-600 mb-2">位置・大きさをリセット</button>
+      <button onclick="closeAccPicker()" class="w-full py-2.5 rounded-lg text-xs font-bold bg-amber-700 hover:bg-amber-600 text-amber-50 active:scale-95 transition">✓ 決定</button>
     </div>
   </div>
 </div>
@@ -748,6 +751,13 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 // Firebase imports replaced with compat SDK (loaded via script tags above)
 
 window.game = {};
+
+// 各種セーブデータのlocalStorageキー(ページ読み込み時・冒険再開時に参照されうるため、
+// スクリプトの一番早い位置で定義しておく。後方の同名constは削除済み)
+const DIA_STORAGE_KEY = 'mf_dia_progress';
+const META_STORAGE_KEY = 'mf_meta_progress';
+const COSMETICS_STORAGE_KEY = 'mf_cosmetics';
+const GACHA_STORAGE_KEY = 'mf_gacha_progress';
 
 // ==============================
 // オンラインランキング設定 (Firebase)
@@ -1248,7 +1258,6 @@ function renderSpeciesSelect(){
 }
 // ==================== 継承ショップ(メタ通貨システム) ====================
 // 冒険を終えるたび「継承ポイント」が貯まり、次の冒険以降に永続的に反映される強化を購入できる。
-const META_STORAGE_KEY = 'mf_meta_progress';
 const META_SHOP_ITEMS = [
   { key:'life', label:'開始ライフ', type:'stat', maxLevel:10, perLevel:5, costs:[40,55,75,100,130,165,205,250,300,360] },
   { key:'pow', label:'開始チカラ', type:'stat', maxLevel:5, perLevel:3, costs:[60,110,180,270,380] },
@@ -1401,7 +1410,6 @@ window.game.showMetaShop = function(){
 
 // ==================== ダイヤ通貨システム ====================
 // ガチャ専用のレア通貨。ログインボーナス・累計プレイ回数・階層到達・種族別初踏破称号で貯まる。
-const DIA_STORAGE_KEY = 'mf_dia_progress';
 function loadDiaProgress(){
   const fallback = { dia:0, lastLoginDate:null, loginStreak:0, totalPlays:0, firstClearTitles:[], welcomeBonusClaimed:false };
   try{
@@ -1526,12 +1534,11 @@ function awardDiaRewards(){
 // ==================== ダイヤ通貨システムここまで ====================
 
 // ==================== コスメ所持・装備データ ====================
-const COSMETICS_STORAGE_KEY = 'mf_cosmetics';
 function loadCosmetics(){
   const fallback = {
     ownedSkins: [],           // 所持スキンidの配列
     equippedSkin: {},         // {種族id: スキンid} 未設定/nullなら通常見た目
-    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0, offsetX:0, offsetY:0}}
+    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100}}
     equippedAccessories: { hat:null, mask:null, other:null, weapon:null },
     ownedAuras: [],           // 所持オーラidの配列
     equippedAura: null,
@@ -1569,7 +1576,7 @@ function getEquippedSkinImg(speciesId){
 window.game.debugUnlockAllCosmetics = function(){
   const c = loadCosmetics();
   for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(!c.ownedSkins.includes(s.id)) c.ownedSkins.push(s.id); }); }
-  ACCESSORIES.forEach(a=>{ if(!c.ownedAccessories[a.id]) c.ownedAccessories[a.id] = {hue:0, rotate:0, offsetX:0, offsetY:0}; });
+  ACCESSORIES.forEach(a=>{ if(!c.ownedAccessories[a.id]) c.ownedAccessories[a.id] = {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100}; });
   AURAS.forEach(a=>{ if(!c.ownedAuras.includes(a.id)) c.ownedAuras.push(a.id); });
   saveCosmetics(c);
   if(typeof renderLoadoutScene === 'function') renderLoadoutScene();
@@ -1621,16 +1628,18 @@ function renderLoadoutPreview(){
     const acc = ACCESSORIES.find(a=>a.id===accId);
     if(!acc) return;
     const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
-    const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0};
+    const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
+    const scaleMult = (custom.scale||100)/100;
+    const w = pos.w*scaleMult, h = pos.h*scaleMult;
     const finalX = pos.x + (custom.offsetX||0);
     const finalY = pos.y + (custom.offsetY||0);
     const totalRotate = (pos.rotate||0) + (custom.rotate||0);
     const img = document.createElement('img');
     img.src = acc.img;
-    img.style.width = pos.w+'px';
-    img.style.height = pos.h+'px';
-    img.style.left = (finalX - pos.w/2) + 'px';
-    img.style.top = (finalY - pos.h/2) + 'px';
+    img.style.width = w+'px';
+    img.style.height = h+'px';
+    img.style.left = (finalX - w/2) + 'px';
+    img.style.top = (finalY - h/2) + 'px';
     img.style.transform = `rotate(${totalRotate}deg)`;
     img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
     layer.appendChild(img);
@@ -1712,6 +1721,10 @@ function renderAccPickerGrid(){
   });
 }
 let accDragHandlers = null;
+function closeAccPicker(){
+  document.getElementById('acc-picker-modal').classList.add('hidden');
+  renderLoadoutScene();
+}
 function selectAccInPicker(accId){
   const c = loadCosmetics();
   c.equippedAccessories[accPickerCategory] = accId;
@@ -1720,15 +1733,18 @@ function selectAccInPicker(accId){
   document.getElementById('acc-picker-customize').classList.remove('hidden');
   const hueSlider = document.getElementById('acc-hue-slider');
   const rotSlider = document.getElementById('acc-rotate-slider');
-  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0};
+  const scaleSlider = document.getElementById('acc-scale-slider');
+  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
   hueSlider.value = custom.hue||0;
   rotSlider.value = custom.rotate||0;
+  scaleSlider.value = custom.scale||100;
   document.getElementById('acc-hue-val').innerText = custom.hue||0;
   document.getElementById('acc-rotate-val').innerText = custom.rotate||0;
+  document.getElementById('acc-scale-val').innerText = custom.scale||100;
   hueSlider.oninput = () => {
     document.getElementById('acc-hue-val').innerText = hueSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
     c2.ownedAccessories[accId].hue = parseInt(hueSlider.value);
     saveCosmetics(c2);
     renderAccPickerPreview(accId);
@@ -1737,8 +1753,17 @@ function selectAccInPicker(accId){
   rotSlider.oninput = () => {
     document.getElementById('acc-rotate-val').innerText = rotSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
     c2.ownedAccessories[accId].rotate = parseInt(rotSlider.value);
+    saveCosmetics(c2);
+    renderAccPickerPreview(accId);
+    renderLoadoutPreview();
+  };
+  scaleSlider.oninput = () => {
+    document.getElementById('acc-scale-val').innerText = scaleSlider.value;
+    const c2 = loadCosmetics();
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
+    c2.ownedAccessories[accId].scale = parseInt(scaleSlider.value);
     saveCosmetics(c2);
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
@@ -1756,17 +1781,19 @@ function renderAccPickerPreview(accId){
   const acc = ACCESSORIES.find(a=>a.id===accId);
   if(!acc) return;
   const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
-  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0};
+  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
+  const scaleMult = (custom.scale||100)/100;
+  const w = pos.w*scaleMult, h = pos.h*scaleMult;
   const finalX = pos.x + (custom.offsetX||0);
   const finalY = pos.y + (custom.offsetY||0);
   const totalRotate = (pos.rotate||0) + (custom.rotate||0);
   const img = document.getElementById('acc-picker-preview-acc');
   img.src = acc.img;
-  img.style.width = pos.w+'px';
-  img.style.height = pos.h+'px';
+  img.style.width = w+'px';
+  img.style.height = h+'px';
   // プレビュー枠(144px = w-36)の中心を基準に配置
-  img.style.left = (72 + finalX - pos.w/2) + 'px';
-  img.style.top = (72 + finalY - pos.h/2) + 'px';
+  img.style.left = (72 + finalX - w/2) + 'px';
+  img.style.top = (72 + finalY - h/2) + 'px';
   img.style.transform = `rotate(${totalRotate}deg)`;
   img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
 }
@@ -1795,7 +1822,7 @@ function setupAccDrag(accId){
     const pt = e.touches ? e.touches[0] : e;
     const dx = pt.clientX - startX, dy = pt.clientY - startY;
     const c = loadCosmetics();
-    c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
+    c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
     c.ownedAccessories[accId].offsetX = Math.round(startOffsetX + dx);
     c.ownedAccessories[accId].offsetY = Math.round(startOffsetY + dy);
     saveCosmetics(c);
@@ -1819,10 +1846,13 @@ function resetAccPosition(){
   const c = loadCosmetics();
   const accId = c.equippedAccessories[accPickerCategory];
   if(!accId) return;
-  c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0};
+  c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
   c.ownedAccessories[accId].offsetX = 0;
   c.ownedAccessories[accId].offsetY = 0;
+  c.ownedAccessories[accId].scale = 100;
   saveCosmetics(c);
+  document.getElementById('acc-scale-slider').value = 100;
+  document.getElementById('acc-scale-val').innerText = 100;
   renderAccPickerPreview(accId);
   renderLoadoutPreview();
 }
@@ -1851,7 +1881,6 @@ const GACHA_SINGLE_COST = 15;
 const GACHA_TEN_COST = 135;
 const GACHA_RATES = { hazure:0.66, dia150:0.10, accessory:0.15, srSkin:0.05, ssrSkin:0.02, aura:0.02 };
 const GACHA_RARE_OR_BETTER = { accessory:0.15, srSkin:0.05, ssrSkin:0.02, aura:0.02 };
-const GACHA_STORAGE_KEY = 'mf_gacha_progress';
 
 function loadGachaProgress(){
   const fallback = { totalPulls:0, pullsSinceSrPity:0, pullsSinceSsrAuraPity:0 };
@@ -1895,7 +1924,7 @@ function resolveGachaTier(tier){
       const mp = loadMetaProgress(); mp.points += 50; saveMetaProgress(mp);
       return { tier, rewardType:'dupe', item:acc, amount:50 };
     }
-    c.ownedAccessories[acc.id] = {hue:0, rotate:0, offsetX:0, offsetY:0};
+    c.ownedAccessories[acc.id] = {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
     saveCosmetics(c);
     return { tier, rewardType:'new', item:acc };
   }
