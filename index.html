@@ -219,6 +219,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 50% { box-shadow: 0 0 16px rgba(253,224,71,0.85), 0 0 5px rgba(255,255,255,0.7) inset; }
 }
 .monster-sprite { animation: idle 3s ease-in-out infinite; display: inline-block; font-size: 5rem; line-height: 1; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+.loadout-acc-layer { position:absolute; top:50%; left:50%; pointer-events:none; z-index:20; }
+.loadout-acc-layer img { position:absolute; top:0; left:0; transform-origin:center center; }
 .player-sprite-img { width: 5.5rem; height: 5.5rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
 .enemy-sprite-img { width: 6rem; height: 7rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
 .enemy-sprite-icon { font-size: 4rem; }
@@ -475,7 +477,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 
 <main class="flex-grow relative overflow-hidden">
 <!-- NAME ENTRY -->
-<section id="name-scene" class="dungeon-bg absolute inset-0 z-[120] flex flex-col items-center justify-center p-6">
+<section id="name-scene" class="dungeon-bg absolute inset-0 z-[120] flex flex-col items-center justify-center p-6 overflow-y-auto">
+<div id="title-dia-display" class="fixed top-2 right-2 z-[130] bg-black/70 border border-cyan-400/40 text-cyan-200 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm" style="top:calc(8px + env(safe-area-inset-top,0px));">💎 0</div>
 <picture>
 <source srcset="title-logo.webp" type="image/webp">
 <img src="title-logo.png" alt="Monster Farm DS モンスターファーム デッキサバイバル" class="w-full max-w-[280px] md:max-w-sm mb-6 drop-shadow-[0_6px_16px_rgba(0,0,0,0.85)]">
@@ -491,13 +494,64 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </select>
 
 <button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
-<button onclick="document.getElementById('howto-modal').classList.remove('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-sm font-bold rounded-sm transition-all active:scale-95">📖 遊び方</button>
-<button onclick="window.game.showMetaShop()" class="ornate-panel w-full py-2 text-amber-200 text-sm font-bold rounded-sm transition-all active:scale-95">🏯 継承ショップ</button>
-<button onclick="window.game.showRanking()" class="text-xs text-amber-200/60 underline mt-4 hover:text-amber-200">◇ ランキングを見る ◇</button>
+<button onclick="window.game.showGacha()" class="w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 bg-gradient-to-r from-cyan-700 to-blue-700 border border-cyan-400 text-cyan-50">💎 ガチャ</button>
+<div class="grid grid-cols-2 gap-2">
+<button onclick="document.getElementById('howto-modal').classList.remove('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-xs font-bold rounded-sm transition-all active:scale-95">📖 遊び方</button>
+<button onclick="window.game.showMetaShop()" class="ornate-panel w-full py-2 text-amber-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏯 継承ショップ</button>
+<button onclick="window.game.openLoadout()" class="ornate-panel w-full py-2 text-pink-200 text-xs font-bold rounded-sm transition-all active:scale-95">🎨 カスタム装備</button>
+<button onclick="window.game.showRanking()" class="ornate-panel w-full py-2 text-cyan-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏆 ランキング</button>
+</div>
 </div>
 </section>
 
-<!-- 遊び方モーダル -->
+<!-- カスタム装備画面 -->
+<section id="loadout-scene" class="hidden absolute inset-0 z-[125] flex flex-col bg-zinc-950">
+  <div class="flex items-center justify-between p-3 border-b border-zinc-700 shrink-0">
+    <button onclick="window.game.closeLoadout()" class="text-zinc-300 text-sm font-bold px-2">← 戻る</button>
+    <h2 class="text-amber-300 font-black text-base pixel-font">カスタム装備</h2>
+    <button onclick="window.game.debugUnlockAllCosmetics()" title="テスト用" class="text-zinc-600 text-[9px] px-1">🔧全所持</button>
+  </div>
+  <div class="flex-grow overflow-y-auto p-3">
+    <!-- 種族タブ -->
+    <div id="loadout-species-tabs" class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3"></div>
+    <!-- プレビュー -->
+    <div class="flex justify-center mb-4">
+      <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700">
+        <img id="loadout-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
+        <div id="loadout-acc-hat" class="loadout-acc-layer"></div>
+        <div id="loadout-acc-mask" class="loadout-acc-layer"></div>
+        <div id="loadout-acc-other" class="loadout-acc-layer"></div>
+        <div id="loadout-acc-weapon" class="loadout-acc-layer"></div>
+      </div>
+    </div>
+    <!-- スキン -->
+    <h3 class="text-zinc-400 text-xs font-bold mb-2">スキン</h3>
+    <div id="loadout-skin-grid" class="grid grid-cols-4 gap-2 mb-5"></div>
+    <!-- アクセサリ -->
+    <h3 class="text-zinc-400 text-xs font-bold mb-2">アクセサリ</h3>
+    <div id="loadout-accessory-slots" class="grid grid-cols-4 gap-2 mb-5"></div>
+    <!-- オーラ -->
+    <h3 class="text-zinc-400 text-xs font-bold mb-2">オーラ</h3>
+    <div id="loadout-aura-grid" class="grid grid-cols-3 gap-2 mb-4"></div>
+  </div>
+</section>
+
+<!-- アクセサリ選択・カスタマイズ用サブモーダル -->
+<div id="acc-picker-modal" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
+  <div class="bg-zinc-900 border border-amber-600 rounded-2xl w-full max-w-sm max-h-[85vh] overflow-y-auto p-4 relative">
+    <button onclick="document.getElementById('acc-picker-modal').classList.add('hidden')" class="absolute top-3 right-3 text-zinc-400 hover:text-white text-lg font-bold">✕</button>
+    <h3 id="acc-picker-title" class="text-amber-400 font-black text-sm mb-3 text-center">アクセサリを選択</h3>
+    <div id="acc-picker-grid" class="grid grid-cols-4 gap-2 mb-4"></div>
+    <div id="acc-picker-customize" class="hidden border-t border-zinc-700 pt-3">
+      <div class="text-[11px] text-zinc-400 mb-1">色相 <span id="acc-hue-val">0</span>°</div>
+      <input type="range" id="acc-hue-slider" min="0" max="359" value="0" class="w-full mb-3">
+      <div class="text-[11px] text-zinc-400 mb-1">角度 <span id="acc-rotate-val">0</span>°</div>
+      <input type="range" id="acc-rotate-slider" min="0" max="359" value="0" class="w-full">
+    </div>
+  </div>
+</div>
+
+
 <div id="howto-modal" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
 <div class="bg-zinc-900 border border-amber-600 rounded-2xl w-full max-w-sm max-h-[85vh] overflow-y-auto p-5 relative">
   <button onclick="document.getElementById('howto-modal').classList.add('hidden')" class="absolute top-3 right-3 text-zinc-400 hover:text-white text-lg font-bold">✕</button>
@@ -679,6 +733,9 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <script src="data-enemies.js"></script>
 <script src="data-cards.js"></script>
 <script src="data-relics.js"></script>
+<script src="data-skins.js"></script>
+<script src="data-accessories.js"></script>
+<script src="data-auras.js"></script>
 <script>
 // Firebase imports replaced with compat SDK (loaded via script tags above)
 
@@ -1074,7 +1131,9 @@ function renderBattleSprites() {
   if(state.player && state.player.species){
     const spec = state.player.species;
     ui.playerSpeciesName.innerText = spec.name;
-    if(spec.img){ ui.playerVisual.innerHTML = `<img src="${spec.img}" class="player-sprite-img">`; }
+    const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
+    const displayImg = skinImg || spec.img;
+    if(displayImg){ ui.playerVisual.innerHTML = `<img src="${displayImg}" class="player-sprite-img">`; }
     else { ui.playerVisual.innerHTML = spec.icon||''; }
   }
   if(state.enemy && state.enemy.hp !== undefined){
@@ -1135,6 +1194,30 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
     }
     resumeCurrentBGM();
   } catch(e) { console.warn('セーブデータの復帰に失敗しました。最初から始めます。', e); resumeCurrentBGM(); }
+})();
+
+// 汎用トースト通知(ログインボーナスなど、画面を邪魔せず一時的に知らせたい時に使う)
+function showDiaToast(html){
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:9999;background:rgba(24,20,10,0.95);border:1px solid rgba(251,191,36,0.5);color:#fde68a;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:bold;box-shadow:0 4px 16px rgba(0,0,0,0.5);text-align:center;max-width:90vw;';
+  d.innerHTML = html;
+  document.body.appendChild(d);
+  setTimeout(()=>{ d.style.transition='opacity 0.6s'; d.style.opacity='0'; setTimeout(()=>d.remove(), 700); }, 3200);
+}
+(function(){
+  try{
+    updateTitleDiaDisplay();
+    const bonus = checkDiaLoginBonus();
+    if(bonus){
+      let msg = bonus.welcomeBonus>0
+        ? `🎉 はじめまして！ウェルカムボーナス 💎+${bonus.welcomeBonus}`
+        : `💎 ログインボーナス +${bonus.earned}`;
+      if(bonus.welcomeBonus>0 && bonus.earned>bonus.welcomeBonus) msg += `<br><span style="font-size:10px;color:#fde68a;">(ログインボーナス分 +${bonus.earned-bonus.welcomeBonus} 含む)</span>`;
+      if(bonus.streakBonus>0) msg += `<br><span style="font-size:10px;color:#fca5a5;">連続${bonus.streak}日ボーナス +${bonus.streakBonus}!</span>`;
+      showDiaToast(msg);
+      updateTitleDiaDisplay();
+    }
+  }catch(e){ console.warn('ログインボーナスの処理に失敗しました', e); }
 })();
 
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
@@ -1308,18 +1391,602 @@ window.game.showMetaShop = function(){
 };
 // ==================== 継承ショップここまで ====================
 
+// ==================== ダイヤ通貨システム ====================
+// ガチャ専用のレア通貨。ログインボーナス・累計プレイ回数・階層到達・種族別初踏破称号で貯まる。
+const DIA_STORAGE_KEY = 'mf_dia_progress';
+function loadDiaProgress(){
+  const fallback = { dia:0, lastLoginDate:null, loginStreak:0, totalPlays:0, firstClearTitles:[], welcomeBonusClaimed:false };
+  try{
+    const raw = localStorage.getItem(DIA_STORAGE_KEY);
+    if(!raw) return fallback;
+    const dp = JSON.parse(raw);
+    dp.dia = dp.dia || 0;
+    dp.lastLoginDate = dp.lastLoginDate || null;
+    dp.loginStreak = dp.loginStreak || 0;
+    dp.totalPlays = dp.totalPlays || 0;
+    dp.firstClearTitles = dp.firstClearTitles || [];
+    dp.welcomeBonusClaimed = dp.welcomeBonusClaimed || false;
+    return dp;
+  }catch(e){ console.warn('ダイヤデータの読み込みに失敗しました', e); return fallback; }
+}
+function saveDiaProgress(dp){
+  try{
+    localStorage.setItem(DIA_STORAGE_KEY, JSON.stringify(dp));
+    const check = localStorage.getItem(DIA_STORAGE_KEY);
+    const checkDia = check ? (JSON.parse(check).dia||0) : null;
+    if(checkDia !== dp.dia){
+      // 保存が反映されていない(プライベートモード等で書き込みが黙って無視される場合がある)
+      console.warn('ダイヤの保存を検証できませんでした。dia=', dp.dia, '実際の保存値=', checkDia);
+      if(typeof showDiaToast === 'function') showDiaToast('⚠️ ダイヤの保存に失敗した可能性があります。プライベートブラウズモードなどをご確認ください');
+    }
+  }catch(e){
+    console.warn('ダイヤデータの保存に失敗しました', e);
+    if(typeof showDiaToast === 'function') showDiaToast('⚠️ ダイヤの保存に失敗しました: ' + (e && e.message ? e.message : e));
+  }
+}
+function getDiaBalance(){ return loadDiaProgress().dia; }
+function updateTitleDiaDisplay(){
+  const el = document.getElementById('title-dia-display');
+  if(el) el.innerText = `💎 ${getDiaBalance()}`;
+}
+
+// ---- ログインボーナス: 毎日15pt、5日ごとに+50pt。初回ログイン限定で+300ptのウェルカムボーナス ----
+function checkDiaLoginBonus(){
+  const dp = loadDiaProgress();
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  if(dp.lastLoginDate === todayStr) return null;
+  const isFirstEverLogin = !dp.lastLoginDate && !dp.welcomeBonusClaimed;
+  let newStreak = 1;
+  if(dp.lastLoginDate){
+    const prev = new Date(dp.lastLoginDate + 'T00:00:00');
+    const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((todayMid - prev) / 86400000);
+    newStreak = (diffDays === 1) ? (dp.loginStreak||0) + 1 : 1;
+  }
+  let earned = 15;
+  let streakBonus = 0;
+  if(newStreak % 5 === 0){ streakBonus = 50; earned += 50; }
+  let welcomeBonus = 0;
+  if(isFirstEverLogin){ welcomeBonus = 300; earned += 300; dp.welcomeBonusClaimed = true; }
+  dp.dia += earned;
+  dp.lastLoginDate = todayStr;
+  dp.loginStreak = newStreak;
+  saveDiaProgress(dp);
+  return { earned, streak:newStreak, streakBonus, welcomeBonus };
+}
+
+// ---- 累計プレイ回数: 1/10/30/50回→100/100/150/200pt、以降30回毎に250pt(無期限) ----
+function diaPlayMilestoneReward(n){
+  if(n===1 || n===10) return 100;
+  if(n===30) return 150;
+  if(n===50) return 200;
+  if(n>50 && (n-50)%30===0) return 250;
+  return 0;
+}
+function isDiaPlayMilestone(n){
+  return n===1 || n===10 || n===30 || n===50 || (n>50 && (n-50)%30===0);
+}
+// 冒険開始のたびに呼び、累計プレイ回数を+1して節目ならダイヤを付与する
+function registerDiaPlayCount(){
+  const dp = loadDiaProgress();
+  dp.totalPlays += 1;
+  let earned = 0;
+  if(isDiaPlayMilestone(dp.totalPlays)) earned = diaPlayMilestoneReward(dp.totalPlays);
+  dp.dia += earned;
+  saveDiaProgress(dp);
+  return earned;
+}
+
+// ---- 階層到達(毎回付与): 15/30/45/60F は難易度別、63Fはベリーハードのみ ----
+const DIA_FLOOR_BONUS = {
+  15: {normal:3, hard:4, expert:5, veryhard:7},
+  30: {normal:5, hard:7, expert:9, veryhard:12},
+  45: {normal:8, hard:11, expert:14, veryhard:18},
+  60: {normal:15, hard:20, expert:26, veryhard:35},
+};
+// ---- 種族別初踏破称号(1回のみ、難易度別) ----
+function diaTitleBonus(difficulty, floor){
+  if(floor>=63 && difficulty==='veryhard') return 150;
+  if(difficulty==='veryhard') return 120;
+  if(difficulty==='expert') return 90;
+  if(difficulty==='hard') return 70;
+  return 50;
+}
+// 冒険終了時(勝利/敗北/ギブアップ共通)にダイヤを付与し、獲得量を返す
+function awardDiaRewards(){
+  const dp = loadDiaProgress();
+  const floor = state.floor || 1;
+  const diffKey = state.difficulty || 'normal';
+  let earned = 0;
+  [15,30,45,60].forEach(f => {
+    if(floor >= f && DIA_FLOOR_BONUS[f][diffKey] !== undefined) earned += DIA_FLOOR_BONUS[f][diffKey];
+  });
+  if(floor >= 63 && diffKey === 'veryhard') earned += 50;
+  // 初踏破称号(60F以上到達、種族×難易度の組み合わせごとに1回のみ)
+  if(floor >= 60 && state.player.species){
+    const titleKey = `${state.player.species.id}_${diffKey}`;
+    if(!dp.firstClearTitles.includes(titleKey)){
+      dp.firstClearTitles.push(titleKey);
+      earned += diaTitleBonus(diffKey, floor);
+    }
+  }
+  dp.dia += earned;
+  saveDiaProgress(dp);
+  return earned;
+}
+// ==================== ダイヤ通貨システムここまで ====================
+
+// ==================== コスメ所持・装備データ ====================
+const COSMETICS_STORAGE_KEY = 'mf_cosmetics';
+function loadCosmetics(){
+  const fallback = {
+    ownedSkins: [],           // 所持スキンidの配列
+    equippedSkin: {},         // {種族id: スキンid} 未設定/nullなら通常見た目
+    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0}}
+    equippedAccessories: { hat:null, mask:null, other:null, weapon:null },
+    ownedAuras: [],           // 所持オーラidの配列
+    equippedAura: null,
+  };
+  try{
+    const raw = localStorage.getItem(COSMETICS_STORAGE_KEY);
+    if(!raw) return fallback;
+    const c = JSON.parse(raw);
+    return {
+      ownedSkins: c.ownedSkins || [],
+      equippedSkin: c.equippedSkin || {},
+      ownedAccessories: c.ownedAccessories || {},
+      equippedAccessories: Object.assign({hat:null,mask:null,other:null,weapon:null}, c.equippedAccessories||{}),
+      ownedAuras: c.ownedAuras || [],
+      equippedAura: c.equippedAura || null,
+    };
+  }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return fallback; }
+}
+function saveCosmetics(c){
+  try{ localStorage.setItem(COSMETICS_STORAGE_KEY, JSON.stringify(c)); }catch(e){ console.warn('コスメデータの保存に失敗しました', e); }
+}
+function findSkinById(id){
+  for(const sp in SKINS){ const found = SKINS[sp].find(s=>s.id===id); if(found) return found; }
+  return null;
+}
+// 現在装備中のスキン画像を返す(未装備なら種族本来の画像)
+function getEquippedSkinImg(speciesId){
+  const c = loadCosmetics();
+  const skinId = c.equippedSkin[speciesId];
+  if(!skinId) return null;
+  const skin = findSkinById(skinId);
+  return skin ? skin.img : null;
+}
+// テスト用: ガチャ実装前に見た目を確認できるよう、全スキン・アクセサリ・オーラを所持済みにする
+window.game.debugUnlockAllCosmetics = function(){
+  const c = loadCosmetics();
+  for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(!c.ownedSkins.includes(s.id)) c.ownedSkins.push(s.id); }); }
+  ACCESSORIES.forEach(a=>{ if(!c.ownedAccessories[a.id]) c.ownedAccessories[a.id] = {hue:0, rotate:0}; });
+  AURAS.forEach(a=>{ if(!c.ownedAuras.includes(a.id)) c.ownedAuras.push(a.id); });
+  saveCosmetics(c);
+  if(typeof renderLoadoutScene === 'function') renderLoadoutScene();
+};
+// ==================== コスメ所持・装備データここまで ====================
+
+let loadoutSelectedSpecies = null;
+window.game.openLoadout = function(){
+  document.getElementById('name-scene').classList.add('hidden');
+  document.getElementById('loadout-scene').classList.remove('hidden');
+  if(!loadoutSelectedSpecies) loadoutSelectedSpecies = Object.keys(SPECIES)[0];
+  renderLoadoutScene();
+};
+window.game.closeLoadout = function(){
+  document.getElementById('loadout-scene').classList.add('hidden');
+  document.getElementById('name-scene').classList.remove('hidden');
+};
+function renderLoadoutScene(){
+  renderLoadoutSpeciesTabs();
+  renderLoadoutPreview();
+  renderLoadoutSkinGrid();
+  renderLoadoutAccessorySlots();
+  renderLoadoutAuraGrid();
+}
+function renderLoadoutSpeciesTabs(){
+  const el = document.getElementById('loadout-species-tabs');
+  el.innerHTML = '';
+  Object.keys(SPECIES).forEach(spId=>{
+    const sp = SPECIES[spId];
+    const btn = document.createElement('button');
+    const active = spId===loadoutSelectedSpecies;
+    btn.className = 'shrink-0 px-3 py-2 rounded-lg text-xs font-bold border ' + (active ? 'bg-amber-700 border-amber-400 text-white' : 'bg-zinc-800 border-zinc-600 text-zinc-300');
+    btn.innerText = sp.name;
+    btn.onclick = () => { loadoutSelectedSpecies = spId; renderLoadoutScene(); };
+    el.appendChild(btn);
+  });
+}
+function renderLoadoutPreview(){
+  const c = loadCosmetics();
+  const sp = SPECIES[loadoutSelectedSpecies];
+  const skinId = c.equippedSkin[loadoutSelectedSpecies];
+  const skin = skinId ? findSkinById(skinId) : null;
+  document.getElementById('loadout-preview-img').src = skin ? skin.img : sp.img;
+  ['hat','mask','other','weapon'].forEach(cat=>{
+    const layer = document.getElementById('loadout-acc-'+cat);
+    layer.innerHTML = '';
+    const accId = c.equippedAccessories[cat];
+    if(!accId) return;
+    const acc = ACCESSORIES.find(a=>a.id===accId);
+    if(!acc) return;
+    const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
+    const custom = c.ownedAccessories[accId] || {hue:0, rotate:0};
+    const totalRotate = (pos.rotate||0) + (custom.rotate||0);
+    const img = document.createElement('img');
+    img.src = acc.img;
+    img.style.width = pos.w+'px';
+    img.style.height = pos.h+'px';
+    img.style.left = (pos.x - pos.w/2) + 'px';
+    img.style.top = (pos.y - pos.h/2) + 'px';
+    img.style.transform = `rotate(${totalRotate}deg)`;
+    img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
+    layer.appendChild(img);
+  });
+}
+function renderLoadoutSkinGrid(){
+  const c = loadCosmetics();
+  const el = document.getElementById('loadout-skin-grid');
+  el.innerHTML = '';
+  const noneBtn = document.createElement('button');
+  const noneEquipped = !c.equippedSkin[loadoutSelectedSpecies];
+  noneBtn.className = 'aspect-square rounded-lg border-2 flex items-center justify-center ' + (noneEquipped ? 'border-amber-400 bg-amber-900/30' : 'border-zinc-700 bg-zinc-800');
+  noneBtn.innerHTML = `<img src="${SPECIES[loadoutSelectedSpecies].img}" class="w-3/4 h-3/4 object-contain">`;
+  noneBtn.onclick = () => { c.equippedSkin[loadoutSelectedSpecies] = null; saveCosmetics(c); renderLoadoutScene(); };
+  el.appendChild(noneBtn);
+  const skins = SKINS[loadoutSelectedSpecies] || [];
+  skins.forEach(skin=>{
+    const owned = c.ownedSkins.includes(skin.id);
+    const equipped = c.equippedSkin[loadoutSelectedSpecies] === skin.id;
+    const btn = document.createElement('button');
+    btn.className = 'relative aspect-square rounded-lg border-2 flex items-center justify-center ' + (equipped ? 'border-amber-400 bg-amber-900/30' : owned ? 'border-zinc-600 bg-zinc-800' : 'border-zinc-800 bg-zinc-900');
+    btn.innerHTML = `<img src="${skin.img}" class="w-3/4 h-3/4 object-contain ${owned?'':'grayscale opacity-30'}">`
+      + `<span class="absolute top-0.5 left-0.5 text-[7px] font-bold px-1 rounded ${skin.rarity==='SSR'?'bg-fuchsia-700':'bg-purple-700'} text-white">${skin.rarity}</span>`
+      + (owned?'':'<span class="absolute inset-0 flex items-center justify-center text-lg">🔒</span>');
+    if(owned){ btn.onclick = () => { c.equippedSkin[loadoutSelectedSpecies] = skin.id; saveCosmetics(c); renderLoadoutScene(); }; }
+    el.appendChild(btn);
+  });
+}
+const ACC_CATEGORY_LABEL = { hat:'帽子', mask:'メガネ・仮面', other:'その他', weapon:'武器・小物' };
+function renderLoadoutAccessorySlots(){
+  const c = loadCosmetics();
+  const el = document.getElementById('loadout-accessory-slots');
+  el.innerHTML = '';
+  ['hat','mask','other','weapon'].forEach(cat=>{
+    const accId = c.equippedAccessories[cat];
+    const acc = accId ? ACCESSORIES.find(a=>a.id===accId) : null;
+    const btn = document.createElement('button');
+    btn.className = 'aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-1 ' + (acc ? 'border-pink-400 bg-pink-900/20' : 'border-zinc-700 bg-zinc-800');
+    btn.innerHTML = acc
+      ? `<img src="${acc.img}" class="w-2/3 h-2/3 object-contain"><span class="text-[8px] text-zinc-300">${ACC_CATEGORY_LABEL[cat]}</span>`
+      : `<span class="text-lg text-zinc-600">＋</span><span class="text-[8px] text-zinc-500">${ACC_CATEGORY_LABEL[cat]}</span>`;
+    btn.onclick = () => openAccPicker(cat);
+    el.appendChild(btn);
+  });
+}
+let accPickerCategory = null;
+function openAccPicker(cat){
+  accPickerCategory = cat;
+  document.getElementById('acc-picker-title').innerText = ACC_CATEGORY_LABEL[cat] + 'を選択';
+  document.getElementById('acc-picker-modal').classList.remove('hidden');
+  document.getElementById('acc-picker-customize').classList.add('hidden');
+  renderAccPickerGrid();
+}
+function renderAccPickerGrid(){
+  const c = loadCosmetics();
+  const el = document.getElementById('acc-picker-grid');
+  el.innerHTML = '';
+  const noneBtn = document.createElement('button');
+  const noneEquipped = !c.equippedAccessories[accPickerCategory];
+  noneBtn.className = 'aspect-square rounded-lg border-2 flex items-center justify-center text-[9px] text-zinc-400 ' + (noneEquipped?'border-amber-400 bg-amber-900/30':'border-zinc-700 bg-zinc-800');
+  noneBtn.innerText = 'なし';
+  noneBtn.onclick = () => {
+    const c2 = loadCosmetics();
+    c2.equippedAccessories[accPickerCategory] = null;
+    saveCosmetics(c2);
+    document.getElementById('acc-picker-modal').classList.add('hidden');
+    renderLoadoutScene();
+  };
+  el.appendChild(noneBtn);
+  const items = ACCESSORIES.filter(a=>a.category===accPickerCategory);
+  items.forEach(acc=>{
+    const owned = !!c.ownedAccessories[acc.id];
+    const equipped = c.equippedAccessories[accPickerCategory] === acc.id;
+    const btn = document.createElement('button');
+    btn.className = 'relative aspect-square rounded-lg border-2 flex items-center justify-center ' + (equipped?'border-amber-400 bg-amber-900/30':owned?'border-zinc-600 bg-zinc-800':'border-zinc-800 bg-zinc-900');
+    btn.innerHTML = `<img src="${acc.img}" class="w-3/4 h-3/4 object-contain ${owned?'':'grayscale opacity-30'}">` + (owned?'':'<span class="absolute inset-0 flex items-center justify-center text-lg">🔒</span>');
+    if(owned){ btn.onclick = () => selectAccInPicker(acc.id); }
+    el.appendChild(btn);
+  });
+}
+function selectAccInPicker(accId){
+  const c = loadCosmetics();
+  c.equippedAccessories[accPickerCategory] = accId;
+  saveCosmetics(c);
+  renderAccPickerGrid();
+  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0};
+  document.getElementById('acc-picker-customize').classList.remove('hidden');
+  const hueSlider = document.getElementById('acc-hue-slider');
+  const rotSlider = document.getElementById('acc-rotate-slider');
+  hueSlider.value = custom.hue||0;
+  rotSlider.value = custom.rotate||0;
+  document.getElementById('acc-hue-val').innerText = custom.hue||0;
+  document.getElementById('acc-rotate-val').innerText = custom.rotate||0;
+  hueSlider.oninput = () => {
+    document.getElementById('acc-hue-val').innerText = hueSlider.value;
+    const c2 = loadCosmetics();
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0};
+    c2.ownedAccessories[accId].hue = parseInt(hueSlider.value);
+    saveCosmetics(c2);
+    renderLoadoutPreview();
+  };
+  rotSlider.oninput = () => {
+    document.getElementById('acc-rotate-val').innerText = rotSlider.value;
+    const c2 = loadCosmetics();
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0};
+    c2.ownedAccessories[accId].rotate = parseInt(rotSlider.value);
+    saveCosmetics(c2);
+    renderLoadoutPreview();
+  };
+  renderLoadoutPreview();
+}
+function renderLoadoutAuraGrid(){
+  const c = loadCosmetics();
+  const el = document.getElementById('loadout-aura-grid');
+  el.innerHTML = '';
+  const noneBtn = document.createElement('button');
+  noneBtn.className = 'rounded-lg border-2 p-2 text-[10px] font-bold ' + (!c.equippedAura ? 'border-amber-400 bg-amber-900/30 text-amber-200' : 'border-zinc-700 bg-zinc-800 text-zinc-400');
+  noneBtn.innerText = 'なし';
+  noneBtn.onclick = () => { const c2=loadCosmetics(); c2.equippedAura = null; saveCosmetics(c2); renderLoadoutScene(); };
+  el.appendChild(noneBtn);
+  AURAS.forEach(aura=>{
+    const owned = c.ownedAuras.includes(aura.id);
+    const equipped = c.equippedAura === aura.id;
+    const btn = document.createElement('button');
+    btn.className = 'relative rounded-lg border-2 p-2 text-[10px] font-bold ' + (equipped?'border-amber-400 bg-amber-900/30 text-amber-200':owned?'border-zinc-600 bg-zinc-800 text-zinc-200':'border-zinc-800 bg-zinc-900 text-zinc-600');
+    btn.innerText = aura.name + (owned?'':' 🔒');
+    if(owned){ btn.onclick = () => { const c2=loadCosmetics(); c2.equippedAura = aura.id; saveCosmetics(c2); renderLoadoutScene(); }; }
+    el.appendChild(btn);
+  });
+}
+
+// ==================== ガチャシステム ====================
+const GACHA_SINGLE_COST = 15;
+const GACHA_TEN_COST = 135;
+const GACHA_RATES = { hazure:0.66, dia150:0.10, accessory:0.15, srSkin:0.05, ssrSkin:0.02, aura:0.02 };
+const GACHA_RARE_OR_BETTER = { accessory:0.15, srSkin:0.05, ssrSkin:0.02, aura:0.02 };
+const GACHA_STORAGE_KEY = 'mf_gacha_progress';
+
+function loadGachaProgress(){
+  const fallback = { totalPulls:0, pullsSinceSrPity:0, pullsSinceSsrAuraPity:0 };
+  try{
+    const raw = localStorage.getItem(GACHA_STORAGE_KEY);
+    if(!raw) return fallback;
+    return Object.assign({}, fallback, JSON.parse(raw));
+  }catch(e){ console.warn('ガチャ進捗の読み込みに失敗しました', e); return fallback; }
+}
+function saveGachaProgress(gp){
+  try{ localStorage.setItem(GACHA_STORAGE_KEY, JSON.stringify(gp)); }catch(e){ console.warn('ガチャ進捗の保存に失敗しました', e); }
+}
+function rollGachaTier(rareOrBetterOnly){
+  const rates = rareOrBetterOnly ? GACHA_RARE_OR_BETTER : GACHA_RATES;
+  const total = Object.values(rates).reduce((a,b)=>a+b,0);
+  const r = Math.random()*total;
+  let acc = 0;
+  for(const tier in rates){ acc += rates[tier]; if(r < acc) return tier; }
+  return Object.keys(rates)[0];
+}
+function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function allSkinsOfRarity(rarity){
+  const out = [];
+  for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(s.rarity===rarity) out.push(s); }); }
+  return out;
+}
+// 1回分の抽選を解決し、報酬をセーブデータへ反映する
+function resolveGachaTier(tier){
+  if(tier==='hazure'){
+    const mp = loadMetaProgress(); mp.points += 20; saveMetaProgress(mp);
+    return { tier, rewardType:'point', amount:20 };
+  }
+  if(tier==='dia150'){
+    const mp = loadMetaProgress(); mp.points += 150; saveMetaProgress(mp);
+    return { tier, rewardType:'point', amount:150 };
+  }
+  if(tier==='accessory'){
+    const acc = pickRandom(ACCESSORIES);
+    const c = loadCosmetics();
+    if(c.ownedAccessories[acc.id]){
+      const mp = loadMetaProgress(); mp.points += 50; saveMetaProgress(mp);
+      return { tier, rewardType:'dupe', item:acc, amount:50 };
+    }
+    c.ownedAccessories[acc.id] = {hue:0, rotate:0};
+    saveCosmetics(c);
+    return { tier, rewardType:'new', item:acc };
+  }
+  if(tier==='srSkin' || tier==='ssrSkin'){
+    const skin = pickRandom(allSkinsOfRarity(tier==='srSkin' ? 'SR' : 'SSR'));
+    const c = loadCosmetics();
+    const dupePt = tier==='srSkin' ? 100 : 400;
+    if(c.ownedSkins.includes(skin.id)){
+      const mp = loadMetaProgress(); mp.points += dupePt; saveMetaProgress(mp);
+      return { tier, rewardType:'dupe', item:skin, amount:dupePt };
+    }
+    c.ownedSkins.push(skin.id);
+    saveCosmetics(c);
+    return { tier, rewardType:'new', item:skin };
+  }
+  if(tier==='aura'){
+    const aura = pickRandom(AURAS);
+    const c = loadCosmetics();
+    if(c.ownedAuras.includes(aura.id)){
+      const mp = loadMetaProgress(); mp.points += aura.dupePoint||400; saveMetaProgress(mp);
+      return { tier, rewardType:'dupe', item:aura, amount:aura.dupePoint||400 };
+    }
+    c.ownedAuras.push(aura.id);
+    saveCosmetics(c);
+    return { tier, rewardType:'new', item:aura };
+  }
+}
+// 1連分: 天井カウントを進め、必要なら天井フラグを立てて結果を返す
+function doSinglePull(forceRareOrBetter){
+  const gp = loadGachaProgress();
+  gp.totalPulls += 1;
+  gp.pullsSinceSrPity += 1;
+  gp.pullsSinceSsrAuraPity += 1;
+  const tier = rollGachaTier(!!forceRareOrBetter);
+  const pityTriggered = [];
+  if(gp.pullsSinceSrPity >= 100){ pityTriggered.push('sr'); gp.pullsSinceSrPity = 0; }
+  if(gp.pullsSinceSsrAuraPity >= 200){ pityTriggered.push('ssrAura'); gp.pullsSinceSsrAuraPity = 0; }
+  const result = resolveGachaTier(tier);
+  saveGachaProgress(gp);
+  return Object.assign(result, { pityTriggered });
+}
+function doTenPull(){
+  const results = [];
+  let hasRareOrBetter = false;
+  for(let i=0;i<9;i++){
+    const r = doSinglePull(false);
+    results.push(r);
+    if(GACHA_RARE_OR_BETTER[r.tier] !== undefined) hasRareOrBetter = true;
+  }
+  results.push(doSinglePull(!hasRareOrBetter));
+  return results;
+}
+const GACHA_TIER_LABEL = { hazure:'ハズレ', dia150:'大量継承pt', accessory:'アクセサリ', srSkin:'SRスキン', ssrSkin:'SSRスキン', aura:'オーラ' };
+// ---- ガチャ画面(演出は後日実装、まずは機能のみ) ----
+window.game.showGacha = function(){
+  showModal('💎 ガチャ', '');
+  renderGachaScreen();
+};
+function renderGachaScreen(){
+  const dia = getDiaBalance();
+  const gp = loadGachaProgress();
+  ui.modalTitle.innerText = '💎 ガチャ';
+  ui.modalDesc.innerText = `所持ダイヤ: 💎${dia}`;
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'flex flex-col gap-3 w-full';
+
+  const info = document.createElement('div');
+  info.className = 'text-[10px] text-zinc-400 text-center leading-relaxed';
+  info.innerText = `次のSRスキン確定まで あと${Math.max(0,100-gp.pullsSinceSrPity)}連\n次のSSR・オーラ確定まで あと${Math.max(0,200-gp.pullsSinceSsrAuraPity)}連`;
+  wrap.appendChild(info);
+
+  const singleBtn = document.createElement('button');
+  singleBtn.className = 'w-full py-3 rounded-lg font-bold bg-cyan-800 hover:bg-cyan-700 text-cyan-100 active:scale-95 transition';
+  singleBtn.innerText = `単発を引く (💎${GACHA_SINGLE_COST})`;
+  singleBtn.onclick = () => {
+    if(getDiaBalance() < GACHA_SINGLE_COST){ showDiaToast('💎 ダイヤが足りません'); return; }
+    const dp = loadDiaProgress(); dp.dia -= GACHA_SINGLE_COST; saveDiaProgress(dp);
+    playSfx('select');
+    showGachaResults([doSinglePull(false)]);
+  };
+  wrap.appendChild(singleBtn);
+
+  const tenBtn = document.createElement('button');
+  tenBtn.className = 'w-full py-3 rounded-lg font-bold bg-amber-800 hover:bg-amber-700 text-amber-100 active:scale-95 transition';
+  tenBtn.innerText = `10連を引く (💎${GACHA_TEN_COST})`;
+  tenBtn.onclick = () => {
+    if(getDiaBalance() < GACHA_TEN_COST){ showDiaToast('💎 ダイヤが足りません'); return; }
+    const dp = loadDiaProgress(); dp.dia -= GACHA_TEN_COST; saveDiaProgress(dp);
+    playSfx('select');
+    showGachaResults(doTenPull());
+  };
+  wrap.appendChild(tenBtn);
+
+  ui.rewardList.appendChild(wrap);
+  ui.modalBtn.classList.add('hidden');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '閉じる';
+  ui.modalConfirm.onclick = () => { ui.modal.classList.add('hidden'); updateTitleDiaDisplay(); };
+}
+function showGachaResults(results){
+  showModal('ガチャ結果', '');
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'grid grid-cols-2 gap-2 w-full';
+  results.forEach(r=>{
+    const cell = document.createElement('div');
+    cell.className = 'p-2 bg-zinc-800 border border-zinc-600 rounded-lg text-center';
+    if(r.rewardType==='point'){
+      cell.innerHTML = `<div class="text-xl">${r.tier==='hazure'?'💠':'💰'}</div><div class="text-[9px] text-zinc-400">${GACHA_TIER_LABEL[r.tier]}</div><div class="text-[10px] text-emerald-300 font-bold">継承pt +${r.amount}</div>`;
+    } else {
+      const label = r.rewardType==='new' ? '<span class="text-emerald-400">NEW</span>' : `<span class="text-zinc-400">被り→pt+${r.amount}</span>`;
+      cell.innerHTML = `<img src="${r.item.img}" class="w-12 h-12 object-contain mx-auto">
+        <div class="text-[9px] text-amber-200 font-bold truncate">${r.item.name}</div>
+        <div class="text-[8px]">${label}</div>`;
+    }
+    wrap.appendChild(cell);
+  });
+  ui.rewardList.appendChild(wrap);
+  ui.modalBtn.classList.add('hidden');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '閉じる';
+  ui.modalConfirm.onclick = () => {
+    ui.modal.classList.add('hidden');
+    const pityEvents = results.flatMap(r=>r.pityTriggered || []);
+    handlePityChoices(pityEvents, () => window.game.showGacha());
+  };
+}
+function handlePityChoices(events, onDone){
+  if(!events || events.length===0){ if(onDone) onDone(); return; }
+  const [first, ...rest] = events;
+  showPityChooser(first, () => handlePityChoices(rest, onDone));
+}
+function showPityChooser(type, onChosen){
+  const title = type==='sr' ? '🎉 累計100連達成！SRスキンを1つ選んで入手' : '🎉 累計200連達成！SSRスキンかオーラを1つ選んで入手';
+  showModal(title, '');
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'grid grid-cols-4 gap-2 w-full';
+  let choices = [];
+  if(type==='sr'){
+    choices = allSkinsOfRarity('SR').map(s=>({...s, kind:'skin'}));
+  } else {
+    choices = allSkinsOfRarity('SSR').map(s=>({...s, kind:'skin'}));
+    AURAS.forEach(a=>choices.push({id:a.id, name:a.name, img:null, kind:'aura'}));
+  }
+  choices.forEach(choice=>{
+    const btn = document.createElement('button');
+    btn.className = 'p-1 bg-zinc-800 border border-zinc-600 rounded-lg text-center hover:bg-zinc-700 transition';
+    btn.innerHTML = choice.img
+      ? `<img src="${choice.img}" class="w-10 h-10 object-contain mx-auto"><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`
+      : `<div class="text-2xl">✨</div><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`;
+    btn.onclick = () => {
+      const c = loadCosmetics();
+      if(choice.kind==='aura'){ if(!c.ownedAuras.includes(choice.id)) c.ownedAuras.push(choice.id); }
+      else { if(!c.ownedSkins.includes(choice.id)) c.ownedSkins.push(choice.id); }
+      saveCosmetics(c);
+      playSfx('select');
+      ui.modal.classList.add('hidden');
+      onChosen();
+    };
+    wrap.appendChild(btn);
+  });
+  ui.rewardList.appendChild(wrap);
+  ui.modalConfirm.classList.add('hidden');
+  ui.modalBtn.classList.add('hidden');
+}
+// ==================== ガチャシステムここまで ====================
+
 window.game.selectMonster = function(key) {
 const spec = SPECIES[key];
 state.player.species=spec; state.player.maxHp=spec.hp; state.player.hp=spec.hp;
 applyMetaShopBonuses();
+registerDiaPlayCount();
 state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
 ui.playerSpeciesName.innerText=spec.name;
-if(spec.img){
-  ui.playerVisual.innerHTML=`<img src="${spec.img}" class="player-sprite-img">`;
-} else {
-  ui.playerVisual.innerText=spec.icon||'';
+{
+  const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
+  const displayImg = skinImg || spec.img;
+  if(displayImg){
+    ui.playerVisual.innerHTML=`<img src="${displayImg}" class="player-sprite-img">`;
+  } else {
+    ui.playerVisual.innerText=spec.icon||'';
+  }
 }
-if(!spec.img) ui.playerVisual.innerHTML=spec.icon;
 
 // デバッグ用: URLに ?floor=61 のように付けると、その階層から開始できる（動作確認用）
 // 例: index.html?floor=61&boost=1  ※boost=1でライフ・力・丈夫さ・ガッツ上限を底上げ
@@ -3206,9 +3873,10 @@ window.game.giveUpRun = function() {
   const s = calculateFinalScore();
   saveScore(s);
   const mpt = awardMetaPoints();
-  showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}\n継承ポイント +${mpt}pt`);
+  const dia = awardDiaRewards();
+  showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`);
   ui.modalBtn.classList.remove('hidden');
-  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); stopVictoryBGM(); playMenuBGM(); showGlobalVolumeBtn(); };
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); stopVictoryBGM(); playMenuBGM(); showGlobalVolumeBtn(); updateTitleDiaDisplay(); };
 };
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
@@ -3243,7 +3911,7 @@ if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -3254,7 +3922,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}\n継承ポイント +${mpt}pt`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
