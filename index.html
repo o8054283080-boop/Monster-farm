@@ -672,6 +672,234 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 .gacha-egg-mini-result img { width: 32px; height: 32px; object-fit: contain; }
 .gacha-egg-mini-result .gacha-mini-icon { font-size: 20px; }
 
+/* ==================== カード演出モーション ====================
+   カードを使った時の演出。5場面(攻撃/防御/強化/弱体/回復)×3種。
+   画像素材は使わず、対象に .motion-fx を差し込んでCSSアニメで見せる。
+   「一体型」なので、エフェクトとキャラの動き(#player-visual-wrap側)がセットになっている。
+   キャラの動きは必ず wrap を動かすこと。スプライト単体を動かすと
+   アクセサリとオーラが置いていかれる。 */
+.motion-fx{position:absolute;inset:0;pointer-events:none;z-index:40;overflow:visible}
+.motion-fx span{position:absolute;display:block}
+
+/* ---- 攻撃(敵に出る) ---- */
+.motion-fx[data-m="atk_slash"] span{
+  left:-30%;top:var(--t);width:160%;height:3px;
+  background:linear-gradient(90deg,transparent,#fff 42%,#fff 58%,transparent);
+  box-shadow:0 0 12px #fff,0 0 22px #f87171;
+  transform:rotate(-26deg) scaleX(0);transform-origin:left center;
+  animation:mfx-slash .34s ease-out forwards;animation-delay:var(--d);
+}
+@keyframes mfx-slash{
+  0%{transform:rotate(-26deg) scaleX(0);opacity:0}
+  22%{opacity:1}
+  60%{transform:rotate(-26deg) scaleX(1);opacity:1}
+  100%{transform:rotate(-26deg) scaleX(1);opacity:0}
+}
+.motion-fx[data-m="atk_burst"] .ring{
+  left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
+  border:3px solid #f87171;box-shadow:0 0 16px #f87171;
+  animation:mfx-burstring .5s cubic-bezier(.15,.75,.3,1) forwards;animation-delay:var(--d);
+}
+@keyframes mfx-burstring{0%{transform:scale(.3);opacity:1}100%{transform:scale(7);opacity:0}}
+.motion-fx[data-m="atk_burst"] .shard{
+  left:50%;top:50%;width:5px;height:14px;margin:-7px 0 0 -2.5px;border-radius:2px;
+  background:linear-gradient(180deg,#fff,#f87171);box-shadow:0 0 8px #f87171;
+  animation:mfx-shard .52s cubic-bezier(.15,.8,.3,1) forwards;animation-delay:var(--d);
+}
+@keyframes mfx-shard{
+  0%{transform:rotate(var(--a)) translateY(0) scale(.6);opacity:1}
+  100%{transform:rotate(var(--a)) translateY(-58px) scale(.9);opacity:0}
+}
+.motion-fx[data-m="atk_flash"] span{
+  left:var(--x);top:var(--y);width:52px;height:2px;
+  background:linear-gradient(90deg,transparent,#fff,transparent);
+  box-shadow:0 0 10px #f87171;
+  transform:rotate(var(--a)) scaleX(0);
+  animation:mfx-flash .2s ease-out forwards;animation-delay:var(--d);
+}
+@keyframes mfx-flash{
+  0%{transform:rotate(var(--a)) scaleX(0);opacity:0}
+  40%{transform:rotate(var(--a)) scaleX(1);opacity:1}
+  100%{transform:rotate(var(--a)) scaleX(1);opacity:0}
+}
+
+/* ---- 防御(自分に出る) ---- */
+.motion-fx[data-m="def_hex"] .hex,
+.motion-fx[data-m="def_hex"] .edge{
+  left:50%;top:50%;width:104px;height:118px;margin:-59px 0 0 -52px;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  animation:mfx-hexup .62s cubic-bezier(.2,1.3,.4,1) forwards;
+}
+.motion-fx[data-m="def_hex"] .hex{background:linear-gradient(180deg,rgba(56,189,248,.42),rgba(56,189,248,.1))}
+.motion-fx[data-m="def_hex"] .edge{border:2px solid #38bdf8;box-shadow:0 0 16px #38bdf8}
+@keyframes mfx-hexup{
+  0%{transform:scale(.4);opacity:0}38%{transform:scale(1.1);opacity:1}
+  70%{transform:scale(1);opacity:.9}100%{transform:scale(1.04);opacity:0}
+}
+.motion-fx[data-m="def_wall"] span{
+  left:var(--x);bottom:2%;width:24px;height:52px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(148,180,200,.9),rgba(60,90,110,.85));
+  box-shadow:0 0 12px rgba(56,189,248,.7),inset 0 2px 0 rgba(255,255,255,.4);
+  animation:mfx-wallup .6s cubic-bezier(.2,1.2,.35,1) forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-wallup{
+  0%{transform:translateY(46px);opacity:0}40%{opacity:1}
+  72%{transform:translateY(-4px);opacity:1}100%{transform:translateY(0);opacity:0}
+}
+.motion-fx[data-m="def_ring"] span{
+  left:50%;top:50%;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;
+  border:2px solid #38bdf8;box-shadow:0 0 14px #38bdf8,inset 0 0 14px #38bdf8;
+  animation:mfx-ringin .58s ease-in forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-ringin{0%{transform:scale(2.1);opacity:0}35%{opacity:.95}100%{transform:scale(.62);opacity:0}}
+
+/* ---- 強化(自分に出る) ---- */
+.motion-fx[data-m="buf_updraft"] span{
+  left:var(--x);bottom:0;width:7px;height:18px;border-radius:60% 60% 40% 40%;
+  background:linear-gradient(180deg,#fff8dc,#fbbf24);box-shadow:0 0 10px #fbbf24;
+  animation:mfx-updraft .78s ease-out forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-updraft{
+  0%{transform:translateY(0) scale(.5);opacity:0}22%{opacity:1}
+  100%{transform:translateY(-96px) scale(1);opacity:0}
+}
+.motion-fx[data-m="buf_sigil"] .circle{
+  left:50%;bottom:-6%;width:118px;height:36px;margin-left:-59px;border-radius:50%;
+  border:2px solid #fbbf24;box-shadow:0 0 16px #fbbf24,inset 0 0 12px rgba(251,191,36,.5);
+  animation:mfx-sigil .82s ease-out forwards;
+}
+@keyframes mfx-sigil{
+  0%{transform:scale(.3) rotate(0);opacity:0}30%{transform:scale(1.06) rotate(60deg);opacity:1}
+  100%{transform:scale(1) rotate(200deg);opacity:0}
+}
+.motion-fx[data-m="buf_sigil"] .glyph{
+  left:50%;bottom:-9%;width:78px;height:24px;margin-left:-39px;border-radius:50%;
+  border:1px dashed #fbbf24;opacity:0;animation:mfx-sigil2 .82s ease-out .08s forwards;
+}
+@keyframes mfx-sigil2{
+  0%{transform:scale(.4) rotate(0);opacity:0}35%{opacity:.9}
+  100%{transform:scale(1.1) rotate(-180deg);opacity:0}
+}
+.motion-fx[data-m="buf_awaken"] .beam{
+  left:var(--x);top:-14%;width:4px;height:120%;
+  background:linear-gradient(180deg,transparent,#fbbf24 40%,transparent);
+  transform-origin:bottom;animation:mfx-beam .66s ease-out forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-beam{
+  0%{transform:scaleY(0);opacity:0}40%{transform:scaleY(1);opacity:.95}100%{transform:scaleY(1);opacity:0}
+}
+.motion-fx[data-m="buf_awaken"] .halo{
+  left:50%;top:50%;width:118px;height:118px;margin:-59px 0 0 -59px;border-radius:50%;
+  background:radial-gradient(circle,rgba(251,191,36,.42) 0%,transparent 68%);
+  animation:mfx-halo .7s ease-out forwards;
+}
+@keyframes mfx-halo{0%{transform:scale(.5);opacity:0}40%{transform:scale(1.1);opacity:1}100%{transform:scale(1.24);opacity:0}}
+
+/* ---- 弱体(敵に出る) ---- */
+.motion-fx[data-m="deb_bind"] span{
+  left:50%;top:50%;width:114px;height:114px;margin:-57px 0 0 -57px;border-radius:50%;
+  border:3px dashed #c084fc;box-shadow:0 0 14px #c084fc;
+  animation:mfx-bind .72s cubic-bezier(.3,.9,.3,1) forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-bind{0%{transform:scale(1.9) rotate(0);opacity:0}40%{opacity:1}100%{transform:scale(.66) rotate(150deg);opacity:0}}
+.motion-fx[data-m="deb_corrode"] span{
+  left:var(--x);top:-6%;width:9px;height:9px;border-radius:50% 50% 60% 60%;
+  background:radial-gradient(circle at 35% 30%,#e9d5ff,#c084fc 60%,#4c1d95);
+  box-shadow:0 0 9px #c084fc;
+  animation:mfx-corrode .8s cubic-bezier(.4,0,.7,1) forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-corrode{
+  0%{transform:translateY(0) scaleY(.7);opacity:0}18%{opacity:1}
+  100%{transform:translateY(104px) scaleY(1.5);opacity:0}
+}
+.motion-fx[data-m="deb_crack"] span{
+  left:50%;top:50%;width:3px;height:48px;margin:-24px 0 0 -1.5px;
+  background:linear-gradient(180deg,#c084fc,transparent);box-shadow:0 0 8px #c084fc;
+  transform:rotate(var(--a)) scaleY(0);transform-origin:top center;
+  animation:mfx-crack .6s ease-out forwards;animation-delay:var(--d);
+}
+@keyframes mfx-crack{
+  0%{transform:rotate(var(--a)) scaleY(0);opacity:0}30%{opacity:1}
+  70%{transform:rotate(var(--a)) scaleY(1);opacity:1}100%{transform:rotate(var(--a)) scaleY(1);opacity:0}
+}
+
+/* ---- 回復(自分に出る) ---- */
+.motion-fx[data-m="heal_drop"] span{
+  left:var(--x);bottom:0;width:10px;height:13px;border-radius:60% 60% 50% 50%;
+  background:radial-gradient(circle at 35% 28%,#ecfdf5,#34d399 62%,#065f46);
+  box-shadow:0 0 10px #34d399;
+  animation:mfx-healdrop .86s ease-out forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-healdrop{
+  0%{transform:translateY(0) scale(.5);opacity:0}20%{opacity:1}
+  100%{transform:translateY(-92px) scale(1);opacity:0}
+}
+.motion-fx[data-m="heal_light"] .col{
+  left:50%;top:-30%;width:70px;margin-left:-35px;height:130%;
+  background:linear-gradient(180deg,rgba(52,211,153,.62) 0%,rgba(52,211,153,.18) 55%,transparent 100%);
+  transform-origin:top;animation:mfx-healcol .82s ease-out forwards;
+}
+@keyframes mfx-healcol{0%{transform:scaleY(0);opacity:0}30%{transform:scaleY(1);opacity:1}100%{transform:scaleY(1);opacity:0}}
+.motion-fx[data-m="heal_light"] .spark{
+  left:var(--x);top:var(--y);width:6px;height:6px;border-radius:50%;
+  background:#ecfdf5;box-shadow:0 0 9px #34d399;
+  animation:mfx-healspark .8s ease-out forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-healspark{0%{transform:scale(0);opacity:0}45%{transform:scale(1.2);opacity:1}100%{transform:scale(.6);opacity:0}}
+.motion-fx[data-m="heal_pulse"] span{
+  left:50%;top:50%;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;
+  border:3px solid #34d399;box-shadow:0 0 15px #34d399,inset 0 0 15px rgba(52,211,153,.45);
+  animation:mfx-healpulse .74s cubic-bezier(.2,.8,.3,1) forwards;animation-delay:var(--d);opacity:0;
+}
+@keyframes mfx-healpulse{0%{transform:scale(.35);opacity:0}30%{opacity:.95}100%{transform:scale(1.7);opacity:0}}
+
+/* ---- キャラの動き(必ずwrapに当てる。IDを含めてidleアニメより優先させる) ---- */
+#player-visual-wrap.mv-lunge,#loadout-preview-img.mv-lunge{animation:mv-lunge .46s cubic-bezier(.3,.9,.3,1)}
+@keyframes mv-lunge{
+  0%{transform:translateX(0) scale(1,1)}15%{transform:translateX(-7px) scale(.97,1.03)}
+  32%{transform:translateX(26px) scale(1.07,.93)}55%{transform:translateX(16px) scale(1,1)}
+  100%{transform:translateX(0) scale(1,1)}
+}
+#player-visual-wrap.mv-charge,#loadout-preview-img.mv-charge{animation:mv-charge .58s cubic-bezier(.25,.9,.3,1)}
+@keyframes mv-charge{
+  0%{transform:translateX(0) rotate(0) scale(1,1)}18%{transform:translateX(-12px) rotate(-5deg) scale(.94,1.06)}
+  36%{transform:translateX(34px) rotate(6deg) scale(1.12,.9)}60%{transform:translateX(20px) rotate(2deg)}
+  100%{transform:translateX(0) rotate(0) scale(1,1)}
+}
+#player-visual-wrap.mv-rapid,#loadout-preview-img.mv-rapid{animation:mv-rapid .5s linear}
+@keyframes mv-rapid{
+  0%,100%{transform:translateX(0)}
+  12%{transform:translateX(18px)}24%{transform:translateX(2px)}
+  40%{transform:translateX(20px)}52%{transform:translateX(2px)}
+  68%{transform:translateX(16px)}80%{transform:translateX(0)}
+}
+#player-visual-wrap.mv-brace,#loadout-preview-img.mv-brace{animation:mv-brace .55s ease-out}
+@keyframes mv-brace{
+  0%,100%{transform:scale(1,1) translateY(0)}
+  30%{transform:scale(1.1,.88) translateY(5px)}
+  62%{transform:scale(.97,1.04) translateY(-2px)}
+}
+#player-visual-wrap.mv-rise,#loadout-preview-img.mv-rise{animation:mv-rise .7s ease-out}
+@keyframes mv-rise{
+  0%,100%{transform:translateY(0) scale(1,1)}
+  22%{transform:translateY(4px) scale(1.05,.94)}
+  55%{transform:translateY(-11px) scale(.95,1.07)}
+}
+#player-visual-wrap.mv-cast,#loadout-preview-img.mv-cast{animation:mv-cast .5s ease-out}
+@keyframes mv-cast{
+  0%,100%{transform:translateX(0) rotate(0)}
+  25%{transform:translateX(-6px) rotate(-3deg)}
+  50%{transform:translateX(12px) rotate(4deg)}
+}
+#player-visual-wrap.mv-pulse,#loadout-preview-img.mv-pulse{animation:mv-pulse .68s ease-in-out}
+@keyframes mv-pulse{
+  0%,100%{transform:scale(1)}30%{transform:scale(1.08)}60%{transform:scale(.98)}
+}
+@media (prefers-reduced-motion: reduce){
+  .motion-fx{display:none}
+  #player-visual-wrap[class*="mv-"]{animation:none !important}
+}
+
 /* ==================== オーラ(戦闘中・装備プレビュー共通) ====================
    画像素材を一切使わず、CSSのグラデーションだけで全7種族に使い回せるようにしている。
    要素は静的に置いておき、JSは data-aura を差し替えるだけ(動的にDOMを作らない)。
@@ -925,6 +1153,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <h3 class="text-zinc-400 text-xs font-bold mb-1">初期技</h3>
     <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">SSRスキンを<b>所持していれば</b>選べます(装備している必要はありません)。冒険開始時、初期デッキの看板技が入れ替わります。</p>
     <div id="loadout-startercard-grid" class="flex flex-col gap-2 mb-5"></div>
+    <!-- カード演出モーション -->
+    <h3 class="text-zinc-400 text-xs font-bold mb-1">カード演出モーション</h3>
+    <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">カードを使ったときの演出です。場面ごとに設定できます。<b>ランダム</b>を選ぶと、所持しているものから毎回抽選されます。モーションはガチャのSR枠で手に入ります。</p>
+    <div id="loadout-motion-grid" class="flex flex-col gap-3 mb-5"></div>
     <!-- アクセサリ -->
     <h3 class="text-zinc-400 text-xs font-bold mb-2">アクセサリ</h3>
     <div id="loadout-accessory-slots" class="grid grid-cols-4 gap-2 mb-5"></div>
@@ -2207,6 +2439,8 @@ function loadCosmetics(){
     ownedAuras: [],           // 所持オーラidの配列
     equippedAura: null,
     starterCards: {},         // {種族id: 初期技のカードid} 未設定/nullなら種族の通常の看板技
+    ownedMotions: [],         // 所持モーションidの配列
+    equippedMotions: {},      // {場面key: モーションid | 'random'} 未設定なら演出なし(従来通り)
   };
   try{
     const raw = localStorage.getItem(COSMETICS_STORAGE_KEY);
@@ -2220,6 +2454,8 @@ function loadCosmetics(){
       ownedAuras: c.ownedAuras || [],
       equippedAura: c.equippedAura || null,
       starterCards: c.starterCards || {},
+      ownedMotions: c.ownedMotions || [],
+      equippedMotions: c.equippedMotions || {},
     };
   }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return fallback; }
 }
@@ -2365,6 +2601,7 @@ function renderLoadoutScene(){
   renderLoadoutPreview();
   renderLoadoutSkinGrid();
   renderLoadoutStarterCardGrid();
+  renderLoadoutMotionGrid();
   renderLoadoutAccessorySlots();
   renderLoadoutAuraGrid();
 }
@@ -2481,6 +2718,78 @@ function renderLoadoutSkinGrid(){
   });
 }
 const ACC_CATEGORY_LABEL = { hat:'帽子', mask:'メガネ・仮面', other:'その他', weapon:'武器・小物' };
+// カード演出モーションの選択欄。場面ごとに「なし / ランダム / 所持モーション」から選ぶ。
+// タップするとその場でプレビュー再生する(装備画面でも動きを確かめられるように)。
+function renderLoadoutMotionGrid(){
+  const el = document.getElementById('loadout-motion-grid');
+  if(!el) return;
+  el.innerHTML = '';
+  const c = loadCosmetics();
+  const owned = c.ownedMotions || [];
+  const eq = c.equippedMotions || {};
+
+  MOTION_CATS.forEach(cat => {
+    const list = motionsOfCat(cat.key);
+    const ownedInCat = list.filter(m => owned.includes(m.id));
+    const box = document.createElement('div');
+    box.className = 'bg-zinc-900/50 border border-zinc-700 rounded-xl p-2.5';
+
+    const head = document.createElement('div');
+    head.className = 'flex items-baseline gap-2 mb-2';
+    head.innerHTML = `<span class="text-[11px] font-bold ${cat.color}">${cat.label}</span>
+      <span class="text-[9px] text-zinc-500">${cat.note}</span>
+      <span class="text-[9px] text-zinc-600 ml-auto">${ownedInCat.length}/${list.length}</span>`;
+    box.appendChild(head);
+
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-2 gap-1.5';
+
+    const chip = (label, sub, active, locked, onClick) => {
+      const b = document.createElement('button');
+      b.className = 'px-2 py-1.5 rounded-lg border text-left transition ' +
+        (locked ? 'bg-zinc-900/40 border-zinc-800 text-zinc-600 cursor-default'
+          : active ? 'bg-amber-900/30 border-amber-400 text-amber-100'
+          : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:bg-zinc-700');
+      b.innerHTML = `<div class="text-[10px] font-bold leading-tight">${locked ? '🔒 ' : ''}${label}</div>
+        <div class="text-[8px] leading-tight ${locked ? 'text-zinc-700' : 'text-zinc-400'} mt-0.5">${sub}</div>`;
+      if(!locked) b.onclick = onClick;
+      row.appendChild(b);
+    };
+
+    chip('なし', '演出を出さない', !eq[cat.key], false, () => {
+      const c2 = loadCosmetics(); c2.equippedMotions = c2.equippedMotions||{}; c2.equippedMotions[cat.key] = null;
+      saveCosmetics(c2); playSfx('select'); renderLoadoutMotionGrid();
+    });
+    chip('🎲 ランダム', ownedInCat.length ? `所持${ownedInCat.length}種から毎回抽選` : 'まず1種手に入れてください',
+      eq[cat.key] === 'random', ownedInCat.length === 0, () => {
+        const c2 = loadCosmetics(); c2.equippedMotions = c2.equippedMotions||{}; c2.equippedMotions[cat.key] = 'random';
+        saveCosmetics(c2); playSfx('select'); renderLoadoutMotionGrid();
+      });
+    list.forEach(m => {
+      const has = owned.includes(m.id);
+      chip(m.name, has ? m.desc : 'ガチャSR枠で入手', eq[cat.key] === m.id, !has, () => {
+        const c2 = loadCosmetics(); c2.equippedMotions = c2.equippedMotions||{}; c2.equippedMotions[cat.key] = m.id;
+        saveCosmetics(c2); playSfx('select'); renderLoadoutMotionGrid();
+        previewMotionOnLoadout(m);
+      });
+    });
+    box.appendChild(row);
+    el.appendChild(box);
+  });
+}
+// 装備画面のプレビュー枠でモーションを1回再生してみせる
+function previewMotionOnLoadout(m){
+  const host = document.getElementById('loadout-preview');
+  if(!host || !m) return;
+  buildMotionFx(host, m.id);
+  const img = document.getElementById('loadout-preview-img');
+  if(img && m.move){
+    img.classList.remove('mv-lunge','mv-charge','mv-rapid','mv-brace','mv-rise','mv-cast','mv-pulse');
+    void img.offsetWidth;
+    img.classList.add(m.move);
+    setTimeout(()=>img.classList.remove(m.move), 800);
+  }
+}
 function renderLoadoutAccessorySlots(){
   const c = loadCosmetics();
   const el = document.getElementById('loadout-accessory-slots');
@@ -2739,6 +3048,19 @@ function resolveGachaTier(tier){
     saveCosmetics(c);
     return { tier, rewardType:'new', item:acc };
   }
+  // SR枠はSRスキンとモーションが半々。どちらもレア度の位置づけは同じ扱いにする
+  if(tier==='srSkin' && typeof CARD_MOTIONS !== 'undefined' && Math.random() < 0.5){
+    const motion = pickRandom(CARD_MOTIONS);
+    const c = loadCosmetics();
+    c.ownedMotions = c.ownedMotions || [];
+    if(c.ownedMotions.includes(motion.id)){
+      const mp = loadMetaProgress(); mp.points += 100; saveMetaProgress(mp);
+      return { tier, rewardType:'dupe', item:motion, amount:100, isMotion:true };
+    }
+    c.ownedMotions.push(motion.id);
+    saveCosmetics(c);
+    return { tier, rewardType:'new', item:motion, isMotion:true };
+  }
   if(tier==='srSkin' || tier==='ssrSkin'){
     const skin = pickRandom(allSkinsOfRarity(tier==='srSkin' ? 'SR' : 'SSR'));
     const c = loadCosmetics();
@@ -2853,7 +3175,7 @@ function showGachaResults(results){
       cell.innerHTML = `<div class="text-xl">${r.tier==='hazure'?'💠':'💰'}</div><div class="text-[9px] text-zinc-400">${GACHA_TIER_LABEL[r.tier]}</div><div class="text-[10px] text-emerald-300 font-bold">継承pt +${r.amount}</div>`;
     } else {
       const label = r.rewardType==='new' ? '<span class="text-emerald-400">NEW</span>' : `<span class="text-zinc-400">被り→pt+${r.amount}</span>`;
-      const icon = r.item.img ? `<img src="${r.item.img}" class="w-12 h-12 object-contain mx-auto">` : `<div class="text-3xl">✨</div>`;
+      const icon = r.item.img ? `<img src="${r.item.img}" class="w-12 h-12 object-contain mx-auto">` : `<div class="text-3xl">${r.isMotion ? '🎬' : '✨'}</div>`;
       cell.innerHTML = `${icon}
         <div class="text-[9px] text-amber-200 font-bold truncate">${r.item.name}</div>
         <div class="text-[8px]">${label}</div>`;
@@ -2884,6 +3206,7 @@ function showPityChooser(type, onChosen){
   let choices = [];
   if(type==='sr'){
     choices = allSkinsOfRarity('SR').map(s=>({...s, kind:'skin'}));
+    if(typeof CARD_MOTIONS !== 'undefined') CARD_MOTIONS.forEach(m=>choices.push({id:m.id, name:m.name, img:null, kind:'motion'}));
   } else {
     choices = allSkinsOfRarity('SSR').map(s=>({...s, kind:'skin'}));
     AURAS.forEach(a=>choices.push({id:a.id, name:a.name, img:null, kind:'aura'}));
@@ -2893,10 +3216,11 @@ function showPityChooser(type, onChosen){
     btn.className = 'p-1 bg-zinc-800 border border-zinc-600 rounded-lg text-center hover:bg-zinc-700 transition';
     btn.innerHTML = choice.img
       ? `<img src="${choice.img}" class="w-10 h-10 object-contain mx-auto"><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`
-      : `<div class="text-2xl">✨</div><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`;
+      : `<div class="text-2xl">${choice.kind==='motion' ? '🎬' : '✨'}</div><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`;
     btn.onclick = () => {
       const c = loadCosmetics();
       if(choice.kind==='aura'){ if(!c.ownedAuras.includes(choice.id)) c.ownedAuras.push(choice.id); }
+      else if(choice.kind==='motion'){ c.ownedMotions = c.ownedMotions||[]; if(!c.ownedMotions.includes(choice.id)) c.ownedMotions.push(choice.id); }
       else { if(!c.ownedSkins.includes(choice.id)) c.ownedSkins.push(choice.id); }
       saveCosmetics(c);
       playSfx('select');
@@ -2987,7 +3311,7 @@ function runSingleGachaReveal(stage, flashEl, setT, result, captionText, onDone)
         <div class="gacha-reveal-name">継承pt +${result.amount}</div>`;
     } else {
       const sub = result.rewardType==='new' ? 'NEW' : `被り → 継承pt +${result.amount}`;
-      const icon = result.item.img ? `<img src="${result.item.img}">` : `<div class="gacha-reveal-icon">✨</div>`;
+      const icon = result.item.img ? `<img src="${result.item.img}">` : `<div class="gacha-reveal-icon">${result.isMotion ? '🎬' : '✨'}</div>`;
       reveal.innerHTML = `${icon}
         <div class="gacha-reveal-tier">${GACHA_TIER_LABEL[result.tier]}</div>
         <div class="gacha-reveal-name">${result.item.name}</div>
@@ -3042,7 +3366,7 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
       resEl.style.setProperty('--gc-glow', theme.glow);
       resEl.innerHTML = (r.rewardType==='point')
         ? `<div class="gacha-mini-icon">${r.tier==='hazure'?'💠':'💰'}</div>`
-        : (r.item.img ? `<img src="${r.item.img}">` : `<div class="gacha-mini-icon">✨</div>`);
+        : (r.item.img ? `<img src="${r.item.img}">` : `<div class="gacha-mini-icon">${r.isMotion ? '🎬' : '✨'}</div>`);
       resEl.classList.add('is-shown');
     }, tBurst+180);
   });
@@ -4618,6 +4942,7 @@ if(c.discardAll){const o=state.hand.filter((_,i)=>i!==idx); o.forEach(x=>state.d
 // プレイしたカード自体は先に手札から除去し、山札/捨て札に確定させる。
 // （こうしておくことで、この後の効果処理中に万一エラーが起きても、カードが手札に残ったままにならない）
 state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
+resetCardMotions(); // このカードで各場面のモーションを1回ずつだけ鳴らす
 updateUI(); renderHand();
 if(c.breakBlock)state.enemy.block=0;
 let actualHits=1;
@@ -4746,7 +5071,7 @@ if(isMultiHit && comboTotalDmg > 0) {
 }
 // 150以上ダメージで画面揺れ
 if(comboTotalDmg >= 150) showImpactEffect();
-state.player.nextAtkBonus=0; ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
+state.player.nextAtkBonus=0; playCardMotion('atk'); ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
 }
 // クリティカル発動時の効果（連撃で何度クリティカルしても、1回の攻撃につき1回のみ発動）
 try {
@@ -4776,6 +5101,7 @@ try {
 let blk=(c.block||0) + (c.bleedBlock ? (state.enemy.bleed||0) : 0);
 if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=3;
 if(blk>0){
+  playCardMotion('def');
   let bm=state.player.nextBlockMult; if(state.player.currentTurnBlockDouble)bm*=2; state.player.block+=Math.floor(blk*bm);
   if(state.player.relics.some(r=>r.id==='br_g_patience')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
   if(state.player.relics.some(r=>r.id==='br_mo_spikywall')) { state.enemy.hp-=10; state.score+=50; showFloatingText(10,'dmg',ui.enemyNode); }
@@ -4788,15 +5114,17 @@ if(c.draw)drawCards(c.draw); if(c.nextTurnEnergy)state.player.nextTurnEnergy+=c.
 if(c.zeroCostHand){ state.player.zeroCostTurn=true; }
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
 if(c.nextTurnDouble)state.player.doubleAtk=true; if(c.currentTurnDouble)state.player.currentTurnDouble=true; if(c.currentTurnBlockDouble)state.player.currentTurnBlockDouble=true;
+if(c.atkBattle||c.blockBattle||c.maxEnergyBattle||c.nextAtkBonusMult||c.kiaiTurns||c.permDmgMultBonus) playCardMotion('buf');
 if(c.nextAtkBonusMult)state.player.nextDmgMult*=c.nextAtkBonusMult; if(c.atkBattle)state.player.atkBattle+=c.atkBattle; if(c.blockBattle)state.player.blockBattle+=c.blockBattle;
 if(c.maxEnergyBattle)state.player.maxEnergyBattle=(state.player.maxEnergyBattle||0) + c.maxEnergyBattle;
-if(c.heal){state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
+if(c.heal){playCardMotion('heal'); state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
 if(c.bleedHealHalf){ const bh=Math.floor((state.enemy.bleed||0)/2); if(bh>0){ state.player.hp=Math.min(state.player.maxHp,state.player.hp+bh); showFloatingText(bh,'heal',ui.playerNode); } }
 if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){applySelfDamage(c.selfDmg); if(state.player.hp<=0){return;}}
 } catch(errMisc) { console.error('[playCard:ドロー/回復/自傷等]でエラー', errMisc); }
 
 try {
 const debuffMult = actualHits>1 ? actualHits : 1;
+if(c.weak||c.vuln||c.burn||c.freeze||c.shock) playCardMotion('deb');
 if(c.weak)state.enemy.weak+=c.weak; if(c.vuln)state.enemy.vuln+=c.vuln;
 if(c.burn)state.enemy.burn+=c.burn*debuffMult; if(c.freeze)state.enemy.freeze+=c.freeze*debuffMult; if(c.shock)state.enemy.shock+=c.shock*debuffMult;
 if(c.selfBleedOnHit) state.player.bleedOnHit=(state.player.bleedOnHit||0)+c.selfBleedOnHit;
@@ -5616,6 +5944,121 @@ function showEvent() {
 }
 // カードの役割(攻撃/防御/特殊)を判定する。中央の光の色・紋章・右下のラベルに使う。
 // 面から説明文を外したぶん、これが「何をするカードか」の第一の手がかりになる。
+// ==================== カード演出モーション ====================
+// 5場面(攻撃/防御/強化/弱体/回復)×3種。ガチャSR枠で入手し、装備画面で場面ごとに選ぶ。
+// 「一体型」なので、エフェクト(fx)とキャラの動き(move)が1セットになっている。
+//   fxOn: 'enemy' … 敵に出る / 'player' … 自分に出る
+//   move: #player-visual-wrap に付けるクラス名(mv-*)
+const MOTION_CATS = [
+  { key:'atk',  label:'攻撃', note:'ダメージを与えたとき', color:'text-red-300' },
+  { key:'def',  label:'防御', note:'ブロックを得たとき',   color:'text-sky-300' },
+  { key:'buf',  label:'強化', note:'力や丈夫さが上がったとき', color:'text-amber-300' },
+  { key:'deb',  label:'弱体', note:'相手に弱体を与えたとき',   color:'text-purple-300' },
+  { key:'heal', label:'回復', note:'ライフが回復したとき',     color:'text-emerald-300' },
+];
+const CARD_MOTIONS = [
+  { id:'atk_slash',   cat:'atk',  name:'斬撃',      desc:'白刃が三度、斜めに走り抜ける',   fxOn:'enemy',  move:'mv-lunge'  },
+  { id:'atk_burst',   cat:'atk',  name:'爆砕',      desc:'着弾点から衝撃波と破片が弾ける', fxOn:'enemy',  move:'mv-charge' },
+  { id:'atk_flash',   cat:'atk',  name:'連閃',      desc:'細かい閃光が四方から次々と刺さる', fxOn:'enemy', move:'mv-rapid' },
+  { id:'def_hex',     cat:'def',  name:'六角障壁',  desc:'六角形の壁がせり上がって身を守る', fxOn:'player', move:'mv-brace' },
+  { id:'def_wall',    cat:'def',  name:'石壁',      desc:'足元から石の板が三枚立ち上がる',   fxOn:'player', move:'mv-brace' },
+  { id:'def_ring',    cat:'def',  name:'光輪盾',    desc:'光の輪が外から内へ収束する',       fxOn:'player', move:'mv-brace' },
+  { id:'buf_updraft', cat:'buf',  name:'上昇気流',  desc:'金色の粒が足元から舞い上がる',     fxOn:'player', move:'mv-rise'  },
+  { id:'buf_sigil',   cat:'buf',  name:'紋章',      desc:'足元に魔法陣が広がって回る',       fxOn:'player', move:'mv-rise'  },
+  { id:'buf_awaken',  cat:'buf',  name:'覚醒',      desc:'光の柱が立ち、全身が輝く',         fxOn:'player', move:'mv-rise'  },
+  { id:'deb_bind',    cat:'deb',  name:'呪縛',      desc:'紫の輪が締め上げるように収縮する', fxOn:'enemy',  move:'mv-cast'  },
+  { id:'deb_corrode', cat:'deb',  name:'侵食',      desc:'毒々しい雫が上から滴り落ちる',     fxOn:'enemy',  move:'mv-cast'  },
+  { id:'deb_crack',   cat:'deb',  name:'亀裂',      desc:'放射状に亀裂が走る',               fxOn:'enemy',  move:'mv-cast'  },
+  { id:'heal_drop',   cat:'heal', name:'生命の雫',  desc:'緑の雫がゆっくり立ちのぼる',       fxOn:'player', move:'mv-rise'  },
+  { id:'heal_light',  cat:'heal', name:'聖光',      desc:'天から光の柱が降りそそぐ',         fxOn:'player', move:'mv-rise'  },
+  { id:'heal_pulse',  cat:'heal', name:'再生',      desc:'緑の輪が広がって包み込む',         fxOn:'player', move:'mv-pulse' },
+];
+function findMotion(id){ return CARD_MOTIONS.find(m=>m.id===id) || null; }
+function motionsOfCat(cat){ return CARD_MOTIONS.filter(m=>m.cat===cat); }
+
+// モーションが必要とする要素を組み立てて対象へ差し込む
+function buildMotionFx(host, id){
+  const old = host.querySelector('.motion-fx');
+  if(old) old.remove();
+  const fx = document.createElement('div');
+  fx.className = 'motion-fx';
+  fx.dataset.m = id;
+  const add = (cls, style) => {
+    const sp = document.createElement('span');
+    if(cls) sp.className = cls;
+    if(style) sp.style.cssText = style;
+    fx.appendChild(sp);
+  };
+  const rnd = (a,b) => (a + Math.random()*(b-a));
+  switch(id){
+    case 'atk_slash':
+      [['32%','0s'],['46%','.07s'],['60%','.14s']].forEach(([t,d])=>add('',`--t:${t};--d:${d}`)); break;
+    case 'atk_burst':
+      add('ring','--d:0s');
+      for(let i=0;i<10;i++) add('shard',`--a:${i*36}deg;--d:0s`); break;
+    case 'atk_flash':
+      for(let i=0;i<6;i++) add('',`--x:${rnd(10,62).toFixed(0)}%;--y:${rnd(16,60).toFixed(0)}%;--a:${rnd(0,180).toFixed(0)}deg;--d:${(i*0.055).toFixed(3)}s`); break;
+    case 'def_hex': add('hex'); add('edge'); break;
+    case 'def_wall':
+      [['16%','0s'],['38%','.08s'],['60%','.16s']].forEach(([x,d])=>add('',`--x:${x};--d:${d}`)); break;
+    case 'def_ring': ['0s','.1s','.2s'].forEach(d=>add('',`--d:${d}`)); break;
+    case 'buf_updraft':
+      for(let i=0;i<9;i++) add('',`--x:${rnd(8,80).toFixed(0)}%;--d:${rnd(0,0.35).toFixed(3)}s`); break;
+    case 'buf_sigil': add('circle'); add('glyph'); break;
+    case 'buf_awaken':
+      add('halo');
+      [['26%','0s'],['48%','.07s'],['68%','.14s']].forEach(([x,d])=>add('beam',`--x:${x};--d:${d}`)); break;
+    case 'deb_bind': ['0s','.09s','.18s'].forEach(d=>add('',`--d:${d}`)); break;
+    case 'deb_corrode':
+      for(let i=0;i<8;i++) add('',`--x:${rnd(10,78).toFixed(0)}%;--d:${rnd(0,0.34).toFixed(3)}s`); break;
+    case 'deb_crack':
+      for(let i=0;i<7;i++) add('',`--a:${i*51+12}deg;--d:${(i*0.03).toFixed(3)}s`); break;
+    case 'heal_drop':
+      for(let i=0;i<8;i++) add('',`--x:${rnd(10,78).toFixed(0)}%;--d:${rnd(0,0.4).toFixed(3)}s`); break;
+    case 'heal_light':
+      add('col');
+      for(let i=0;i<6;i++) add('spark',`--x:${rnd(14,72).toFixed(0)}%;--y:${rnd(16,58).toFixed(0)}%;--d:${rnd(0,0.35).toFixed(3)}s`); break;
+    case 'heal_pulse': ['0s','.13s'].forEach(d=>add('',`--d:${d}`)); break;
+  }
+  host.appendChild(fx);
+  setTimeout(()=>fx.remove(), 1100);
+}
+
+// その場面で再生するモーションを決める(未装備ならnull、ランダムなら所持分から毎回抽選)
+function pickMotionForCat(cat){
+  const c = loadCosmetics();
+  const sel = (c.equippedMotions||{})[cat];
+  if(!sel) return null;
+  const owned = motionsOfCat(cat).filter(m => (c.ownedMotions||[]).includes(m.id));
+  if(sel === 'random') return owned.length ? owned[Math.floor(Math.random()*owned.length)] : null;
+  if(!(c.ownedMotions||[]).includes(sel)) return null;   // 未所持なら出さない
+  return findMotion(sel);
+}
+// 1枚のカードが複数の場面に当てはまることがある(攻撃しつつ弱体を与える等)。
+// 同じ対象に重ねると後の演出が前を消してしまうので、対象ごとに1つだけ出す。
+// キャラの動きも1枚につき1回だけ(最初に決まったものを優先)。
+// 呼ばれる順は 攻撃 → 防御 → 強化/回復 → 弱体 なので、攻撃カードなら攻撃の演出が残る。
+let __cardMotionUsed = { enemy:false, player:false, move:false };
+function resetCardMotions(){ __cardMotionUsed = { enemy:false, player:false, move:false }; }
+function playCardMotion(cat){
+  try{
+    const m = pickMotionForCat(cat);
+    if(!m) return;
+    if(__cardMotionUsed[m.fxOn]) return;
+    __cardMotionUsed[m.fxOn] = true;
+    const host = m.fxOn === 'enemy' ? ui.enemyVisual : ui.playerVisual;
+    if(host) buildMotionFx(host, m.id);
+    const wrap = document.getElementById('player-visual-wrap');
+    if(wrap && m.move && !__cardMotionUsed.move){
+      __cardMotionUsed.move = true;
+      wrap.classList.remove('mv-lunge','mv-charge','mv-rapid','mv-brace','mv-rise','mv-cast','mv-pulse');
+      void wrap.offsetWidth;
+      wrap.classList.add(m.move);
+      setTimeout(()=>wrap.classList.remove(m.move), 800);
+    }
+  }catch(e){ console.warn('モーション再生に失敗しました', e); }
+}
+// ==================== カード演出モーションここまで ====================
 function cardRoleOf(c){
   // 透かしは絵文字ではなく漢字を使う。絵文字はcolorが効かず(カラー絵文字として描かれる)
   // 背景に沈まないうえ、役割色で塗り分けられないため。
