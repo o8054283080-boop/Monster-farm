@@ -48,28 +48,104 @@ background-blend-mode: overlay, overlay, normal;
   0% { filter: drop-shadow(0 0 15px rgba(255,215,0,0.9)) drop-shadow(0 0 5px rgba(255,165,0,0.7)); }
   100% { filter: drop-shadow(0 0 30px rgba(255,215,0,1)) drop-shadow(0 0 15px rgba(255,140,0,0.9)) drop-shadow(0 0 5px #fff); }
 }
+/* ==== カード(彫金デザイン) ====
+   説明文は面から外して長押しのポップアップへ移し、そのぶん名前と数値を大きくしている。
+   ・種族  … 上部のほのかな光(::before)と下辺のライン(::after) = --sp
+   ・役割  … 中央の光と背後の紋章、右下のラベル = --tp (攻撃/防御/特殊)
+   枠の色と外側の光はレア度(.rarity-*)が担当するので、ここではbox-shadowを使わない
+   (使うと後方の.rarity-*のbox-shadowに上書きされて消えるため)。 */
 .card {
 transition: transform 0.1s ease-out, box-shadow 0.1s; cursor: pointer; flex-shrink: 0;
-position: relative; width: 100px; height: 148px; border: 3px solid; background-size: cover; border-radius: 8px;
-background-color: #1e293b; display: flex; flex-direction: column; transform-origin: center bottom;
+position: relative; width: 100px; height: 148px; border: 2px solid; border-radius: 9px;
+display: flex; flex-direction: column; transform-origin: center bottom; overflow: hidden;
+background: linear-gradient(168deg, #1c1917 0%, #0c0a09 62%, #141110 100%);
+--sp: #94a3b8; --spSoft: rgba(148,163,184,0.28);
+--tp: #cbd5e1; --tpGlow: rgba(203,213,225,0.5); --tpSoft: rgba(203,213,225,0.16);
 }
+.card::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background: linear-gradient(180deg, var(--spSoft) 0%, transparent 44%); }
+.card::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; z-index:0; pointer-events:none;
+  background: linear-gradient(90deg, transparent, var(--sp), transparent); }
+.card > * { position: relative; z-index: 1; }
+.card-hd { display:flex; justify-content:space-between; align-items:center; padding:4px 5px 0; }
+.card-cost { width:19px; height:19px; flex-shrink:0;
+  background: linear-gradient(160deg, #fde68a, #b45309);
+  clip-path: polygon(50% 0%, 100% 27%, 100% 73%, 50% 100%, 0% 73%, 0% 27%);
+  display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#1c1310; }
+.card-cost.is-cut { background: linear-gradient(160deg, #a7f3d0, #047857); }
+.card-costold { font-size:6px; color:#6ee7b7; text-decoration:line-through; opacity:0.8; line-height:1; margin-top:1px; }
+.card-rank { font-size:7px; font-weight:900; letter-spacing:0.05em; color:var(--rankC, #e2e8f0);
+  border:1px solid var(--rankB, rgba(226,232,240,0.45)); border-radius:3px; padding:0 3px; line-height:1.5; }
+.card-name { margin:3px 4px 0; text-align:center; font-size:9px; font-weight:900; line-height:1.15;
+  color:#f5f0e6; min-height:22px; display:flex; align-items:center; justify-content:center; padding:2px 0;
+  border-top:1px solid rgba(255,255,255,0.09); border-bottom:1px solid rgba(255,255,255,0.09);
+  background: linear-gradient(90deg, transparent, var(--spSoft), transparent); }
+.card-body { flex:1; display:flex; align-items:center; justify-content:center; position:relative; min-height:0; }
+.card-body::before { content:''; position:absolute; width:58%; aspect-ratio:1; border-radius:50%;
+  background: radial-gradient(circle, var(--tpGlow) 0%, transparent 72%); }
+.card-emblem { position:absolute; font-size:46px; line-height:1; color:var(--tp); opacity:0.20;
+  font-weight:900; user-select:none; }
+.card-val { position:relative; font-size:30px; font-weight:900; color:#fff; line-height:1;
+  text-shadow: 0 0 10px var(--tpGlow), 0 2px 3px rgba(0,0,0,0.9); }
+.card-ft { display:flex; justify-content:space-between; align-items:center; gap:2px;
+  padding:0 5px 5px; font-size:7px; font-weight:900; }
+.card-crit { color:#fcd34d; }
+.card-type { color:var(--tp); letter-spacing:0.05em; }
+/* 役割ごとの色。color-mixは使わず実色で持たせている(古いiOSでも確実に出すため) */
+.card.type-atk { --tp:#f87171; --tpGlow:rgba(248,113,113,0.5); --tpSoft:rgba(248,113,113,0.16); }
+.card.type-def { --tp:#38bdf8; --tpGlow:rgba(56,189,248,0.5);  --tpSoft:rgba(56,189,248,0.16); }
+.card.type-spc { --tp:#c084fc; --tpGlow:rgba(192,132,252,0.5); --tpSoft:rgba(192,132,252,0.16); }
+
 .card.small { width: 70px; height: 100px; border-width: 2px; }
+.card.small .card-hd { padding:3px 4px 0; }
 .card.small .card-cost { width: 16px; height: 16px; font-size: 8px; }
 .card.small .card-cost-star { width: 18px !important; height: 18px !important; }
-.card.small .card-name { font-size: 7px; height: 12px; margin-bottom: 0; }
-.card.small .card-val { font-size: 1.25rem; }
-.card.small .card-desc { font-size: 6px; padding: 1px; height: 28px; line-height: 1.1; }
-@media (min-height: 700px) { .card { width: 120px; height: 176px; } .card.small { width: 80px; height: 110px; } #player-hand { height: 182px !important; } }
+.card.small .card-rank { font-size:5.5px; padding:0 2px; }
+.card.small .card-name { font-size: 7px; min-height: 14px; margin:2px 3px 0; padding:1px 0; }
+.card.small .card-val { font-size: 1.35rem; }
+.card.small .card-emblem { font-size: 34px; }
+.card.small .card-ft { font-size:5.5px; padding:0 4px 4px; }
+@media (min-height: 700px) {
+  .card { width: 120px; height: 176px; }
+  .card .card-val { font-size: 36px; }
+  .card .card-emblem { font-size: 58px; }
+  .card .card-name { font-size: 10px; min-height: 26px; }
+  .card.small { width: 80px; height: 110px; }
+  .card.small .card-val { font-size: 1.55rem; }
+  .card.small .card-emblem { font-size: 38px; }
+  #player-hand { height: 182px !important; }
+}
 .card:active { transform: scale(0.95); }
+/* 長押しで出るカード説明。狭さの制約が無いので、面の6〜8pxではなく普通に読める大きさにする */
+#card-info-box {
+  width: 100%; max-width: 300px; position: relative;
+  background: linear-gradient(180deg, #1a1512, #0c0a09);
+  border: 2px solid #c98a3a; border-radius: 14px; padding: 14px 16px 12px;
+  box-shadow: 0 0 26px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,190,100,0.25);
+}
+#card-info-box::before, #card-info-box::after {
+  content:''; position:absolute; width:8px; height:8px; background:#c98a3a;
+  transform:rotate(45deg); top:-5px; box-shadow: 0 0 5px rgba(201,138,58,0.8);
+}
+#card-info-box::before { left:-5px; } #card-info-box::after { right:-5px; }
+#card-info-name { color:#ffd9a0; font-size:16px; font-weight:900; line-height:1.3; }
+#card-info-meta { color:#a8a29e; font-size:10px; margin-top:3px; letter-spacing:0.04em; }
+#card-info-desc { color:#e7e5e4; font-size:12.5px; line-height:1.75; margin-top:9px; padding-top:9px;
+  border-top:1px solid rgba(255,190,100,0.22); white-space:pre-wrap; }
+#card-info-hint { color:#78716c; font-size:9px; text-align:center; margin-top:10px; }
 .card.disabled { filter: grayscale(0.9) brightness(0.4) !important; cursor: not-allowed; animation: none !important; }
 
-.bg-motchi { background: linear-gradient(135deg, #fdf2f8 0%, #fbcfe8 100%); color: #831843; }
-.bg-golem { background: linear-gradient(135deg, #f3f4f6 0%, #d1d5db 100%); color: #1f2937; }
-.bg-monolith { background: linear-gradient(135deg, #27272a 0%, #18181b 100%); color: #e4e4e7; }
-.bg-kawazumo { background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%); color: #064e3b; }
-.bg-gali { background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%); color: #78350f; }
-.bg-hinotori { background: linear-gradient(135deg, #fff7ed 0%, #fdba74 100%); color: #7c2d12; }
-.bg-common { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #334155; }
+/* 種族色。背景そのものではなく、上部の光と下辺のラインの色として使う */
+.bg-motchi { --sp:#f472b6; --spSoft:rgba(244,114,182,0.30); }
+.bg-golem { --sp:#d6d3d1; --spSoft:rgba(214,211,209,0.26); }
+.bg-monolith { --sp:#a78bfa; --spSoft:rgba(167,139,250,0.28); }
+.bg-kawazumo { --sp:#34d399; --spSoft:rgba(52,211,153,0.28); }
+.bg-gali { --sp:#fbbf24; --spSoft:rgba(251,191,36,0.28); }
+.bg-hinotori { --sp:#fb923c; --spSoft:rgba(251,146,60,0.30); }
+.bg-common { --sp:#7dd3fc; --spSoft:rgba(125,211,252,0.24); }
+/* ケガなどの妨害カードは赤く。Tailwindのbg-red-900より詳細度を上げて上書きする */
+.card.bg-red-900 { --sp:#ef4444; --spSoft:rgba(239,68,68,0.34);
+  background: linear-gradient(168deg, #2a1210 0%, #140807 62%, #1e0d0b 100%); }
 /* ==== ダンジョン風UI（タイトル・種族選択・マップ画面共通） ==== */
 .dungeon-bg {
   position: relative;
@@ -127,15 +203,17 @@ background-color: #1e293b; display: flex; flex-direction: column; transform-orig
 .ornate-gold-btn::before { top:-3.5px; left:-3.5px; }
 .ornate-gold-btn::after { top:-3.5px; right:-3.5px; }
 
-.rarity-N { border-color: #e2e8f0 !important; }
-.rarity-R { border-color: #0ea5e9 !important; box-shadow: 0 0 8px rgba(14, 165, 233, 0.5); }
-.rarity-SR { border-color: #eab308 !important; box-shadow: 0 0 10px rgba(234, 179, 8, 0.6); }
-.rarity-SSR { border-color: #d946ef !important; box-shadow: 0 0 15px rgba(217, 70, 239, 0.7); animation: pulse-ssr 3s infinite; }
+/* レア度は枠の色と外側の光で示す。右上のランク章の色(--rankC/--rankB)もここで揃える */
+.rarity-N { border-color: #e2e8f0 !important; --rankC:#e2e8f0; --rankB:rgba(226,232,240,0.45); }
+.rarity-R { border-color: #0ea5e9 !important; box-shadow: 0 0 8px rgba(14, 165, 233, 0.5); --rankC:#7dd3fc; --rankB:rgba(125,211,252,0.5); }
+.rarity-SR { border-color: #eab308 !important; box-shadow: 0 0 10px rgba(234, 179, 8, 0.6); --rankC:#fde68a; --rankB:rgba(253,230,138,0.5); }
+.rarity-SSR { border-color: #d946ef !important; box-shadow: 0 0 15px rgba(217, 70, 239, 0.7); animation: pulse-ssr 3s infinite; --rankC:#f0abfc; --rankB:rgba(240,171,252,0.5); }
 .rarity-MR {
 border-width: 4px;
 border-image: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000) 1;
 box-shadow: 0 0 20px rgba(255, 255, 255, 0.9);
 animation: rainbow-border 2s linear infinite;
+--rankC:#ffffff; --rankB:rgba(255,255,255,0.6);
 }
 @keyframes rainbow-border { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
 .rarity-LR {
@@ -239,20 +317,28 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   #control-area { padding-top: 0.5rem !important; }
   #player-hand { height: 128px !important; }
   .card:not(.small) { width: 84px !important; height: 124px !important; }
-  .card:not(.small) .card-desc { font-size: 6px !important; height: 24px !important; padding: 1px !important; line-height: 1.05 !important; }
-  .card:not(.small) .card-name { font-size: 7px !important; height: 11px !important; }
+  .card:not(.small) .card-name { font-size: 7px !important; min-height: 15px !important; }
+  .card:not(.small) .card-val { font-size: 26px !important; }
+  .card:not(.small) .card-emblem { font-size: 40px !important; }
 }
 /* 手札の枚数に応じてカードサイズを自動的に詰めて、横スクロールなしで全部見えるようにする */
+/* 手札が増えたらカードを詰める。狭くなるほど、まず会心/役割の行を落として
+   「コスト・名前・数値」だけは必ず読めるようにしている */
 #player-hand[data-density="sm"] .card.small { width: 56px !important; height: 80px !important; border-width: 2px !important; }
 #player-hand[data-density="sm"] .card.small .card-cost { width: 14px !important; height: 14px !important; font-size: 7px !important; }
-#player-hand[data-density="sm"] .card.small .card-name { font-size: 6px !important; height: 10px !important; margin-bottom: 0 !important; }
-#player-hand[data-density="sm"] .card.small .card-val { font-size: 1rem !important; }
-#player-hand[data-density="sm"] .card.small .card-desc { font-size: 5px !important; padding: 1px !important; height: 22px !important; line-height: 1.05 !important; }
+#player-hand[data-density="sm"] .card.small .card-rank { font-size: 5px !important; padding: 0 1.5px !important; }
+#player-hand[data-density="sm"] .card.small .card-name { font-size: 6px !important; min-height: 11px !important; margin: 1px 2px 0 !important; }
+#player-hand[data-density="sm"] .card.small .card-val { font-size: 1.05rem !important; }
+#player-hand[data-density="sm"] .card.small .card-emblem { font-size: 27px !important; }
+#player-hand[data-density="sm"] .card.small .card-ft { font-size: 5px !important; padding: 0 3px 3px !important; }
 #player-hand[data-density="xs"] .card.small { width: 46px !important; height: 66px !important; border-width: 1px !important; }
+#player-hand[data-density="xs"] .card.small .card-hd { padding: 2px 3px 0 !important; }
 #player-hand[data-density="xs"] .card.small .card-cost { width: 12px !important; height: 12px !important; font-size: 6px !important; }
-#player-hand[data-density="xs"] .card.small .card-name { font-size: 5px !important; height: 8px !important; margin-bottom: 0 !important; }
-#player-hand[data-density="xs"] .card.small .card-val { font-size: 0.8rem !important; }
-#player-hand[data-density="xs"] .card.small .card-desc { font-size: 4.2px !important; padding: 0px !important; height: 18px !important; line-height: 1 !important; }
+#player-hand[data-density="xs"] .card.small .card-rank { display: none !important; }
+#player-hand[data-density="xs"] .card.small .card-name { font-size: 5px !important; min-height: 9px !important; margin: 1px 2px 0 !important; padding: 0 !important; }
+#player-hand[data-density="xs"] .card.small .card-val { font-size: 0.85rem !important; }
+#player-hand[data-density="xs"] .card.small .card-emblem { font-size: 21px !important; }
+#player-hand[data-density="xs"] .card.small .card-ft { display: none !important; }
 @keyframes idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .battle-bg { position: absolute; inset: 0; transition: background 1.2s ease; z-index: 0; overflow: hidden;}
 .battle-bg::before { content: ""; position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 1; transition: all 1.2s ease; }
@@ -1048,7 +1134,16 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div id="gacha-skip-hint" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] text-zinc-400 tracking-widest animate-pulse pointer-events-none">タップでスキップ</div>
 </div>
 </main>
-<div id="drag-card-ghost" class="card small p-2 justify-between hidden" style="width:72px;height:100px;"></div>
+<div id="drag-card-ghost" class="card small hidden" style="width:72px;height:100px;"></div>
+<!-- カード長押しで出る説明。面から説明文を外した代わりに、ここは大きく読める文字にしている -->
+<div id="card-info-overlay" class="fixed inset-0 z-[240] hidden items-center justify-center bg-black/70 p-6" onclick="window.game.hideCardInfo()">
+  <div id="card-info-box">
+    <div id="card-info-name"></div>
+    <div id="card-info-meta"></div>
+    <div id="card-info-desc"></div>
+    <div id="card-info-hint">タップで閉じる</div>
+  </div>
+</div>
 <div id="drag-dmg-preview">⚔️ 0</div>
 <audio id="bgm-menu" src="bgm-menu.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-menu.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-battle-normal" src="bgm-battle-normal.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-battle-normal.mp3 が見つからないか壊れています', this.error)"></audio>
@@ -5479,19 +5574,57 @@ function showEvent() {
     ui.rewardList.appendChild(nextBtn);
   }
 }
+// カードの役割(攻撃/防御/特殊)を判定する。中央の光の色・紋章・右下のラベルに使う。
+// 面から説明文を外したぶん、これが「何をするカードか」の第一の手がかりになる。
+function cardRoleOf(c){
+  // 透かしは絵文字ではなく漢字を使う。絵文字はcolorが効かず(カラー絵文字として描かれる)
+  // 背景に沈まないうえ、役割色で塗り分けられないため。
+  if(c.isInjury) return { cls:'spc', icon:'妨', label:'妨害', value:c.val || '—' };
+  if((c.val && c.val>0) || c.dmgEqualsBlock) return { cls:'atk', icon:'攻', label:'攻撃', value:(c.dmgEqualsBlock?'防':c.val) };
+  if(c.block) return { cls:'def', icon:'守', label:'防御', value:c.block };
+  return { cls:'spc', icon:'特', label:'特殊', value:'★' };
+}
+// ---- カード説明のポップアップ ----
+// 手札のカードは「長押し=ドラッグ開始」が既に埋まっているため、
+// その先の「動かさずに離した(＝これまで何も起きなかった操作)」を説明表示に割り当てている。
+// 手札以外(デッキ一覧・報酬・ショップ)はドラッグしないので、素直に長押しで出す。
+const CARD_RARITY_LABEL = { N:'ノーマル', R:'レア', SR:'スーパーレア', SSR:'SSレア', MR:'ミラクルレア', LR:'レジェンドレア' };
+window.game.showCardInfo = function(c){
+  if(!c) return;
+  const ov = document.getElementById('card-info-overlay');
+  if(!ov) return;
+  const role = cardRoleOf(c);
+  document.getElementById('card-info-name').innerText = c.name || '';
+  document.getElementById('card-info-meta').innerText =
+    `${CARD_RARITY_LABEL[c.rarity] || c.rarity || ''}　／　${role.label}　／　消費ガッツ ${c.cost||0}`;
+  document.getElementById('card-info-desc').innerText = c.desc || '(効果なし)';
+  ov.classList.remove('hidden'); ov.classList.add('flex');
+};
+window.game.hideCardInfo = function(){
+  const ov = document.getElementById('card-info-overlay');
+  if(!ov) return;
+  ov.classList.add('hidden'); ov.classList.remove('flex');
+};
 function createCardUI(c,idx,isR=false,isSmall=false) {
 const d=document.createElement('div');
 const realCost = isR ? (c.cost||0) : getCardCost(c);
 const discounted = realCost < (c.cost||0);
 const can=isR||state.player.energy>=realCost;
 let bg="bg-common"; if(c.isInjury)bg="bg-red-900"; else if(c.mid==='motchi')bg="bg-motchi"; else if(c.mid==='golem')bg="bg-golem"; else if(c.mid==='monolith')bg="bg-monolith"; else if(c.mid==='kawazumo')bg="bg-kawazumo"; else if(c.mid==='gali')bg="bg-gali"; else if(c.mid==='hinotori')bg="bg-hinotori";
-d.className=`card ${bg} ${isSmall?'small':''} p-2 justify-between rarity-${c.rarity} ${can?'':'disabled'} ${c.upgraded?'upgraded-card':''}`;
+d.className=`card ${bg} ${isSmall?'small':''} rarity-${c.rarity} type-${cardRoleOf(c).cls} ${can?'':'disabled'} ${c.upgraded?'upgraded-card':''}`;
 const lrMark = '';
 const nameColor = c.isInjury ? 'style="color:#ff6b6b;font-weight:900;"' : (c.rarity==='LR' ? 'style="background:linear-gradient(90deg,#fff700,#ff00ff,#00ffff,#fff700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;animation:lr-border 1.5s linear infinite;"' : '');
+const role = cardRoleOf(c);
 const costBadge = discounted
-  ? `<div class="flex flex-col items-center leading-none"><div class="bg-emerald-600 w-5 h-5 ${c.upgraded?'card-cost-star text-amber-950':'rounded-full text-white'} flex items-center justify-center text-[10px] font-black shadow ring-1 ring-white/50 card-cost">${realCost}</div><div class="text-[6px] text-emerald-300 line-through opacity-80 mt-0.5">${c.cost||0}</div></div>`
-  : `<div class="bg-amber-700 w-5 h-5 ${c.upgraded?'card-cost-star text-amber-950':'rounded-full text-white'} flex items-center justify-center text-[10px] font-black shadow ring-1 ring-white/50 card-cost">${realCost}</div>`;
-d.innerHTML=`${lrMark}<div class="flex justify-between items-start">${costBadge}<div class="text-[8px] font-black italic opacity-60 bg-black/10 px-1 rounded">${c.rarity}</div></div><div class="flex flex-col items-center flex-grow justify-center py-1"><div class="text-[9px] font-bold text-center leading-tight mb-1 h-5 flex items-center justify-center w-full card-name" ${nameColor}>${c.name}</div><div class="text-2xl font-black drop-shadow-sm card-val">${c.val||(c.block?'🛡️':'★')}</div>${c.crit?`<div class="text-[7px] font-bold opacity-80">会心: ${c.crit}</div>`:''}</div><div class="text-[8px] leading-tight text-center bg-white/40 rounded p-1 h-12 flex items-center justify-center font-bold text-black/80 card-desc">${c.desc||''}</div>`;
+  ? `<div class="flex flex-col items-center leading-none"><div class="card-cost is-cut ${c.upgraded?'card-cost-star':''}">${realCost}</div><div class="card-costold">${c.cost||0}</div></div>`
+  : `<div class="card-cost ${c.upgraded?'card-cost-star':''}">${realCost}</div>`;
+// 面には説明を出さない(長押しのポップアップへ移した)。そのぶん名前と数値を大きく見せる
+d.innerHTML=`<div class="card-hd">${costBadge}<div class="card-rank">${c.rarity}</div></div>
+<div class="card-name" ${nameColor}>${c.name}</div>
+<div class="card-body"><span class="card-emblem">${role.icon}</span><span class="card-val">${role.value}</span></div>
+<div class="card-ft"><span class="card-crit">${c.crit?`会心 ${c.crit}`:''}</span><span class="card-type">${role.label}</span></div>`;
+d.dataset.cardIdx = (idx!==undefined && idx!==null) ? idx : '';
+d.__cardData = c; // 長押しで説明を出すときに参照する
 if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); };
 if(!isR) d.dataset.noSelectSe = '1';
 return d;
@@ -5645,6 +5778,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
   let holdTimer = null;
   let startX = 0, startY = 0;
   let dragCardEl = null;
+  let dragMoved = false;   // ドラッグ開始後に実際に動かしたか(動かさず離したら説明を出す)
 
   function getHand(){ return document.getElementById('player-hand'); }
 
@@ -5689,7 +5823,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
   }
 
   function startDrag(idx, x, y, cardEl){
-    dragging=true; dragIdx=idx; dragCardEl=cardEl;
+    dragging=true; dragIdx=idx; dragCardEl=cardEl; dragMoved=false;
     cardEl.style.touchAction='none';
     // ゴーストを同じ内容に
     ghost.className = cardEl.className.replace('hidden','') + '';
@@ -5702,6 +5836,9 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(en && !en.contains(highlight)) en.appendChild(highlight);
   }
 
+  function markDragMoved(x,y){
+    if(dragging && !dragMoved && (Math.abs(x-startX)+Math.abs(y-startY)) > 12) dragMoved = true;
+  }
   function positionPreview(el, x, y){
     // 画面の高さが小さい端末(ホームボタン付きなど)でも、トップバーに隠れたり
     // 画面外にはみ出したりしないよう、表示位置を安全な範囲にクランプする
@@ -5752,6 +5889,10 @@ ui.endTurnBtn.onclick = handleEndTurn;
         clickCard(i); return;
       }
     }
+    // 長押ししたまま動かさずに離した場合は、これまで何も起きなかったので説明を出す
+    if(!dragMoved && dragIdx>=0 && state.hand[dragIdx]){
+      window.game.showCardInfo(state.hand[dragIdx]);
+    }
     dragIdx=-1; dragCardEl=null;
   }
 
@@ -5800,6 +5941,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
     e.preventDefault();
     e.stopPropagation();
     const t=e.touches[0];
+    markDragMoved(t.clientX,t.clientY);
     moveDrag(t.clientX,t.clientY);
   },{passive:false,capture:true});
 
@@ -5839,6 +5981,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
   document.addEventListener('mousemove', function(e){
     if(holdTimer&&(Math.abs(e.clientX-startX)+Math.abs(e.clientY-startY))>8){ clearTimeout(holdTimer); holdTimer=null; }
     if(!dragging) return;
+    markDragMoved(e.clientX,e.clientY);
     moveDrag(e.clientX,e.clientY);
   });
 
@@ -5847,6 +5990,36 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(!dragging) return;
     endDrag(e.clientX,e.clientY);
   });
+})();
+
+// 手札以外のカード(デッキ一覧・カード報酬・ショップ・修行など)の長押し説明。
+// これらはドラッグしないので、素直に500msの長押しで出す。
+// 指が動いたら中止するので、一覧のスクロール操作は妨げない。
+(function(){
+  let t = null, sx = 0, sy = 0, target = null;
+  function findCard(el){
+    const card = el && el.closest ? el.closest('.card') : null;
+    if(!card) return null;
+    const hand = document.getElementById('player-hand');
+    if(hand && hand.contains(card)) return null; // 手札はドラッグ側で処理済み
+    return card;
+  }
+  function cancel(){ if(t){ clearTimeout(t); t=null; } target=null; }
+  document.addEventListener('pointerdown', function(e){
+    const card = findCard(e.target);
+    if(!card) return;
+    target = card; sx = e.clientX; sy = e.clientY;
+    t = setTimeout(()=>{
+      t = null;
+      const c = card.__cardData;
+      if(c) { window.game.showCardInfo(c); if(navigator.vibrate) navigator.vibrate(12); }
+    }, 500);
+  }, {passive:true});
+  document.addEventListener('pointermove', function(e){
+    if(t && (Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)) > 12) cancel();
+  }, {passive:true});
+  ['pointerup','pointercancel','pointerleave'].forEach(ev =>
+    document.addEventListener(ev, cancel, {passive:true}));
 })();
 
 // タップ波紋エフェクト
