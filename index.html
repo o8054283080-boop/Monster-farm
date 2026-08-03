@@ -400,7 +400,28 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 }
 
 /* ==================== ガチャ演出 ==================== */
-#gacha-overlay { touch-action: manipulation; }
+/* 召喚の間をイメージした専用背景。不透明にしてタイトル画面が透けないようにする */
+#gacha-overlay {
+  touch-action: manipulation;
+  background:
+    radial-gradient(ellipse 130% 85% at 50% 44%, rgba(109,40,217,0.42) 0%, rgba(24,14,48,0.9) 40%, rgba(6,4,14,1) 76%),
+    linear-gradient(165deg, #0d0820 0%, #05040e 55%, #0b0618 100%);
+}
+/* 奥行きを出すための星屑。ゆっくり明滅させて空間が生きている感じにする */
+#gacha-overlay::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    radial-gradient(1.6px 1.6px at 12% 18%, rgba(255,255,255,0.75), transparent),
+    radial-gradient(1.4px 1.4px at 78% 12%, rgba(216,180,254,0.7), transparent),
+    radial-gradient(1.2px 1.2px at 26% 74%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1.7px 1.7px at 88% 66%, rgba(165,180,252,0.7), transparent),
+    radial-gradient(1.3px 1.3px at 58% 88%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 42% 8%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1.2px 1.2px at 8% 52%, rgba(196,181,253,0.6), transparent),
+    radial-gradient(1.4px 1.4px at 94% 36%, rgba(255,255,255,0.5), transparent);
+  animation: gacha-stars-twinkle 4.5s ease-in-out infinite alternate;
+}
+@keyframes gacha-stars-twinkle { from { opacity: 0.45; } to { opacity: 1; } }
 #gacha-bg-flash {
   position: absolute; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen;
 }
@@ -443,7 +464,33 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.9), rgba(60,60,72,0.95) 70%);
   box-shadow: 0 0 18px var(--gc-glow, rgba(168,85,247,0.7));
   transform: scale(1); opacity: 1;
+  overflow: hidden; /* 内側の光沢レイヤー(擬似要素)を卵のシルエットで切り抜く */
 }
+/* レア度が高いほど卵そのものを豪華にして、中身が出る前から期待感を煽る。
+   SR=金の卵 / SSR=虹の卵 / オーラ=虹+白く速く輝くプリズム(SSRより格上と分かるように) */
+.gacha-egg.egg-gold {
+  background: radial-gradient(circle at 35% 28%, #fffdf0 0%, #fde68a 30%, #f0a413 62%, #8a4b06 100%);
+}
+.gacha-egg.egg-gold::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.65) 24deg, transparent 58deg, transparent 360deg);
+  animation: gacha-egg-sheen 2.4s linear infinite;
+}
+@keyframes gacha-egg-sheen { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.gacha-egg.egg-rainbow { background: #241436; }
+.gacha-egg.egg-rainbow::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 0;
+  background: conic-gradient(from 0deg, #ff5f6d, #ffc371, #f7ff00, #4ade80, #22d3ee, #818cf8, #e879f9, #ff5f6d);
+  animation: gacha-egg-hue 2.6s linear infinite;
+}
+.gacha-egg.egg-rainbow::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 1;
+  background: radial-gradient(circle at 35% 26%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.3) 20%, transparent 52%);
+}
+@keyframes gacha-egg-hue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+.gacha-egg.egg-prism::after { animation-duration: 1.1s; }
+.gacha-egg.egg-prism { box-shadow: 0 0 26px rgba(255,255,255,0.9), 0 0 62px var(--gc-glow, rgba(255,255,255,0.6)); }
 .gacha-stage-inner.is-appearing .gacha-egg { animation: gacha-egg-in 0.5s cubic-bezier(.25,1.6,.4,1) forwards; }
 @keyframes gacha-egg-in { 0% { transform: scale(0); opacity: 0; } 55% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 
@@ -867,7 +914,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 </div>
 
-<div id="gacha-overlay" class="fixed inset-0 hidden z-[200] items-center justify-center overflow-hidden select-none bg-black/92" onclick="window.game._gachaSkip && window.game._gachaSkip()">
+<div id="gacha-overlay" class="fixed inset-0 hidden z-[200] items-center justify-center overflow-hidden select-none" onclick="window.game._gachaSkip && window.game._gachaSkip()">
 <div id="gacha-bg-flash"></div>
 <div id="gacha-stage"></div>
 <div id="gacha-skip-hint" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] text-zinc-400 tracking-widest animate-pulse pointer-events-none">タップでスキップ</div>
@@ -1275,12 +1322,19 @@ document.addEventListener('click', (e) => {
 }, true);
 
 let __autosaveTimer = null;
+// 冒険が終わった(クリア/敗北/ギブアップ)あとの保存を止めるためのフラグ。
+// 結果画面を出している間もバトル/マップ画面は裏に表示されたままなので、
+// これが無いと「保留中のスケジュール保存」や「タスクキル時のvisibilitychange」が
+// 終わったはずの冒険を書き戻してしまい、次回起動で再開できてしまう。
+let __autosaveDisabled = false;
 function scheduleAutosave() {
+  if (__autosaveDisabled) return;
   if (__autosaveTimer) clearTimeout(__autosaveTimer);
   __autosaveTimer = setTimeout(doAutosave, 400);
 }
 function doAutosave() {
   try {
+    if (__autosaveDisabled) return;
     if (!state || !state.player || !state.player.species) return;
     const inBattle = ui.battle && !ui.battle.classList.contains('hidden');
     const inMap = ui.map && !ui.map.classList.contains('hidden');
@@ -1292,7 +1346,11 @@ function doAutosave() {
     localStorage.setItem('mf_active_run', json);
   } catch(e) { console.warn('自動セーブに失敗しました', e); }
 }
+// 冒険終了時に呼ぶ。保存を消すだけでなく、保留中の保存タイマーも止め、
+// 以降の保存自体を無効化する(新しい冒険が始まる時にresetGameStateで再度有効化される)
 function clearAutosave() {
+  __autosaveDisabled = true;
+  if (__autosaveTimer) { clearTimeout(__autosaveTimer); __autosaveTimer = null; }
   try { localStorage.removeItem('mf_active_run'); } catch(e) {}
 }
 // trait名から敵の画像を引けるルックアップを、ENEMY_NAMESとBOSS_DATA全体から一度だけ構築する
@@ -2326,9 +2384,9 @@ const GACHA_ANIM_THEME = {
   hazure:    { color:'#d4d4d8', glow:'rgba(212,212,216,0.55)', particles:6,  flash:false, ring:false, sfx:'burst_low' },
   dia150:    { color:'#e4e4e7', glow:'rgba(228,228,231,0.65)', particles:8,  flash:false, ring:false, sfx:'burst_low' },
   accessory: { color:'#38bdf8', glow:'rgba(56,189,248,0.75)',  particles:16, flash:false, ring:false, sfx:'burst_mid' },
-  srSkin:    { color:'#a855f7', glow:'rgba(168,85,247,0.85)',  particles:26, flash:true, soft:true, flashColor:'rgba(168,85,247,0.5)', ring:false, sfx:'burst_high' },
-  ssrSkin:   { color:'#f59e0b', glow:'rgba(245,158,11,0.9)',   particles:42, flash:true, flashColor:'rgba(245,158,11,0.65)', ring:false, sfx:'burst_top' },
-  aura:      { color:'#f472b6', glow:'rgba(255,255,255,0.95)', particles:56, flash:true, flashColor:'rgba(255,255,255,0.75)', ring:true, rainbow:true, sfx:'burst_top' },
+  srSkin:    { color:'#fbbf24', glow:'rgba(251,191,36,0.85)',  particles:26, flash:true, soft:true, flashColor:'rgba(251,191,36,0.5)', ring:false, sfx:'burst_high', egg:'egg-gold' },
+  ssrSkin:   { color:'#f472b6', glow:'rgba(244,114,182,0.9)',  particles:42, flash:true, flashColor:'rgba(255,255,255,0.6)', ring:false, sfx:'burst_top', egg:'egg-rainbow' },
+  aura:      { color:'#e879f9', glow:'rgba(255,255,255,0.95)', particles:56, flash:true, flashColor:'rgba(255,255,255,0.75)', ring:true, rainbow:true, sfx:'burst_top', egg:'egg-rainbow egg-prism' },
 };
 const GACHA_RARITY_RANK = { hazure:0, dia150:0, accessory:1, srSkin:2, ssrSkin:3, aura:4 };
 function gachaThemeOf(tier){ return GACHA_ANIM_THEME[tier] || GACHA_ANIM_THEME.hazure; }
@@ -2363,7 +2421,7 @@ function buildGachaStageInner(theme){
   inner.className = 'gacha-stage-inner is-appearing';
   inner.style.setProperty('--gc-color', theme.color);
   inner.style.setProperty('--gc-glow', theme.glow);
-  inner.innerHTML = `<div class="gacha-ring gacha-ring-outer"></div><div class="gacha-ring gacha-ring-inner"></div><div class="gacha-egg"></div><div class="gacha-reveal"></div>`;
+  inner.innerHTML = `<div class="gacha-ring gacha-ring-outer"></div><div class="gacha-ring gacha-ring-inner"></div><div class="gacha-egg ${theme.egg||''}"></div><div class="gacha-reveal"></div>`;
   return inner;
 }
 // 1件分の「待機→加速→震え→光漏れ→破裂→中身公開」演出。10連のトリ確定演出にも流用する
@@ -2434,7 +2492,7 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
     cell.className = 'gacha-egg-mini';
     cell.style.setProperty('--gc-color', theme.color);
     cell.style.setProperty('--gc-glow', theme.glow);
-    cell.innerHTML = `<div class="gacha-egg"></div><div class="gacha-egg-mini-result"></div>`;
+    cell.innerHTML = `<div class="gacha-egg ${theme.egg||''}"></div><div class="gacha-egg-mini-result"></div>`;
     grid.appendChild(cell);
     return { cell, theme, r };
   });
@@ -2693,6 +2751,7 @@ ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="閉じる
 
 function resetGameState(name) {
 clearAutosave();
+__autosaveDisabled = false; // 新しい冒険が始まるので自動セーブを再開する
 if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = handleEndTurn; }
 state = {
 playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,

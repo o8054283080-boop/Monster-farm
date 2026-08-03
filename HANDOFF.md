@@ -256,6 +256,23 @@ const GACHA_STORAGE_KEY = 'mf_gacha_progress';
 `NaN`になり「スライダーを動かしても何も変わらない」という分かりにくい症状になる。
 **データ構造を変えたら、必ず該当データファイルも一緒に差し替えること。**
 
+### 冒険終了後も自動セーブが復活してしまう(修正済み)
+
+`gameClear()` / 敗北 / ギブアップはいずれも `clearAutosave()` を呼んでいたのに、
+**クリア後にタスクキルすると冒険データが残っていて再開できてしまう**という不具合があった。
+
+原因は「結果画面(モーダル)を出している間も、裏のバトル/マップ画面は表示されたまま」であること。
+`doAutosave()` は「バトルかマップが表示中なら保存する」判定なので、
+
+1. `visibilitychange`(hidden) → タスクキル時に `doAutosave()` が直接呼ばれる
+2. `scheduleAutosave()` の保留中タイマー(400ms)が `clearAutosave()` の後に発火する
+
+のどちらの経路でも、**消したはずの `mf_active_run` が書き戻されていた**。
+
+→ `__autosaveDisabled` フラグを追加し、`clearAutosave()` で保留タイマーの停止と保存の無効化を行うよう修正。
+新しい冒険が始まる `resetGameState()` で `false` に戻して再開する。
+**冒険終了系の処理を増やす時は `clearAutosave()` を呼べばよい**(フラグも一緒に立つ)。
+
 ### 空divをアンカーにした重ね合わせは不安定
 
 アクセサリ表示で、空の`<div>`を作ってその中に動的に`<img>`を追加する方式は
@@ -283,7 +300,9 @@ const GACHA_STORAGE_KEY = 'mf_gacha_progress';
    - `#gacha-overlay`(index.html、`<main>`内・modal-overlayの直後)を新設。CSSは`<style>`内「ガチャ演出」セクション(`.gacha-*`クラス群)、JSは「ガチャ演出」セクション(`playGachaAnimation`が入口)
    - 待機画面: 二重の魔法陣リング(`.gacha-ring-outer`/`-inner`)が常時ゆっくり反対回転
    - 抽選演出: 加速回転(`is-charging`)→卵が震えて光漏れ(`is-shaking`)→パーティクル爆発+中身公開(`is-bursting`→`.gacha-reveal`)。タイムラインは`runSingleGachaReveal()`
-   - レア度別の色/パーティクル量/画面フラッシュ有無は`GACHA_ANIM_THEME`テーブルで管理(ハズレ〜オーラの6段階、仕様通りSRは控えめフラッシュ、SSR/オーラは強いフラッシュ)
+   - レア度別の色/パーティクル量/画面フラッシュ有無/卵の見た目は`GACHA_ANIM_THEME`テーブルで管理(ハズレ〜オーラの6段階。SRは控えめフラッシュ、SSR/オーラは強いフラッシュ)
+   - **卵の見た目もレア度で変わる**: SR=金の卵(`egg-gold`、光沢が回転) / SSR=虹の卵(`egg-rainbow`、色相が回転) / オーラ=虹+白く速く輝く(`egg-prism`)。中身が出る前から期待感が出るようにしたもので、10連のミニ卵にも同じクラスが付く。テーブルの`egg`フィールドを変えるだけで差し替え可能
+   - **背景は専用の不透明背景**(`#gacha-overlay`のCSS)。深い紫のグラデーション+星屑で「召喚の間」風。ここを半透明にするとタイトル画面が透けて演出が締まらないので、不透明のままにすること
    - オーラ枠のみ全画面リング拡散演出あり(`.gacha-ring-burst`、CSS maskで円形に、`border-image`はborder-radiusを無視して四角くなるため不採用)
    - 10連は`runTenPullGachaSequence()`が10個のミニ卵を`.gacha-egg-grid`で順番に弾き、最後に今回最高レアだけ`runSingleGachaReveal()`を「★ トリ確定演出 ★」付きで再生
    - 演出中は`#gacha-overlay`タップで`window.game._gachaSkip()`が呼ばれ即座に結果画面へ
