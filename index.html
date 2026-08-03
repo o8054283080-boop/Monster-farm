@@ -310,6 +310,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 #player-visual.monster-sprite { animation: none; position: relative; }
 .player-sprite-img { width: 5.5rem; height: 5.5rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
 .enemy-sprite-img { width: 6rem; height: 7rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
+/* 画像が横長の敵は、縦長の枠にcontainで収めると小さく見えてしまうため個別に倍率をかける */
+.enemy-sprite-img[data-scale] { transform: scale(var(--esc,1)); }
 .enemy-sprite-icon { font-size: 4rem; }
 /* 画面が低い端末(ホームボタン付きなど)向け：戦闘画面を自動でコンパクト化し、
    攻撃予告や各種UIが上部バーと重なったり画面外に出たりしないようにする */
@@ -1058,7 +1060,11 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   try {
     var d = new Date(document.lastModified);
     var y = d.getFullYear(), m = ('0'+(d.getMonth()+1)).slice(-2), day = ('0'+d.getDate()).slice(-2);
-    document.getElementById('last-update-tag').innerText = '最終アップデート: ' + y + '/' + m + '/' + day;
+    var tag = document.getElementById('last-update-tag');
+    tag.innerText = '最終アップデート: ' + y + '/' + m + '/' + day + ' ▸';
+    tag.style.cursor = 'pointer';
+    tag.title = '更新履歴を見る';
+    tag.onclick = function(){ if(window.game && window.game.showChangelog) window.game.showChangelog(); };
   } catch(e) {}
 })();
 </script>
@@ -1211,6 +1217,17 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     </div>
 
     <div>
+      <h3 class="text-amber-300 font-bold mb-1">🃏 カードの見かた・操作</h3>
+      <ul class="space-y-0.5 pl-2">
+        <li>左上の六角形が<b>消費ガッツ</b>、右上が<b>レア度</b></li>
+        <li>中央の色と漢字で役割が分かります：<span class="text-red-300">赤＝攻撃</span> / <span class="text-sky-300">青＝防御</span> / <span class="text-purple-300">紫＝特殊</span></li>
+        <li>カードの地の色は<b>種族ごと</b>に違います</li>
+        <li><b>タップ</b>で使用、<b>敵にドラッグ</b>でも使用できます</li>
+        <li><b>長押ししてそのまま離す</b>とカードの詳しい説明が出ます</li>
+      </ul>
+    </div>
+
+    <div>
       <h3 class="text-amber-300 font-bold mb-1">📊 ステータス</h3>
       <ul class="space-y-0.5 pl-2">
         <li>❤️ <b>ライフ</b>：0になるとゲームオーバー</li>
@@ -1254,8 +1271,54 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     </div>
 
     <div>
-      <h3 class="text-amber-300 font-bold mb-1">🏆 スコア</h3>
+      <h3 class="text-amber-300 font-bold mb-1">🏆 スコア・難易度</h3>
       <p>与えたダメージ・ボス撃破・フロア到達などでスコアが加算されます。難易度が高いほど最終スコアに倍率がかかります。</p>
+      <ul class="space-y-0.5 pl-2 mt-1">
+        <li><b>ノーマル</b>：スコア等倍</li>
+        <li><b>ハード</b>：敵の攻撃1.2倍 / スコア1.2倍</li>
+        <li><b>エキスパート</b>：敵ステ1.25倍 / スコア1.5倍</li>
+        <li><b>ベリーハード</b>：敵ステ1.3倍 / スコア1.75倍 / 63階のレジェンドボスラッシュ解放</li>
+        <li><b>レジェンド</b>：敵ステ1.5倍 / スコア2.25倍。初期デッキに取り除けない「呪い」が入り、ボスラッシュの必殺技で受けるケガが「大ケガ」（手札に残したままターンを終えると自傷）になります</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="text-amber-300 font-bold mb-1">🏯 継承ショップ</h3>
+      <p>冒険が終わると、到達階数と難易度に応じて<b>継承ポイント</b>が貯まります。負けても貯まります。タイトル画面のショップで永続強化を買えます。</p>
+      <ul class="space-y-0.5 pl-2 mt-1">
+        <li>開始ライフ・チカラ・丈夫さ・ガッツ・初期ゴールドの底上げ</li>
+        <li>取得ゴールドやレアカード・レア遺物の出現率アップ</li>
+        <li><b>初期遺物解放</b>：冒険開始時に候補3つから遺物を1つ持ち込めます</li>
+        <li><b>初期手札+1</b>：戦闘開始時の手札が1枚増えます</li>
+        <li><b>不屈</b>：1回の冒険につき1度だけ、ライフ0でも復活します</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="text-amber-300 font-bold mb-1">💎 ダイヤとガチャ</h3>
+      <p>ダイヤはログインボーナス・挑戦回数・階層到達などで貯まります。ガチャでは見た目を変えるものが手に入ります（強さには影響しません）。</p>
+      <ul class="space-y-0.5 pl-2 mt-1">
+        <li><b>スキン</b>：モンスターの見た目が変わります</li>
+        <li><b>アクセサリ</b>：帽子・仮面などを最大4つまで同時装備できます</li>
+        <li><b>オーラ</b>：戦闘中、キャラの周りに特別なエフェクトが出ます</li>
+        <li><b>モーション</b>：カードを使ったときの演出が変わります</li>
+        <li>提供割合はガチャ画面の「📊 提供割合を見る」から確認できます</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="text-amber-300 font-bold mb-1">🎨 カスタム装備</h3>
+      <p>タイトル画面から、ガチャで手に入れたものを設定できます。</p>
+      <ul class="space-y-0.5 pl-2 mt-1">
+        <li>アクセサリは色・角度・大きさ・位置を自由に調整できます</li>
+        <li><b>初期技</b>：SSRスキンを<b>持っていれば</b>（装備しなくても）初期デッキの看板技を専用技に変えられます</li>
+        <li><b>モーション</b>：場面ごとに設定でき、「ランダム」を選ぶと毎回変わります</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="text-amber-300 font-bold mb-1">🎖️ 称号</h3>
+      <p>タイトル画面の「称号・挑戦回数」から、通算の挑戦回数と次の報酬までの残り、種族×難易度ごとの初踏破称号を確認できます。60階に到達すると称号とダイヤが手に入ります。</p>
     </div>
 
   </div>
@@ -1835,6 +1898,13 @@ function buildEnemyImgLookup() {
   } catch(e) {}
   return map;
 }
+// 画像の縦横比が他と違う敵(横長など)は、containで縮んで小さく見えるので個別に倍率をかける。
+// 例: ビークロンの画像は360x269の横長で、6rem×7remの縦長枠に収めると高さが7割ほどしか使われない。
+const ENEMY_SPRITE_SCALE = { beaklon: 1.4 };
+function enemySpriteAttr(t){
+  const sc = t && ENEMY_SPRITE_SCALE[t.trait];
+  return sc ? ` data-scale="1" style="--esc:${sc}"` : '';
+}
 function relinkEnemyImg(enemy) {
   if (!enemy || !enemy.trait) return;
   if (!__enemyImgLookup) __enemyImgLookup = buildEnemyImgLookup();
@@ -1857,7 +1927,7 @@ function renderBattleSprites() {
     if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
     else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
     else ui.enemyVisual.className='monster-sprite';
-    if(t.img){ ui.enemyVisual.innerHTML = `<img src="${t.img}" class="enemy-sprite-img">`; }
+    if(t.img){ ui.enemyVisual.innerHTML = `<img src="${t.img}" class="enemy-sprite-img"${enemySpriteAttr(t)}>`; }
     else { ui.enemyVisual.innerHTML = `<span class="enemy-sprite-icon">${t.icon||''}</span>`; }
   }
 }
@@ -2347,6 +2417,71 @@ function listDiaPlayMilestones(current){
   if(nextIdx === -1) return out.slice(-6);
   return out.slice(Math.max(0, nextIdx - 4), nextIdx + 2);
 }
+// ==================== 更新履歴 ====================
+// 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
+// タイトル画面左下の「最終アップデート」をタップすると開く。
+const CHANGELOG = [
+  { date:'2026/08/03', title:'カード演出モーション', items:[
+    'カードを使ったときの演出を15種追加(攻撃/防御/強化/弱体/回復 × 各3種)',
+    'ガチャのSR枠でモーションが手に入るようになりました',
+    'カスタム装備でモーションを場面ごとに設定できます。「ランダム」を選ぶと毎回変わります',
+    'ガチャのSR確率を5%→8%に引き上げ',
+    'ガチャの提供割合を確認できるようにしました',
+  ]},
+  { date:'2026/08/03', title:'カードの見た目を刷新', items:[
+    'カードのデザインを一新し、数値と名前を大きくしました',
+    'カードの説明は長押しで表示されます(手札は長押ししてそのまま離すと表示)',
+    '攻撃=赤・防御=青・特殊=紫で役割が一目で分かるようにしました',
+    '種族ごとにカードの色が変わるようにしました',
+  ]},
+  { date:'2026/08/03', title:'難易度レジェンドと新要素', items:[
+    '難易度「レジェンド」を追加(敵ステータス1.5倍・スコア2.25倍)',
+    'レジェンドでは初期デッキに取り除けない「呪い」が入り、ボスラッシュのケガが「大ケガ」になります',
+    'SSRスキンを持っていると、初期デッキの看板技を専用技に変えられます',
+    'オーラが戦闘中に表示されるようになりました(全5種)',
+  ]},
+  { date:'2026/08/03', title:'継承ショップの拡張', items:[
+    '「初期ゴールド」「取得ゴールドアップ」「初期手札+1」「不屈」を追加',
+    '初期遺物解放の中身を実装(候補3つから1つ選べます)',
+    '称号画面を追加し、挑戦回数と獲得済みの称号を確認できるようにしました',
+  ]},
+  { date:'2026/08/03', title:'不具合の修正', items:[
+    'クリティカル時の効果(ドロー・ガッツ回復など)が全て発動していなかったのを修正',
+    '継承ショップの「ガッツ回復量アップ」が戦闘中に消えていたのを修正',
+    'クリア後にアプリを終了すると冒険データが残り、再開できてしまう問題を修正',
+    '敵の技名が長いとダメージの数字が画面外に出ていたのを修正',
+    'ビークロンの表示が小さすぎたのを修正',
+    'カワズモー「自己犠牲」を強化(消費ガッツ55→30、効果2倍→3倍)',
+  ]},
+  { date:'2026/08/03', title:'ガチャ演出', items:[
+    'ガチャに演出を追加(魔法陣から卵が現れて弾けます)',
+    'レア度に応じて卵の色が変わります(SR=金、SSR=虹)',
+    '演出中はタップでスキップできます',
+  ]},
+];
+window.game.showChangelog = function(){
+  showModal('📜 更新履歴', '新しいものが上に並びます');
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'flex flex-col gap-3 w-full';
+  CHANGELOG.forEach((e, i) => {
+    const box = document.createElement('div');
+    box.className = 'text-left border-l-2 pl-3 ' + (i === 0 ? 'border-amber-400' : 'border-zinc-700');
+    box.innerHTML = `<div class="flex items-baseline gap-2">
+        <span class="text-[11px] font-bold ${i===0 ? 'text-amber-300' : 'text-zinc-300'}">${e.title}</span>
+        ${i===0 ? '<span class="text-[8px] bg-amber-600 text-amber-50 px-1.5 rounded-full font-bold">NEW</span>' : ''}
+        <span class="text-[9px] text-zinc-500 ml-auto">${e.date}</span>
+      </div>
+      <ul class="mt-1 space-y-0.5">${e.items.map(t=>`<li class="text-[10px] text-zinc-400 leading-relaxed">・${t}</li>`).join('')}</ul>`;
+    wrap.appendChild(box);
+  });
+  ui.rewardList.appendChild(wrap);
+  ui.modalBtn.classList.add('hidden');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '閉じる';
+  ui.modalConfirm.onclick = () => ui.modal.classList.add('hidden');
+};
+// ==================== 更新履歴ここまで ====================
 window.game.showTitles = function(){
   showModal('🎖️ 称号', '');
   ui.modalConfirm.classList.remove('hidden');
@@ -2587,12 +2722,14 @@ function renderBattleAccessories(speciesId){
 
 let loadoutSelectedSpecies = null;
 window.game.openLoadout = function(){
+  hideGlobalVolumeBtn(); // 左上で「← 戻る」と重なるため、装備画面の間は隠す
   document.getElementById('name-scene').classList.add('hidden');
   document.getElementById('loadout-scene').classList.remove('hidden');
   if(!loadoutSelectedSpecies) loadoutSelectedSpecies = Object.keys(SPECIES)[0];
   renderLoadoutScene();
 };
 window.game.closeLoadout = function(){
+  showGlobalVolumeBtn();
   document.getElementById('loadout-scene').classList.add('hidden');
   document.getElementById('name-scene').classList.remove('hidden');
 };
@@ -2999,8 +3136,10 @@ function renderLoadoutAuraGrid(){
 // ==================== ガチャシステム ====================
 const GACHA_SINGLE_COST = 15;
 const GACHA_TEN_COST = 135;
-const GACHA_RATES = { hazure:0.66, dia150:0.10, accessory:0.15, srSkin:0.05, ssrSkin:0.02, aura:0.02 };
-const GACHA_RARE_OR_BETTER = { accessory:0.15, srSkin:0.05, ssrSkin:0.02, aura:0.02 };
+// 合計が100%になるように保つこと(rollGachaTierは合計で正規化するので、
+// 崩れると表示している提供割合と実際の確率がズレる)
+const GACHA_RATES = { hazure:0.63, dia150:0.10, accessory:0.15, srSkin:0.08, ssrSkin:0.02, aura:0.02 };
+const GACHA_RARE_OR_BETTER = { accessory:0.15, srSkin:0.08, ssrSkin:0.02, aura:0.02 };
 
 function loadGachaProgress(){
   const fallback = { totalPulls:0, pullsSinceSrPity:0, pullsSinceSsrAuraPity:0 };
@@ -3156,11 +3295,57 @@ function renderGachaScreen(){
   };
   wrap.appendChild(tenBtn);
 
+  // 提供割合。GACHA_RATESを直接読んで出しているので、確率を変えれば表示も自動で追従する
+  const rateBtn = document.createElement('button');
+  rateBtn.className = 'w-full py-2 rounded-lg text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-600 transition';
+  rateBtn.innerText = '📊 提供割合を見る';
+  rateBtn.onclick = () => { playSfx('select'); showGachaRates(); };
+  wrap.appendChild(rateBtn);
+
   ui.rewardList.appendChild(wrap);
   ui.modalBtn.classList.add('hidden');
   ui.modalConfirm.classList.remove('hidden');
   ui.modalConfirm.innerText = '閉じる';
   ui.modalConfirm.onclick = () => { ui.modal.classList.add('hidden'); updateTitleDiaDisplay(); };
+}
+// 提供割合の画面。表示はGACHA_RATESから組み立てるので、確率をいじれば勝手に一致する
+function showGachaRates(){
+  const total = Object.values(GACHA_RATES).reduce((a,b)=>a+b,0);
+  const pct = v => (v/total*100).toFixed(2).replace(/\.?0+$/,'') + '%';
+  const rows = [
+    { key:'aura',      label:'オーラ',           detail:'全5種からランダム',                  color:'text-fuchsia-300' },
+    { key:'ssrSkin',   label:'SSRスキン',        detail:'全7種からランダム',                  color:'text-amber-300' },
+    { key:'srSkin',    label:'SRスキン / モーション', detail:'半々。SRスキン21種・モーション15種', color:'text-purple-300' },
+    { key:'accessory', label:'アクセサリ',       detail:'全14種からランダム',                 color:'text-sky-300' },
+    { key:'dia150',    label:'継承ポイント150',  detail:'',                                   color:'text-emerald-300' },
+    { key:'hazure',    label:'継承ポイント20',   detail:'',                                   color:'text-zinc-400' },
+  ];
+  showModal('📊 提供割合', `単発 💎${GACHA_SINGLE_COST} ／ 10連 💎${GACHA_TEN_COST}`);
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'flex flex-col gap-1.5 w-full';
+  rows.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2 px-3 py-2 bg-zinc-800/70 border border-zinc-600 rounded-lg';
+    row.innerHTML = `<div class="text-left min-w-0">
+        <div class="text-[11px] font-bold ${r.color}">${r.label}</div>
+        ${r.detail ? `<div class="text-[9px] text-zinc-500 mt-0.5">${r.detail}</div>` : ''}
+      </div>
+      <div class="text-[13px] font-black text-zinc-100 shrink-0" style="font-variant-numeric:tabular-nums">${pct(GACHA_RATES[r.key])}</div>`;
+    wrap.appendChild(row);
+  });
+  const note = document.createElement('div');
+  note.className = 'text-[9px] text-zinc-500 leading-relaxed text-left mt-1';
+  note.innerHTML = `・10連は1回だけ<b class="text-zinc-400">アクセサリ以上が確定</b>します(合計 ${pct(Object.values(GACHA_RARE_OR_BETTER).reduce((a,b)=>a+b,0))} の枠から抽選)。<br>
+    ・累計<b class="text-zinc-400">100連ごと</b>にSRスキンかモーションを1つ選んで入手できます。<br>
+    ・累計<b class="text-zinc-400">200連ごと</b>にSSRスキンかオーラを1つ選んで入手できます。<br>
+    ・同じものが出た場合は継承ポイントに変わります(SRスキン/モーション100、SSRスキン/オーラ400、アクセサリ50)。`;
+  wrap.appendChild(note);
+  ui.rewardList.appendChild(wrap);
+  ui.modalBtn.classList.add('hidden');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '戻る';
+  ui.modalConfirm.onclick = () => { window.game.showGacha(); };
 }
 function showGachaResults(results){
   const gp = loadGachaProgress();
@@ -4238,7 +4423,7 @@ if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
 else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
 else ui.enemyVisual.className='monster-sprite';
 if(t.img){
-  ui.enemyVisual.innerHTML=`<img src="${t.img}" class="enemy-sprite-img">`;
+  ui.enemyVisual.innerHTML=`<img src="${t.img}" class="enemy-sprite-img"${enemySpriteAttr(t)}>`;
 } else {
   ui.enemyVisual.innerHTML=`<span class="enemy-sprite-icon">${t.icon||''}</span>`;
 }
