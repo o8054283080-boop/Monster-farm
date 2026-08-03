@@ -23,7 +23,23 @@ hinotori_b2:{id:'hinotori_b2',name:'かぎづめ',cost:8,val:13,crit:'E',rarity:
 hinotori_b3:{id:'hinotori_b3',name:'爆裂落とし',cost:27,val:38,crit:'B',rarity:'SR',desc:'攻38',isStarter:true},
 zan_b1:{id:'zan_b1',name:'レッグアーク',cost:8,val:10,crit:'E',bleed:1,rarity:'N',desc:'攻10 出血1',isStarter:true},
 zan_b2:{id:'zan_b2',name:'ソニックナイフ',cost:11,val:13,crit:'D',bleed:1,rarity:'N',desc:'攻13 出血1',isStarter:true},
-zan_b3:{id:'zan_b3',name:'血踊',cost:10,selfBleedOnHit:1,remove:true,rarity:'N',desc:'今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true}
+zan_b3:{id:'zan_b3',name:'血踊',cost:10,selfBleedOnHit:1,remove:true,rarity:'N',desc:'今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true},
+
+// ==== スキン専用の初期技 ====
+// SSRスキンを「所持していれば」装備画面で選べる、種族の看板技(b3)の差し替え版。
+// 装備中のスキンとは無関係に選べるので、見た目はSRスキンのまま技だけ変える、といった使い方ができる。
+// 上位互換ではなく差し替え(コストと火力を落とす代わりに効果を足す等)になるよう調整してある。
+//   skinCardOf : この技を解放するスキンのid
+//   replaces   : 初期デッキの中で置き換える対象のカードid
+// CARDSではなくBASE_CARDSにだけ置いてあるのが重要。CARDSに入れると
+// カード報酬・ショップ・イベントの抽選対象になり、スキン未所持でも入手できてしまう。
+motchi_b3_skin:{id:'motchi_b3_skin',name:'天使の舞',cost:13,val:10,vuln:2,heal:2,crit:'D',rarity:'SR',desc:'攻10 守弱2 回2',isStarter:true,skinCardOf:'motchi_ssr_01',replaces:'motchi_b3'},
+golem_b3_skin:{id:'golem_b3_skin',name:'氷晶の鉄拳',cost:16,val:21,freeze:1,crit:'E',rarity:'SR',desc:'攻21 氷結1',isStarter:true,skinCardOf:'golem_ssr_01',replaces:'golem_b3'},
+mono_b3_skin:{id:'mono_b3_skin',name:'翠玉の頁',cost:12,val:11,weak:2,nextTurnEnergy:5,crit:'F',rarity:'SR',desc:'攻11 攻弱2 次ガッツ5',isStarter:true,skinCardOf:'monolith_ssr_01',replaces:'mono_b3'},
+k_b3_skin:{id:'k_b3_skin',name:'がっぷりよつ蒼',cost:15,val:17,vuln:2,block:8,crit:'C',rarity:'SR',desc:'攻17 守弱2 防8',isStarter:true,skinCardOf:'kawazumo_ssr_01',replaces:'k_b3'},
+ga_b3_skin:{id:'ga_b3_skin',name:'深淵の焔',cost:22,val:12,weak:2,vuln:2,burn:2,crit:'F',rarity:'SR',desc:'攻12 攻弱守弱2 炎上2',isStarter:true,skinCardOf:'gali_ssr_01',replaces:'ga_b3'},
+hinotori_b3_skin:{id:'hinotori_b3_skin',name:'黄金雷撃',cost:27,val:32,shock:2,crit:'B',rarity:'SR',desc:'攻32 感電2',isStarter:true,skinCardOf:'hinotori_ssr_01',replaces:'hinotori_b3'},
+zan_b3_skin:{id:'zan_b3_skin',name:'溶岩の型',cost:13,burn:2,selfBleedOnHit:1,remove:true,rarity:'N',desc:'炎上2 今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true,skinCardOf:'zan_ssr_01',replaces:'zan_b3'}
 };
 const CARDS = {
 hinotori_b1:{mid:'hinotori',id:'hinotori_b1',name:'くちばし',cost:11,val:16,crit:'D',rarity:'N',desc:'攻16',isStarter:true},

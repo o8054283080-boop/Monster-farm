@@ -828,6 +828,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <!-- スキン -->
     <h3 class="text-zinc-400 text-xs font-bold mb-2">スキン</h3>
     <div id="loadout-skin-grid" class="grid grid-cols-4 gap-2 mb-5"></div>
+    <!-- 初期技(SSRスキンを所持していると選べる。装備は不要) -->
+    <h3 class="text-zinc-400 text-xs font-bold mb-1">初期技</h3>
+    <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">SSRスキンを<b>所持していれば</b>選べます(装備している必要はありません)。冒険開始時、初期デッキの看板技が入れ替わります。</p>
+    <div id="loadout-startercard-grid" class="flex flex-col gap-2 mb-5"></div>
     <!-- アクセサリ -->
     <h3 class="text-zinc-400 text-xs font-bold mb-2">アクセサリ</h3>
     <div id="loadout-accessory-slots" class="grid grid-cols-4 gap-2 mb-5"></div>
@@ -2096,6 +2100,7 @@ function loadCosmetics(){
     equippedAccessories: { hat:null, mask:null, other:null, weapon:null },
     ownedAuras: [],           // 所持オーラidの配列
     equippedAura: null,
+    starterCards: {},         // {種族id: 初期技のカードid} 未設定/nullなら種族の通常の看板技
   };
   try{
     const raw = localStorage.getItem(COSMETICS_STORAGE_KEY);
@@ -2108,6 +2113,7 @@ function loadCosmetics(){
       equippedAccessories: Object.assign({hat:null,mask:null,other:null,weapon:null}, c.equippedAccessories||{}),
       ownedAuras: c.ownedAuras || [],
       equippedAura: c.equippedAura || null,
+      starterCards: c.starterCards || {},
     };
   }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return fallback; }
 }
@@ -2117,6 +2123,38 @@ function saveCosmetics(c){
 function findSkinById(id){
   for(const sp in SKINS){ const found = SKINS[sp].find(s=>s.id===id); if(found) return found; }
   return null;
+}
+// ---- スキン専用の初期技 ----
+// 解放条件は「そのスキンを所持していること」だけで、装備している必要はない。
+// 装備を条件にすると見た目がSSRスキン一択になってしまうため、あえて切り離してある。
+function getSkinStarterCards(speciesId){
+  if(typeof BASE_CARDS === 'undefined') return [];
+  return Object.values(BASE_CARDS).filter(card => {
+    if(!card.skinCardOf) return false;
+    const skin = findSkinById(card.skinCardOf);
+    return !!skin && SKINS[speciesId] && SKINS[speciesId].some(s => s.id === card.skinCardOf);
+  });
+}
+function isSkinStarterCardUnlocked(cardId){
+  const card = (typeof BASE_CARDS !== 'undefined') ? BASE_CARDS[cardId] : null;
+  if(!card || !card.skinCardOf) return false;
+  return loadCosmetics().ownedSkins.includes(card.skinCardOf);
+}
+// 選択中の初期技を、所持状況を確認したうえで返す(未選択/未所持ならnull)
+function getSelectedStarterCard(speciesId){
+  const c = loadCosmetics();
+  const cardId = (c.starterCards || {})[speciesId];
+  if(!cardId) return null;
+  if(!isSkinStarterCardUnlocked(cardId)) return null;
+  return BASE_CARDS[cardId] || null;
+}
+// 初期デッキの看板技を、選択中のスキン専用技に差し替える
+function applyStarterCardChoice(speciesId){
+  const card = getSelectedStarterCard(speciesId);
+  if(!card || !card.replaces) return;
+  const idx = state.deck.findIndex(c => c.id === card.replaces);
+  if(idx === -1) return;
+  state.deck[idx] = {...card, instanceId: Math.random()};
 }
 // 現在装備中のスキン画像を返す(未装備なら種族本来の画像)
 function getEquippedSkinImg(speciesId){
@@ -2220,8 +2258,58 @@ function renderLoadoutScene(){
   renderLoadoutSpeciesTabs();
   renderLoadoutPreview();
   renderLoadoutSkinGrid();
+  renderLoadoutStarterCardGrid();
   renderLoadoutAccessorySlots();
   renderLoadoutAuraGrid();
+}
+// 初期技の選択欄。「通常」＋そのモンスターのスキン専用技を並べ、未所持のものは鍵付きで見せる
+function renderLoadoutStarterCardGrid(){
+  const el = document.getElementById('loadout-startercard-grid');
+  if(!el) return;
+  el.innerHTML = '';
+  const c = loadCosmetics();
+  const spId = loadoutSelectedSpecies;
+  const selected = (c.starterCards||{})[spId] || null;
+  const cards = getSkinStarterCards(spId);
+  // 差し替え対象の通常カード(全て同じb3を指すので先頭から引く)
+  const baseCard = cards.length ? BASE_CARDS[cards[0].replaces] : null;
+
+  const makeRow = (opt) => {
+    const row = document.createElement('button');
+    const active = opt.active;
+    row.className = 'w-full text-left p-2.5 rounded-xl border-2 transition ' +
+      (opt.locked ? 'bg-zinc-900/40 border-zinc-800 opacity-60 cursor-default'
+        : active ? 'bg-amber-900/30 border-amber-400' : 'bg-zinc-800 border-zinc-600 hover:bg-zinc-700');
+    row.innerHTML = `<div class="flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-[11px] font-bold ${opt.locked ? 'text-zinc-500' : active ? 'text-amber-200' : 'text-zinc-200'}">${opt.locked ? '🔒 ' : ''}${opt.name}</div>
+          <div class="text-[9px] text-zinc-400 mt-0.5">${opt.desc}</div>
+          ${opt.note ? `<div class="text-[8px] text-zinc-500 mt-0.5">${opt.note}</div>` : ''}
+        </div>
+        <div class="shrink-0 text-[9px] font-bold ${active ? 'text-amber-300' : 'text-zinc-500'}">${opt.locked ? '未所持' : active ? '選択中' : '選ぶ'}</div>
+      </div>`;
+    if(!opt.locked) row.onclick = opt.onClick;
+    el.appendChild(row);
+  };
+
+  makeRow({
+    name: baseCard ? `${baseCard.name}(通常)` : '通常',
+    desc: baseCard ? `コスト${baseCard.cost} ${baseCard.desc}` : 'このモンスターの本来の看板技',
+    active: !selected,
+    onClick: () => { const c2 = loadCosmetics(); c2.starterCards = c2.starterCards||{}; c2.starterCards[spId] = null; saveCosmetics(c2); playSfx('select'); renderLoadoutStarterCardGrid(); },
+  });
+  cards.forEach(card => {
+    const skin = findSkinById(card.skinCardOf);
+    const owned = c.ownedSkins.includes(card.skinCardOf);
+    makeRow({
+      name: card.name,
+      desc: `コスト${card.cost} ${card.desc}`,
+      note: `「${skin ? skin.name : card.skinCardOf}」の専用技`,
+      locked: !owned,
+      active: owned && selected === card.id,
+      onClick: () => { const c2 = loadCosmetics(); c2.starterCards = c2.starterCards||{}; c2.starterCards[spId] = card.id; saveCosmetics(c2); playSfx('select'); renderLoadoutStarterCardGrid(); },
+    });
+  });
 }
 function renderLoadoutSpeciesTabs(){
   const el = document.getElementById('loadout-species-tabs');
@@ -2905,6 +2993,7 @@ applyMetaShopBonuses();
   }
 }
 state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
+applyStarterCardChoice(spec.id); // スキン専用の初期技を選んでいれば看板技を差し替える
 ui.playerSpeciesName.innerText=spec.name;
 {
   const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
