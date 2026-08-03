@@ -284,7 +284,7 @@ k_sr6:{mid:'kawazumo',name:'柱稽古',cost:17,atkBattle:7,blockBattle:3,regenEn
 k_sr7:{mid:'kawazumo',name:'飛び頭突き',cost:29,val:70,crit:'C',selfDmg:10,rarity:'SR',desc:'攻70 会心C 自傷10'},
 k_ssr6:{mid:'kawazumo',name:'カエル大合唱',cost:42,val:55,crit:'S',weak:2,vuln:2,freeze:1,bleed:10,rarity:'SSR',desc:'攻55 会心S 攻弱守弱2 氷結1 出血10'},
 k_ssr7:{mid:'kawazumo',name:'渾身はりて',cost:25,val:54,crit:'B',rarity:'SSR',desc:'攻54 会心B'},
-k_mr5:{mid:'kawazumo',name:'自己犠牲',cost:55,selfDmg:30,selfDmgCardsDoubled:true,rarity:'MR',desc:'自傷30 この戦闘中、自傷ダメージ持ちカードのダメージ2倍'},
+k_mr5:{mid:'kawazumo',name:'自己犠牲',cost:30,selfDmg:30,selfDmgCardsDoubled:true,rarity:'MR',desc:'自傷30 この戦闘中、自傷ダメージ持ちカードのダメージ3倍'},
 // ガリ
 ga_n5:{mid:'gali',name:'フック',cost:9,val:19,crit:'D',rarity:'N',desc:'攻19 会心D'},
 ga_r5:{mid:'gali',name:'雷閃',cost:11,val:17,crit:'B',shock:1,rarity:'R',desc:'攻17 会心B 感電1'},

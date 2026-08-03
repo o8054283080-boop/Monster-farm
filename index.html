@@ -964,10 +964,12 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <!-- Enemy -->
 <div id="enemy-monster-node" class="flex flex-col items-center relative w-1/3">
 <div id="boss-effect-icon" onclick="window.game.showBossEffectInfo()" class="hidden absolute -right-2 -top-2 z-30 w-8 h-8 rounded-full bg-purple-950 border-2 border-purple-400 flex items-center justify-center text-lg shadow-lg shadow-purple-500/50 cursor-pointer active:scale-90 transition-transform animate-pulse">✨</div>
-<div id="enemy-intent" class="mb-1.5 flex items-center gap-1.5 bg-black/80 px-2.5 py-1.5 rounded-lg border border-zinc-500 z-20 backdrop-blur-md shadow-xl min-w-[50px]">
-<span id="intent-icon" class="text-base leading-none drop-shadow-md">⚔️</span>
-<span id="intent-desc" class="text-[9px] text-zinc-300 whitespace-nowrap font-bold">攻撃</span>
-<span id="intent-value" class="text-base font-black text-red-400 pixel-font leading-none">0</span>
+<!-- 技名が長い敵(イブリース等)でもダメージ値が画面外に押し出されないよう、
+     説明だけを折り返し可能(min-w-0が無いとflexは縮まない)にし、アイコンと数値はshrink-0で固定する -->
+<div id="enemy-intent" class="mb-1.5 flex items-center gap-1.5 bg-black/80 px-2.5 py-1.5 rounded-lg border border-zinc-500 z-20 backdrop-blur-md shadow-xl min-w-[50px] max-w-[9.5rem]">
+<span id="intent-icon" class="text-base leading-none drop-shadow-md shrink-0">⚔️</span>
+<span id="intent-desc" class="text-[9px] text-zinc-300 font-bold leading-tight break-words min-w-0 flex-1">攻撃</span>
+<span id="intent-value" class="text-base font-black text-red-400 pixel-font leading-none shrink-0">0</span>
 </div>
 <div class="mb-1.5 w-36 bg-zinc-900/90 p-2 rounded-lg border border-zinc-600 shadow-xl backdrop-blur-sm">
 <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden mb-1 border border-zinc-700">
@@ -1071,6 +1073,10 @@ const DIA_STORAGE_KEY = 'mf_dia_progress';
 const META_STORAGE_KEY = 'mf_meta_progress';
 const COSMETICS_STORAGE_KEY = 'mf_cosmetics';
 const GACHA_STORAGE_KEY = 'mf_gacha_progress';
+
+// カワズモー「自己犠牲」の効果倍率。実ダメージ計算とダメージ予測の2箇所で使うため、
+// 数値を直書きすると片方だけ直して予測がズレる事故が起きる。必ずこの定数を参照すること。
+const SELF_DMG_CARD_MULT = 3;
 
 // ==============================
 // オンラインランキング設定 (Firebase)
@@ -1696,7 +1702,10 @@ function applyMetaShopBonuses(){
   state.player.hp = state.player.maxHp;
   state.player.atkBase += (lv.pow||0) * 3;
   state.player.blockBase += (lv.def||0) * 3;
-  state.player.regenEnergy += (lv.gutsRegen||0) * 1;
+  // regenEnergyは戦闘開始時に0へリセットされるので、恒久値を別に保持しておき
+  // 戦闘開始時に毎回足し直す（startBattle側で metaRegenEnergy を加算している）
+  state.player.metaRegenEnergy = (lv.gutsRegen||0) * 1;
+  state.player.regenEnergy += state.player.metaRegenEnergy;
   state.player.maxEnergy += (lv.gutsCap||0) * 4;
   // 初期遺物は「候補3つから1つ選ぶ」形にしたので、ここでは付与しない
   // (種族選択の直後に showStarterRelicChoice() で選ばせる)
@@ -2943,7 +2952,7 @@ if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = hand
 state = {
 playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
 difficulty: ui.diffInput.value,
-player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
+player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
 };
@@ -3555,6 +3564,9 @@ if(t.img){
 } else {
   ui.enemyVisual.innerHTML=`<span class="enemy-sprite-icon">${t.icon||''}</span>`;
 }
+// 継承ショップの「ガッツ回復量アップ」は、戦闘開始時のリセットでregenEnergyが0に
+// 戻されるため、遺物と同じくここで毎戦闘再付与する必要がある（これが無いと購入しても効かない）
+state.player.regenEnergy += (state.player.metaRegenEnergy||0);
 let dt=1; if(state.player.relics.some(r=>r.id==='joker'||r.id==='gali')) dt=2;
 if(state.player.relics.some(r=>r.id==='joker')) state.enemy.vuln=dt; if(state.player.relics.some(r=>r.id==='gali')) state.enemy.weak=dt;
 if(state.player.relics.some(r=>r.id==='sticker_mono')) state.player.block+=10;
@@ -4277,7 +4289,7 @@ if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) 
 if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
 if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
 if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m*=1.5;
-if(c.selfDmg && state.player.selfDmgCardsDoubled) m*=2;
+if(c.selfDmg && state.player.selfDmgCardsDoubled) m*=SELF_DMG_CARD_MULT;
 if(state.enemy.legendaryWhim) m *= (h>1 ? 0.5 : 2);
 if(c.executeBelow && state.enemy.hp <= state.enemy.maxHp*c.executeBelow) m*=(c.executeMult||2);
 if(state.player.ikkiIssin && !(h>1)) m*=3; // 一撃入魂: 連撃のないカードのダメージ3倍
@@ -5304,7 +5316,7 @@ if((state.player.permDmgMultBonus||0)>0)ui.playerStatuses.innerHTML+=ps('bg-rose
 if((state.player.costReducePct||0)>0)ui.playerStatuses.innerHTML+=ps('bg-emerald-950','border-emerald-500/50','text-emerald-300','💧',`消費ガッツ-${state.player.costReducePct}%`);
 if((state.player.statusImmuneCharges||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-950','border-indigo-500/50','text-indigo-300','✨',`状態異常無効×${state.player.statusImmuneCharges}`);
 if((state.player.evasion||0)>0)ui.playerStatuses.innerHTML+=ps('bg-slate-800','border-slate-400/50','text-slate-200','💨',`回避×${state.player.evasion}`);
-if(state.player.selfDmgCardsDoubled)ui.playerStatuses.innerHTML+=ps('bg-purple-950','border-purple-500/50','text-purple-300','💥',`自傷カードダメ2倍`);
+if(state.player.selfDmgCardsDoubled)ui.playerStatuses.innerHTML+=ps('bg-purple-950','border-purple-500/50','text-purple-300','💥',`自傷カードダメ${SELF_DMG_CARD_MULT}倍`);
 if(state.player.godCoreActive)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','🌟',`神核 ${state.player.godCoreStacks||0}(+${Math.round((state.player.godCoreDmgBonus||0)*100)}%)`);
 if(state.player.enoOhActive)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/50','text-orange-200','🔥',`炎王`);
 if(state.player.ikkiIssin)ui.playerStatuses.innerHTML+=ps('bg-red-900','border-red-400/50','text-red-200','🗡️',`一撃入魂(単発3倍)`);
@@ -5402,7 +5414,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m *= 1.1;
     if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m *= 1.5;
     if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m *= 1.5;
-    if(c.selfDmg && state.player.selfDmgCardsDoubled) m *= 2;
+    if(c.selfDmg && state.player.selfDmgCardsDoubled) m *= SELF_DMG_CARD_MULT;
     if(state.enemy && state.enemy.legendaryWhim) m *= (hits>1 ? 0.5 : 2);
     if(c.executeBelow && state.enemy && state.enemy.hp <= state.enemy.maxHp*c.executeBelow) m *= (c.executeMult||2);
     if(state.player.ikkiIssin && !(hits>1)) m *= 3;
