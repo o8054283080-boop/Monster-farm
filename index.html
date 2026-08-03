@@ -398,6 +398,138 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   60%  { transform: translate(-50%, -50%) scale(9);  opacity: 0.35; }
   100% { transform: translate(-50%, -50%) scale(14); opacity: 0; }
 }
+
+/* ==================== ガチャ演出 ==================== */
+#gacha-overlay { touch-action: manipulation; }
+#gacha-bg-flash {
+  position: absolute; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen;
+}
+#gacha-bg-flash.gacha-flash-pulse { animation: gacha-flash-anim 0.55s ease-out; }
+#gacha-bg-flash.gacha-flash-pulse.is-soft { animation-name: gacha-flash-anim-soft; }
+@keyframes gacha-flash-anim { 0% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes gacha-flash-anim-soft { 0% { opacity: 0.32; } 100% { opacity: 0; } }
+
+#gacha-stage { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.gacha-caption {
+  position: absolute; top: 14%; left: 50%; transform: translateX(-50%);
+  font-family: 'DotGothic16', sans-serif; letter-spacing: 0.2em; font-size: 13px;
+  color: #fde68a; text-shadow: 0 0 10px rgba(253,230,138,0.8); opacity: 0;
+  animation: gacha-caption-in 0.4s ease-out forwards;
+}
+@keyframes gacha-caption-in { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+.gacha-stage-inner { position: relative; width: 280px; height: 280px; display: flex; align-items: center; justify-content: center; }
+
+.gacha-ring {
+  position: absolute; left: 50%; top: 50%; border-radius: 50%;
+  border-color: var(--gc-color, #a855f7);
+  box-shadow: 0 0 22px var(--gc-glow, rgba(168,85,247,0.7)), inset 0 0 22px var(--gc-glow, rgba(168,85,247,0.5));
+  opacity: 0.8;
+}
+.gacha-ring-outer { width: 240px; height: 240px; margin: -120px 0 0 -120px; border: 2px dashed var(--gc-color, #a855f7); animation: gacha-spin 9s linear infinite; }
+.gacha-ring-inner { width: 170px; height: 170px; margin: -85px 0 0 -85px; border: 2px dotted var(--gc-color, #a855f7); animation: gacha-spin-rev 6s linear infinite; }
+@keyframes gacha-spin { to { transform: rotate(360deg); } }
+@keyframes gacha-spin-rev { to { transform: rotate(-360deg); } }
+
+.gacha-stage-inner.is-charging .gacha-ring-outer { animation-duration: 0.8s; }
+.gacha-stage-inner.is-charging .gacha-ring-inner { animation-duration: 0.55s; }
+.gacha-stage-inner.is-shaking .gacha-ring-outer { animation-duration: 0.35s; }
+.gacha-stage-inner.is-shaking .gacha-ring-inner { animation-duration: 0.25s; }
+.gacha-stage-inner.is-bursting .gacha-ring { animation-play-state: paused; opacity: 0; transition: opacity 0.3s ease-out; }
+
+.gacha-egg {
+  position: absolute; left: 50%; top: 50%; width: 62px; height: 78px; margin: -39px 0 0 -31px;
+  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+  background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.9), rgba(60,60,72,0.95) 70%);
+  box-shadow: 0 0 18px var(--gc-glow, rgba(168,85,247,0.7));
+  transform: scale(1); opacity: 1;
+}
+.gacha-stage-inner.is-appearing .gacha-egg { animation: gacha-egg-in 0.5s cubic-bezier(.25,1.6,.4,1) forwards; }
+@keyframes gacha-egg-in { 0% { transform: scale(0); opacity: 0; } 55% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+
+.gacha-stage-inner.is-charging .gacha-egg,
+.gacha-stage-inner.is-shaking .gacha-egg {
+  animation: gacha-egg-glow-pulse 0.4s ease-in-out infinite alternate;
+}
+.gacha-stage-inner.is-shaking .gacha-egg {
+  animation: gacha-egg-glow-pulse 0.35s ease-in-out infinite alternate, gacha-egg-shake 0.13s linear infinite;
+}
+@keyframes gacha-egg-glow-pulse {
+  from { box-shadow: 0 0 18px var(--gc-glow, rgba(168,85,247,0.7)); }
+  to   { box-shadow: 0 0 50px var(--gc-glow, rgba(168,85,247,0.9)), 0 0 85px var(--gc-glow, rgba(168,85,247,0.5)); }
+}
+@keyframes gacha-egg-shake {
+  0%, 100% { transform: translate(0,0) rotate(0deg); }
+  25% { transform: translate(-4px,2px) rotate(-4deg); }
+  50% { transform: translate(3px,-3px) rotate(4deg); }
+  75% { transform: translate(-3px,-1px) rotate(-3deg); }
+}
+
+.gacha-stage-inner.is-bursting .gacha-egg { animation: gacha-egg-burst 0.32s ease-in forwards; }
+@keyframes gacha-egg-burst {
+  0% { transform: scale(1); opacity: 1; }
+  35% { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(0.15); opacity: 0; }
+}
+
+.gacha-particle {
+  position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--p-color, #fff); box-shadow: 0 0 8px 1px var(--p-color, #fff);
+  transform: translate(-50%, -50%); opacity: 0; pointer-events: none;
+  animation: gacha-particle-burst var(--p-dur, 0.85s) cubic-bezier(.15,.8,.3,1) forwards;
+}
+@keyframes gacha-particle-burst {
+  0% { transform: translate(-50%,-50%) translate(0,0) scale(0.5); opacity: 1; }
+  65% { opacity: 1; }
+  100% { transform: translate(-50%,-50%) translate(var(--p-x), var(--p-y)) scale(0.9); opacity: 0; }
+}
+
+.gacha-ring-burst {
+  position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  background: conic-gradient(red,orange,yellow,limegreen,cyan,blue,violet,red);
+  -webkit-mask-image: radial-gradient(circle, transparent 60%, #000 63%, #000 100%);
+  mask-image: radial-gradient(circle, transparent 60%, #000 63%, #000 100%);
+  opacity: 1; animation: gacha-ring-expand 0.9s ease-out forwards; pointer-events: none;
+}
+@keyframes gacha-ring-expand {
+  0% { width: 20px; height: 20px; margin: -10px 0 0 -10px; opacity: 1; }
+  100% { width: 620px; height: 620px; margin: -310px 0 0 -310px; opacity: 0; }
+}
+
+.gacha-reveal {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.3); opacity: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; width: 200px; text-align: center;
+}
+.gacha-reveal.is-shown { animation: gacha-reveal-in 0.45s cubic-bezier(.2,1.5,.4,1) forwards; }
+@keyframes gacha-reveal-in { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0; } 65% { transform: translate(-50%,-50%) scale(1.12); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
+.gacha-reveal img { width: 88px; height: 88px; object-fit: contain; filter: drop-shadow(0 0 16px var(--gc-glow, rgba(168,85,247,0.8))); }
+.gacha-reveal .gacha-reveal-icon { font-size: 44px; filter: drop-shadow(0 0 16px var(--gc-glow, rgba(168,85,247,0.8))); }
+.gacha-reveal .gacha-reveal-tier { font-size: 11px; color: var(--gc-color, #a855f7); font-weight: 900; letter-spacing: 0.1em; }
+.gacha-reveal .gacha-reveal-name { font-size: 13px; color: #fef3c7; font-weight: 900; }
+.gacha-reveal .gacha-reveal-sub { font-size: 10px; color: #a1a1aa; }
+
+.gacha-egg-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;
+}
+.gacha-egg-mini { position: relative; width: 40px; height: 48px; }
+.gacha-egg-mini .gacha-egg {
+  position: absolute; inset: 0; margin: 0; width: 40px; height: 48px; transform: scale(0); opacity: 0;
+}
+.gacha-egg-mini.is-appearing .gacha-egg { animation: gacha-egg-mini-in 0.22s ease-out forwards; }
+@keyframes gacha-egg-mini-in { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.gacha-egg-mini.is-bursting .gacha-egg { animation: gacha-egg-mini-burst 0.22s ease-in forwards; }
+@keyframes gacha-egg-mini-burst { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 1; } 100% { transform: scale(0.2); opacity: 0; } }
+.gacha-egg-mini-result {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transform: scale(0.4); border-radius: 8px;
+  background: radial-gradient(circle, var(--gc-glow, rgba(168,85,247,0.35)), transparent 75%);
+}
+.gacha-egg-mini-result.is-shown { animation: gacha-mini-result-in 0.3s ease-out forwards; }
+@keyframes gacha-mini-result-in { 0% { opacity: 0; transform: scale(0.4); } 100% { opacity: 1; transform: scale(1); } }
+.gacha-egg-mini-result img { width: 32px; height: 32px; object-fit: contain; }
+.gacha-egg-mini-result .gacha-mini-icon { font-size: 20px; }
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -734,6 +866,12 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div id="enemy-drop-zone-highlight"></div>
 </div>
 </div>
+
+<div id="gacha-overlay" class="fixed inset-0 hidden z-[200] items-center justify-center overflow-hidden select-none bg-black/92" onclick="window.game._gachaSkip && window.game._gachaSkip()">
+<div id="gacha-bg-flash"></div>
+<div id="gacha-stage"></div>
+<div id="gacha-skip-hint" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] text-zinc-400 tracking-widest animate-pulse pointer-events-none">タップでスキップ</div>
+</div>
 </main>
 <div id="drag-card-ghost" class="card small p-2 justify-between hidden" style="width:72px;height:100px;"></div>
 <div id="drag-dmg-preview">⚔️ 0</div>
@@ -949,6 +1087,33 @@ function playSfx(type) {
     case 'coin': tone(880,0,0.05,'square',0.1); tone(1300,0.05,0.09,'square',0.09); break;
     case 'error': tone(160,0,0.15,'square',0.1,90); break;
     default: tone(400,0,0.07,'sine',0.09);
+  }
+}
+// ガチャ演出専用の効果音(魔法陣の出現・加速・弾ける音をレア度別に用意)
+function playGachaSfx(kind) {
+  if (!soundEnabled) return;
+  const ctx = ensureAudioCtx();
+  if (!ctx || !__seGain) return;
+  const now = ctx.currentTime;
+  function tone(freq, start, dur, wave, vol, freqEnd) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = wave;
+    osc.frequency.setValueAtTime(freq, now+start);
+    if (freqEnd) osc.frequency.exponentialRampToValueAtTime(Math.max(20,freqEnd), now+start+dur);
+    g.gain.setValueAtTime(0.0001, now+start);
+    g.gain.exponentialRampToValueAtTime(vol, now+start+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, now+start+dur);
+    osc.connect(g); g.connect(__seGain);
+    osc.start(now+start); osc.stop(now+start+dur+0.03);
+  }
+  switch(kind) {
+    case 'appear': tone(560,0,0.18,'sine',0.06,780); break;
+    case 'charge': tone(280,0,0.45,'sawtooth',0.045,760); break;
+    case 'burst_low': tone(700,0,0.09,'triangle',0.09); tone(980,0.05,0.08,'triangle',0.06); break;
+    case 'burst_mid': tone(659,0,0.1,'triangle',0.11); tone(880,0.07,0.1,'triangle',0.1); break;
+    case 'burst_high': tone(659,0,0.1,'triangle',0.13); tone(880,0.08,0.1,'triangle',0.13); tone(1046,0.16,0.2,'triangle',0.16); break;
+    case 'burst_top': tone(523,0,0.1,'triangle',0.14); tone(659,0.08,0.1,'triangle',0.14); tone(784,0.16,0.1,'triangle',0.15); tone(1046,0.24,0.28,'triangle',0.19); break;
   }
 }
 window.game = window.game || {};
@@ -2061,7 +2226,9 @@ function renderGachaScreen(){
     if(getDiaBalance() < GACHA_SINGLE_COST){ showDiaToast('💎 ダイヤが足りません'); return; }
     const dp = loadDiaProgress(); dp.dia -= GACHA_SINGLE_COST; saveDiaProgress(dp);
     playSfx('select');
-    showGachaResults([doSinglePull(false)]);
+    ui.modal.classList.add('hidden');
+    const results = [doSinglePull(false)];
+    playGachaAnimation(results, () => showGachaResults(results));
   };
   wrap.appendChild(singleBtn);
 
@@ -2072,7 +2239,9 @@ function renderGachaScreen(){
     if(getDiaBalance() < GACHA_TEN_COST){ showDiaToast('💎 ダイヤが足りません'); return; }
     const dp = loadDiaProgress(); dp.dia -= GACHA_TEN_COST; saveDiaProgress(dp);
     playSfx('select');
-    showGachaResults(doTenPull());
+    ui.modal.classList.add('hidden');
+    const results = doTenPull();
+    playGachaAnimation(results, () => showGachaResults(results));
   };
   wrap.appendChild(tenBtn);
 
@@ -2083,7 +2252,8 @@ function renderGachaScreen(){
   ui.modalConfirm.onclick = () => { ui.modal.classList.add('hidden'); updateTitleDiaDisplay(); };
 }
 function showGachaResults(results){
-  showModal('ガチャ結果', '');
+  const gp = loadGachaProgress();
+  showModal('ガチャ結果', `次のSRスキン確定まで あと${Math.max(0,100-gp.pullsSinceSrPity)}連 / 次のSSR・オーラ確定まで あと${Math.max(0,200-gp.pullsSinceSsrAuraPity)}連`);
   ui.rewardList.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'grid grid-cols-2 gap-2 w-full';
@@ -2094,7 +2264,8 @@ function showGachaResults(results){
       cell.innerHTML = `<div class="text-xl">${r.tier==='hazure'?'💠':'💰'}</div><div class="text-[9px] text-zinc-400">${GACHA_TIER_LABEL[r.tier]}</div><div class="text-[10px] text-emerald-300 font-bold">継承pt +${r.amount}</div>`;
     } else {
       const label = r.rewardType==='new' ? '<span class="text-emerald-400">NEW</span>' : `<span class="text-zinc-400">被り→pt+${r.amount}</span>`;
-      cell.innerHTML = `<img src="${r.item.img}" class="w-12 h-12 object-contain mx-auto">
+      const icon = r.item.img ? `<img src="${r.item.img}" class="w-12 h-12 object-contain mx-auto">` : `<div class="text-3xl">✨</div>`;
+      cell.innerHTML = `${icon}
         <div class="text-[9px] text-amber-200 font-bold truncate">${r.item.name}</div>
         <div class="text-[8px]">${label}</div>`;
     }
@@ -2148,6 +2319,180 @@ function showPityChooser(type, onChosen){
   ui.rewardList.appendChild(wrap);
   ui.modalConfirm.classList.add('hidden');
   ui.modalBtn.classList.add('hidden');
+}
+// ==================== ガチャ演出 ====================
+// レア度ごとの光の色・パーティクル量・画面フラッシュの有無・効果音を定義。
+const GACHA_ANIM_THEME = {
+  hazure:    { color:'#d4d4d8', glow:'rgba(212,212,216,0.55)', particles:6,  flash:false, ring:false, sfx:'burst_low' },
+  dia150:    { color:'#e4e4e7', glow:'rgba(228,228,231,0.65)', particles:8,  flash:false, ring:false, sfx:'burst_low' },
+  accessory: { color:'#38bdf8', glow:'rgba(56,189,248,0.75)',  particles:16, flash:false, ring:false, sfx:'burst_mid' },
+  srSkin:    { color:'#a855f7', glow:'rgba(168,85,247,0.85)',  particles:26, flash:true, soft:true, flashColor:'rgba(168,85,247,0.5)', ring:false, sfx:'burst_high' },
+  ssrSkin:   { color:'#f59e0b', glow:'rgba(245,158,11,0.9)',   particles:42, flash:true, flashColor:'rgba(245,158,11,0.65)', ring:false, sfx:'burst_top' },
+  aura:      { color:'#f472b6', glow:'rgba(255,255,255,0.95)', particles:56, flash:true, flashColor:'rgba(255,255,255,0.75)', ring:true, rainbow:true, sfx:'burst_top' },
+};
+const GACHA_RARITY_RANK = { hazure:0, dia150:0, accessory:1, srSkin:2, ssrSkin:3, aura:4 };
+function gachaThemeOf(tier){ return GACHA_ANIM_THEME[tier] || GACHA_ANIM_THEME.hazure; }
+function highestRarityResult(results){
+  return results.reduce((best,r)=> GACHA_RARITY_RANK[r.tier] > GACHA_RARITY_RANK[best.tier] ? r : best, results[0]);
+}
+function spawnGachaParticles(container, theme){
+  const count = theme.particles || 16;
+  for(let i=0;i<count;i++){
+    const p = document.createElement('div');
+    p.className = 'gacha-particle';
+    const angle = (Math.PI*2*i/count) + (Math.random()*0.4-0.2);
+    const dist = 55 + Math.random()*95;
+    const x = Math.cos(angle)*dist, y = Math.sin(angle)*dist;
+    p.style.setProperty('--p-x', x.toFixed(1)+'px');
+    p.style.setProperty('--p-y', y.toFixed(1)+'px');
+    p.style.setProperty('--p-color', theme.rainbow ? `hsl(${Math.floor(Math.random()*360)},90%,65%)` : theme.color);
+    p.style.setProperty('--p-dur', (0.55+Math.random()*0.5).toFixed(2)+'s');
+    container.appendChild(p);
+  }
+}
+function triggerGachaFlash(flashEl, theme){
+  if(!theme.flash) return;
+  flashEl.style.background = theme.flashColor;
+  flashEl.classList.remove('gacha-flash-pulse','is-soft');
+  void flashEl.offsetWidth;
+  flashEl.classList.toggle('is-soft', !!theme.soft);
+  flashEl.classList.add('gacha-flash-pulse');
+}
+function buildGachaStageInner(theme){
+  const inner = document.createElement('div');
+  inner.className = 'gacha-stage-inner is-appearing';
+  inner.style.setProperty('--gc-color', theme.color);
+  inner.style.setProperty('--gc-glow', theme.glow);
+  inner.innerHTML = `<div class="gacha-ring gacha-ring-outer"></div><div class="gacha-ring gacha-ring-inner"></div><div class="gacha-egg"></div><div class="gacha-reveal"></div>`;
+  return inner;
+}
+// 1件分の「待機→加速→震え→光漏れ→破裂→中身公開」演出。10連のトリ確定演出にも流用する
+function runSingleGachaReveal(stage, flashEl, setT, result, captionText, onDone){
+  const theme = gachaThemeOf(result.tier);
+  stage.innerHTML = '';
+  if(captionText){
+    const cap = document.createElement('div');
+    cap.className = 'gacha-caption';
+    cap.textContent = captionText;
+    stage.appendChild(cap);
+  }
+  const inner = buildGachaStageInner(theme);
+  stage.appendChild(inner);
+  playGachaSfx('appear');
+
+  const T_CHARGE = 480, T_SHAKE = 620, T_BURST = 520, T_REVEAL = 340, T_HOLD = 1250;
+  setT(()=>{ inner.classList.remove('is-appearing'); inner.classList.add('is-charging'); playGachaSfx('charge'); }, T_CHARGE);
+  setT(()=>{ inner.classList.remove('is-charging'); inner.classList.add('is-shaking'); }, T_CHARGE+T_SHAKE);
+  setT(()=>{
+    inner.classList.remove('is-shaking'); inner.classList.add('is-bursting');
+    spawnGachaParticles(inner, theme);
+    if(theme.ring){ const rb = document.createElement('div'); rb.className = 'gacha-ring-burst'; inner.appendChild(rb); }
+    triggerGachaFlash(flashEl, theme);
+    playGachaSfx(theme.sfx);
+  }, T_CHARGE+T_SHAKE+T_BURST);
+  setT(()=>{
+    const reveal = inner.querySelector('.gacha-reveal');
+    if(result.rewardType==='point'){
+      reveal.innerHTML = `<div class="gacha-reveal-icon">${result.tier==='hazure'?'💠':'💰'}</div>
+        <div class="gacha-reveal-tier">${GACHA_TIER_LABEL[result.tier]}</div>
+        <div class="gacha-reveal-name">継承pt +${result.amount}</div>`;
+    } else {
+      const sub = result.rewardType==='new' ? 'NEW' : `被り → 継承pt +${result.amount}`;
+      const icon = result.item.img ? `<img src="${result.item.img}">` : `<div class="gacha-reveal-icon">✨</div>`;
+      reveal.innerHTML = `${icon}
+        <div class="gacha-reveal-tier">${GACHA_TIER_LABEL[result.tier]}</div>
+        <div class="gacha-reveal-name">${result.item.name}</div>
+        <div class="gacha-reveal-sub">${sub}</div>`;
+    }
+    reveal.classList.add('is-shown');
+    playSfx('select');
+  }, T_CHARGE+T_SHAKE+T_BURST+T_REVEAL);
+  setT(onDone, T_CHARGE+T_SHAKE+T_BURST+T_REVEAL+T_HOLD);
+}
+// 10連: 10個のミニ卵が順番に弾け、最後に今回最高レアだけをもう一度大きく単独演出(トリ確定演出)
+function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
+  stage.innerHTML = '';
+  const cap = document.createElement('div');
+  cap.className = 'gacha-caption';
+  cap.textContent = '10連召喚';
+  stage.appendChild(cap);
+
+  const bgRing = document.createElement('div');
+  bgRing.className = 'gacha-stage-inner is-charging';
+  bgRing.style.setProperty('--gc-color', '#e2e8f0');
+  bgRing.style.setProperty('--gc-glow', 'rgba(226,232,240,0.5)');
+  bgRing.innerHTML = `<div class="gacha-ring gacha-ring-outer"></div><div class="gacha-ring gacha-ring-inner"></div>`;
+  stage.appendChild(bgRing);
+
+  const grid = document.createElement('div');
+  grid.className = 'gacha-egg-grid';
+  stage.appendChild(grid);
+
+  const cells = results.map(r=>{
+    const theme = gachaThemeOf(r.tier);
+    const cell = document.createElement('div');
+    cell.className = 'gacha-egg-mini';
+    cell.style.setProperty('--gc-color', theme.color);
+    cell.style.setProperty('--gc-glow', theme.glow);
+    cell.innerHTML = `<div class="gacha-egg"></div><div class="gacha-egg-mini-result"></div>`;
+    grid.appendChild(cell);
+    return { cell, theme, r };
+  });
+
+  const stagger = 170;
+  cells.forEach(({cell}, i)=> setT(()=> cell.classList.add('is-appearing'), i*stagger));
+  cells.forEach(({cell, theme, r}, i)=>{
+    const tBurst = i*stagger + 260;
+    setT(()=>{
+      cell.classList.remove('is-appearing'); cell.classList.add('is-bursting');
+      playGachaSfx(theme.sfx);
+      if(theme.flash && !theme.soft) triggerGachaFlash(flashEl, theme);
+    }, tBurst);
+    setT(()=>{
+      const resEl = cell.querySelector('.gacha-egg-mini-result');
+      resEl.style.setProperty('--gc-glow', theme.glow);
+      resEl.innerHTML = (r.rewardType==='point')
+        ? `<div class="gacha-mini-icon">${r.tier==='hazure'?'💠':'💰'}</div>`
+        : (r.item.img ? `<img src="${r.item.img}">` : `<div class="gacha-mini-icon">✨</div>`);
+      resEl.classList.add('is-shown');
+    }, tBurst+180);
+  });
+
+  const afterGrid = cells.length*stagger + 260 + 180 + 500;
+  setT(()=>{
+    const best = highestRarityResult(results);
+    runSingleGachaReveal(stage, flashEl, setT, best, '★ トリ確定演出 ★', onDone);
+  }, afterGrid);
+}
+// ガチャ演出のエントリーポイント。演出中は画面タップでいつでもスキップして結果一覧へ進める
+function playGachaAnimation(results, onComplete){
+  const overlay = document.getElementById('gacha-overlay');
+  const stage = document.getElementById('gacha-stage');
+  const flashEl = document.getElementById('gacha-bg-flash');
+  stage.innerHTML = '';
+  flashEl.className = ''; flashEl.style.background = '';
+  overlay.classList.remove('hidden'); overlay.classList.add('flex');
+
+  let finished = false;
+  const timers = [];
+  const setT = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
+  function finish(){
+    if(finished) return;
+    finished = true;
+    timers.forEach(clearTimeout);
+    overlay.classList.add('hidden'); overlay.classList.remove('flex');
+    stage.innerHTML = '';
+    flashEl.className = ''; flashEl.style.background = '';
+    window.game._gachaSkip = null;
+    onComplete();
+  }
+  window.game._gachaSkip = finish;
+
+  if(results.length <= 1){
+    runSingleGachaReveal(stage, flashEl, setT, results[0], '', finish);
+  } else {
+    runTenPullGachaSequence(stage, flashEl, setT, results, finish);
+  }
 }
 // ==================== ガチャシステムここまで ====================
 
