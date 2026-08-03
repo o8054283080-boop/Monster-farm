@@ -4621,6 +4621,10 @@ state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else
 updateUI(); renderHand();
 if(c.breakBlock)state.enemy.block=0;
 let actualHits=1;
+// クリティカル発動時の効果はこのifブロックの外(後方)で判定するため、
+// 宣言をブロック内に置くとReferenceErrorになり、try/catchに飲まれて
+// クリティカル系の効果が全て無言で失われる。必ず関数スコープで宣言すること。
+let anyCritThisAttack = false;
 if(c.val>0||c.hits>1 || c.godRising || c.dmgEqualsBlock){
 let h = c.hits || 1;
 if (c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) h += 1;
@@ -4636,7 +4640,6 @@ h = Math.max(1, count);
 actualHits=h;
 const isMultiHit = h > 1;
 let comboTotalDmg = 0;
-let anyCritThisAttack = false;
 
 for(let k=0;k<h;k++){
 let b=(c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
