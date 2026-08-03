@@ -2006,6 +2006,25 @@ function showDiaToast(html){
   }catch(e){ console.warn('ログインボーナスの処理に失敗しました', e); }
 })();
 
+// 大型アップデート記念の配布。フラグを見て1端末につき1回だけ配る。
+// 次回また配るときは、キーの日付部分を変えて金額を書き換えるだけでよい。
+const UPDATE_GIFT_KEY = 'mf_update_gift_20260803';
+const UPDATE_GIFT_AMOUNT = 150;
+(function(){
+  try{
+    if(localStorage.getItem(UPDATE_GIFT_KEY)) return;
+    const dp = loadDiaProgress();
+    dp.dia += UPDATE_GIFT_AMOUNT;
+    saveDiaProgress(dp);
+    localStorage.setItem(UPDATE_GIFT_KEY, '1');
+    updateTitleDiaDisplay();
+    // ログインボーナスのトーストと重ならないよう、少し遅らせて出す
+    setTimeout(()=>{
+      showDiaToast(`🎉 <b>大型アップデート記念</b><br>💎+${UPDATE_GIFT_AMOUNT}<br><span style="font-size:10px;color:#a8a29e;">左下の「最終アップデート」から更新内容を見られます</span>`);
+    }, 900);
+  }catch(e){ console.warn('アップデート記念配布の処理に失敗しました', e); }
+})();
+
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
 window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); stopMenuBGM(); };
 function renderSpeciesSelect(){
@@ -2421,6 +2440,10 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
+  { date:'2026/08/03', title:'大型アップデート記念', items:[
+    '記念にダイヤ150をお配りしました（1端末につき1回）',
+    '初期デッキのカードにも種族の色が付くようになりました',
+  ]},
   { date:'2026/08/03', title:'カード演出モーション', items:[
     'カードを使ったときの演出を15種追加(攻撃/防御/強化/弱体/回復 × 各3種)',
     'ガチャのSR枠でモーションが手に入るようになりました',
