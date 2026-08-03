@@ -221,7 +221,9 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 .monster-sprite { animation: idle 3s ease-in-out infinite; display: inline-block; font-size: 5rem; line-height: 1; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
 .loadout-acc-img { position:absolute; top:0; left:0; z-index:20; pointer-events:none; transform-origin:center center; display:none; }
 #player-visual-wrap { animation: idle 3s ease-in-out infinite; }
-#player-visual.monster-sprite { animation: none; }
+/* position指定が無いとz-index:10が効かず、後から重ねるオーラ(.aura-fx)が
+   キャラの手前に来て顔が隠れてしまうため、必ずpositionを持たせておくこと */
+#player-visual.monster-sprite { animation: none; position: relative; }
 .player-sprite-img { width: 5.5rem; height: 5.5rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
 .enemy-sprite-img { width: 6rem; height: 7rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
 .enemy-sprite-icon { font-size: 4rem; }
@@ -577,6 +579,123 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 @keyframes gacha-mini-result-in { 0% { opacity: 0; transform: scale(0.4); } 100% { opacity: 1; transform: scale(1); } }
 .gacha-egg-mini-result img { width: 32px; height: 32px; object-fit: contain; }
 .gacha-egg-mini-result .gacha-mini-icon { font-size: 20px; }
+
+/* ==================== オーラ(戦闘中・装備プレビュー共通) ====================
+   画像素材を一切使わず、CSSのグラデーションだけで全7種族に使い回せるようにしている。
+   要素は静的に置いておき、JSは data-aura を差し替えるだけ(動的にDOMを作らない)。
+   サイズは全て%指定なので、バトル画面(5.5rem/4.2rem)でもプレビュー枠(160px)でも同じ見た目になる。 */
+.aura-fx { position: absolute; inset: 0; pointer-events: none; z-index: 5; display: none; }
+.aura-fx .aura-layer, .aura-fx .aura-p { position: absolute; display: none; }
+/* 全オーラ共通で使い回す動き。回転系は translate(-50%,-50%) を含めないと中心がズレる */
+@keyframes aura-breathe { from { opacity: 0.55; transform: translate(-50%,-50%) scale(0.93); } to { opacity: 1; transform: translate(-50%,-50%) scale(1.07); } }
+@keyframes aura-spin-slow { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+@keyframes aura-spin-fast { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+/* 光輪のオーラ: 柔らかい楕円形の光+ふちの淡いリングをゆっくり明滅させる */
+.aura-fx[data-aura="aura_halo"] .aura-layer-a {
+  display: block; left: 50%; top: 54%; width: 172%; height: 152%; transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(254,243,199,0.75) 0%, rgba(251,191,36,0.5) 34%, rgba(245,158,11,0.22) 56%, transparent 74%);
+  animation: aura-breathe 2.8s ease-in-out infinite alternate;
+}
+.aura-fx[data-aura="aura_halo"] .aura-layer-b {
+  display: block; left: 50%; top: 54%; width: 150%; height: 132%; transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(254,240,138,0.55) 62%, rgba(253,224,71,0.2) 72%, transparent 82%);
+  animation: aura-breathe 3.6s ease-in-out infinite alternate-reverse;
+}
+
+/* 神々しき後光: 背後の金/紫の光+ゆっくり回る光条。キャラ本体はdrop-shadowで
+   透過アルファの形に沿って発光させる(下の .aura-holy-on 参照) */
+.aura-fx[data-aura="aura_holy"] .aura-layer-a {
+  display: block; left: 50%; top: 50%; width: 155%; height: 155%; transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(253,224,71,0.45) 0%, rgba(168,85,247,0.3) 45%, transparent 70%);
+  animation: aura-breathe 3.2s ease-in-out infinite alternate;
+}
+.aura-fx[data-aura="aura_holy"] .aura-layer-b {
+  display: block; left: 50%; top: 50%; width: 235%; height: 235%; transform: translate(-50%,-50%);
+  background: repeating-conic-gradient(from 0deg, rgba(253,224,71,0.5) 0deg 2.5deg, transparent 2.5deg 14deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 19%, #000 33%, transparent 50%);
+  mask-image: radial-gradient(circle, transparent 19%, #000 33%, transparent 50%);
+  animation: aura-spin-slow 18s linear infinite;
+}
+#player-visual-wrap.aura-holy-on .player-sprite-img,
+#loadout-preview.aura-holy-on #loadout-preview-img {
+  animation: aura-holy-glow 2.4s ease-in-out infinite alternate;
+}
+@keyframes aura-holy-glow {
+  from { filter: drop-shadow(0 0 4px rgba(253,224,71,0.8)) drop-shadow(0 0 10px rgba(168,85,247,0.7)); }
+  to   { filter: drop-shadow(0 0 9px rgba(253,224,71,1)) drop-shadow(0 0 20px rgba(168,85,247,0.95)) drop-shadow(0 0 34px rgba(253,224,71,0.6)); }
+}
+
+/* 業火の足跡: 足元の残り火+立ちのぼる炎の粒子。
+   これだけはキャラの手前(z-index:15、アクセサリの20より下)に出す。
+   背面に置くと足元の炎がキャラに隠れてほとんど見えなくなるため。 */
+.aura-fx[data-aura="aura_flame"] { z-index: 15; }
+.aura-fx[data-aura="aura_flame"] .aura-layer-a {
+  display: block; left: 50%; bottom: -4%; width: 95%; height: 22%; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(251,146,60,0.75) 0%, rgba(220,38,38,0.4) 45%, transparent 72%);
+  animation: aura-ember 1.4s ease-in-out infinite alternate;
+}
+@keyframes aura-ember { from { opacity: 0.55; } to { opacity: 1; } }
+/* 粒子は「丸い玉」に見えないよう、縦長+ぼかしにして、昇るほど細く伸びるようにしている */
+.aura-fx[data-aura="aura_flame"] .aura-p {
+  display: block; bottom: 2%; width: 14%; height: 21%; border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 68%, rgba(255,251,235,0.95) 0%, rgba(252,211,77,0.9) 24%, rgba(249,115,22,0.6) 50%, rgba(220,38,38,0) 76%);
+  filter: blur(1.2px);
+  animation: aura-flame-rise 1.6s ease-out infinite;
+}
+.aura-fx[data-aura="aura_flame"] .p1 { left: 4%;  animation-delay: 0s; }
+.aura-fx[data-aura="aura_flame"] .p2 { left: 24%; animation-delay: 0.5s; }
+.aura-fx[data-aura="aura_flame"] .p3 { left: 44%; animation-delay: 0.9s; }
+.aura-fx[data-aura="aura_flame"] .p4 { left: 64%; animation-delay: 0.25s; }
+.aura-fx[data-aura="aura_flame"] .p5 { left: 82%; animation-delay: 0.75s; }
+.aura-fx[data-aura="aura_flame"] .p6 { left: 34%; animation-delay: 1.2s; }
+@keyframes aura-flame-rise {
+  0%   { opacity: 0; transform: translateY(0) scale(0.55, 0.5); }
+  18%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-140%) scale(0.32, 1.15); }
+}
+
+/* 幻虹のオーラ: 回転する虹色リング+きらめく粒子 */
+.aura-fx[data-aura="aura_rainbow"] .aura-layer-a {
+  display: block; left: 50%; top: 50%; width: 178%; height: 178%; transform: translate(-50%,-50%); border-radius: 50%; opacity: 0.85;
+  background: conic-gradient(from 0deg, #ff5f6d, #ffc371, #f7ff00, #4ade80, #22d3ee, #818cf8, #e879f9, #ff5f6d);
+  -webkit-mask-image: radial-gradient(circle, transparent 40%, #000 47%, #000 56%, transparent 63%);
+  mask-image: radial-gradient(circle, transparent 40%, #000 47%, #000 56%, transparent 63%);
+  animation: aura-spin-fast 4.5s linear infinite;
+}
+.aura-fx[data-aura="aura_rainbow"] .aura-layer-b {
+  display: block; left: 50%; top: 50%; width: 150%; height: 150%; transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.28) 0%, transparent 62%);
+  animation: aura-breathe 2.4s ease-in-out infinite alternate;
+}
+.aura-fx[data-aura="aura_rainbow"] .aura-p {
+  display: block; width: 9%; height: 9%; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, rgba(255,255,255,0.85) 35%, transparent 70%);
+  animation: aura-twinkle 1.8s ease-in-out infinite;
+}
+.aura-fx[data-aura="aura_rainbow"] .p1 { left: 6%;  top: 22%; animation-delay: 0s; }
+.aura-fx[data-aura="aura_rainbow"] .p2 { left: 84%; top: 16%; animation-delay: 0.4s; }
+.aura-fx[data-aura="aura_rainbow"] .p3 { left: 90%; top: 62%; animation-delay: 0.8s; }
+.aura-fx[data-aura="aura_rainbow"] .p4 { left: 2%;  top: 66%; animation-delay: 1.1s; }
+.aura-fx[data-aura="aura_rainbow"] .p5 { left: 46%; top: -6%; animation-delay: 0.6s; }
+.aura-fx[data-aura="aura_rainbow"] .p6 { left: 50%; top: 94%; animation-delay: 1.4s; }
+@keyframes aura-twinkle { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* 覇王の闘気: トゲトゲの闘気が全身から迸る(repeating-conic-gradientで生成した独自実装) */
+.aura-fx[data-aura="aura_king"] .aura-layer-a {
+  display: block; left: 50%; top: 50%; width: 228%; height: 228%; transform: translate(-50%,-50%);
+  background: repeating-conic-gradient(from 0deg, rgba(252,165,165,0.9) 0deg 2deg, rgba(239,68,68,0.55) 2deg 4.5deg, transparent 4.5deg 15deg);
+  /* 中心を空洞にしないとトゲが一点に集まって塊になり、キャラの顔が潰れて見える */
+  -webkit-mask-image: radial-gradient(circle, transparent 17%, rgba(0,0,0,0.9) 31%, rgba(0,0,0,0.5) 42%, transparent 54%);
+  mask-image: radial-gradient(circle, transparent 17%, rgba(0,0,0,0.9) 31%, rgba(0,0,0,0.5) 42%, transparent 54%);
+  animation: aura-spin-slow 9s linear infinite, aura-king-flicker 0.85s ease-in-out infinite alternate;
+}
+@keyframes aura-king-flicker { from { opacity: 0.55; } to { opacity: 0.92; } }
+.aura-fx[data-aura="aura_king"] .aura-layer-b {
+  display: block; left: 50%; top: 50%; width: 132%; height: 132%; transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(254,202,202,0.5) 0%, rgba(239,68,68,0.35) 40%, transparent 70%);
+  animation: aura-breathe 1.5s ease-in-out infinite alternate;
+}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -697,6 +816,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <!-- プレビュー -->
     <div class="flex justify-center mb-4">
       <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700 overflow-hidden">
+        <div id="loadout-aura-fx" class="aura-fx"><span class="aura-layer aura-layer-a"></span><span class="aura-layer aura-layer-b"></span><span class="aura-p p1"></span><span class="aura-p p2"></span><span class="aura-p p3"></span><span class="aura-p p4"></span><span class="aura-p p5"></span><span class="aura-p p6"></span></div>
         <img id="loadout-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
         <img id="loadout-acc-hat" class="loadout-acc-img" src="">
         <img id="loadout-acc-mask" class="loadout-acc-img" src="">
@@ -833,6 +953,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div id="player-statuses" class="flex flex-wrap justify-center gap-1"></div>
 </div>
 <div id="player-visual-wrap" class="relative inline-block">
+<div id="battle-aura-fx" class="aura-fx"><span class="aura-layer aura-layer-a"></span><span class="aura-layer aura-layer-b"></span><span class="aura-p p1"></span><span class="aura-p p2"></span><span class="aura-p p3"></span><span class="aura-p p4"></span><span class="aura-p p5"></span><span class="aura-p p6"></span></div>
 <div id="player-visual" class="monster-sprite transition-transform"></div>
 <img id="battle-acc-hat" class="loadout-acc-img" src="">
 <img id="battle-acc-mask" class="loadout-acc-img" src="">
@@ -1384,6 +1505,7 @@ function renderBattleSprites() {
     if(displayImg){ ui.playerVisual.innerHTML = `<img src="${displayImg}" class="player-sprite-img">`; }
     else { ui.playerVisual.innerHTML = spec.icon||''; }
     if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
+    if(typeof renderAura==='function') renderAura(document.getElementById('battle-aura-fx'), document.getElementById('player-visual-wrap'));
   }
   if(state.enemy && state.enemy.hp !== undefined){
     const t = state.enemy;
@@ -1816,6 +1938,19 @@ function computeAccVisual(pos, custom, spriteW, spriteH){
   const rotate = (p.rotate||0) + (c.rotate||0);
   return { w, h, left: finalX - w/2, top: finalY - h/2, rotate, hue: c.hue||0 };
 }
+// 装備中のオーラをバトル画面/装備プレビューに反映する。
+// 見た目は全てCSS側(.aura-fx[data-aura=...])が持っているので、ここでは
+// data-aura属性と表示/非表示を切り替えるだけにしてある(動的にDOMを作らない)。
+// hostEl は「神々しき後光」でキャラ本体を発光させるために使う親要素。
+function renderAura(fxEl, hostEl){
+  if(!fxEl) return;
+  const c = loadCosmetics();
+  const id = c.equippedAura || '';
+  const known = (typeof AURAS !== 'undefined') && AURAS.some(a => a.id === id);
+  fxEl.dataset.aura = known ? id : '';
+  fxEl.style.display = known ? 'block' : 'none';
+  if(hostEl) hostEl.classList.toggle('aura-holy-on', known && id === 'aura_holy');
+}
 function renderBattleAccessories(speciesId){
   const wrap = document.getElementById('player-visual-wrap');
   if(!wrap) return;
@@ -1906,6 +2041,7 @@ function renderLoadoutPreview(){
   const skinId = c.equippedSkin[loadoutSelectedSpecies];
   const skin = skinId ? findSkinById(skinId) : null;
   document.getElementById('loadout-preview-img').src = skin ? skin.img : sp.img;
+  renderAura(document.getElementById('loadout-aura-fx'), document.getElementById('loadout-preview'));
   // プレビュー枠(160px)の中でキャラは最大85%(136px)まで表示される想定を基準サイズとして使う
   const refSize = 136;
   ['hat','mask','other','weapon'].forEach(cat=>{
