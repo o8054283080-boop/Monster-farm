@@ -59,7 +59,7 @@ transition: transform 0.1s ease-out, box-shadow 0.1s; cursor: pointer; flex-shri
 position: relative; width: 100px; height: 148px; border: 2px solid; border-radius: 9px;
 display: flex; flex-direction: column; transform-origin: center bottom; overflow: hidden;
 background: linear-gradient(168deg, #1c1917 0%, #0c0a09 62%, #141110 100%);
---sp: #94a3b8; --spSoft: rgba(148,163,184,0.28);
+--sp: #94a3b8; --spSoft: rgba(148,163,184,0.28); --spBand: rgba(148,163,184,0.5);
 --tp: #cbd5e1; --tpGlow: rgba(203,213,225,0.5); --tpSoft: rgba(203,213,225,0.16);
 }
 .card::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
@@ -78,11 +78,14 @@ background: linear-gradient(168deg, #1c1917 0%, #0c0a09 62%, #141110 100%);
   border:1px solid var(--rankB, rgba(226,232,240,0.45)); border-radius:3px; padding:0 3px; line-height:1.5; }
 .card-name { margin:3px 4px 0; text-align:center; font-size:9px; font-weight:900; line-height:1.15;
   color:#f5f0e6; min-height:22px; display:flex; align-items:center; justify-content:center; padding:2px 0;
-  border-top:1px solid rgba(255,255,255,0.09); border-bottom:1px solid rgba(255,255,255,0.09);
-  background: linear-gradient(90deg, transparent, var(--spSoft), transparent); }
+  border-top:1px solid rgba(255,255,255,0.14); border-bottom:1px solid rgba(255,255,255,0.14);
+  background: var(--spBand, rgba(148,163,184,0.5)); text-shadow: 0 1px 2px rgba(0,0,0,0.85); }
 .card-body { flex:1; display:flex; align-items:center; justify-content:center; position:relative; min-height:0; }
-.card-body::before { content:''; position:absolute; width:58%; aspect-ratio:1; border-radius:50%;
-  background: radial-gradient(circle, var(--tpGlow) 0%, transparent 72%); }
+.card-body::before { content:''; position:absolute; width:62%; aspect-ratio:1; border-radius:50%;
+  /* 先に暗い下地を敷き、その上に役割色を乗せる。こうしないと明るい種族色の上で
+     攻撃(赤)/防御(青)/特殊(紫)の区別が弱くなる */
+  background: radial-gradient(circle, var(--tpGlow) 0%, transparent 70%),
+              radial-gradient(circle, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.22) 52%, transparent 76%); }
 .card-emblem { position:absolute; font-size:46px; line-height:1; color:var(--tp); opacity:0.20;
   font-weight:900; user-select:none; }
 .card-val { position:relative; font-size:30px; font-weight:900; color:#fff; line-height:1;
@@ -136,13 +139,16 @@ background: linear-gradient(168deg, #1c1917 0%, #0c0a09 62%, #141110 100%);
 .card.disabled { filter: grayscale(0.9) brightness(0.4) !important; cursor: not-allowed; animation: none !important; }
 
 /* 種族色。背景そのものではなく、上部の光と下辺のラインの色として使う */
-.bg-motchi { --sp:#f472b6; --spSoft:rgba(244,114,182,0.30); }
-.bg-golem { --sp:#d6d3d1; --spSoft:rgba(214,211,209,0.26); }
-.bg-monolith { --sp:#a78bfa; --spSoft:rgba(167,139,250,0.28); }
-.bg-kawazumo { --sp:#34d399; --spSoft:rgba(52,211,153,0.28); }
-.bg-gali { --sp:#fbbf24; --spSoft:rgba(251,191,36,0.28); }
-.bg-hinotori { --sp:#fb923c; --spSoft:rgba(251,146,60,0.30); }
-.bg-common { --sp:#7dd3fc; --spSoft:rgba(125,211,252,0.24); }
+/* 種族ごとに地の色を変える。暗めに抑えているのは、中央の役割色(攻撃=赤/防御=青/特殊=紫)と
+   白い数値をどの種族でも同じ読みやすさで乗せるため。彩度ではなく色相で区別する。 */
+.bg-motchi   { --sp:#f9a8d4; --spSoft:rgba(249,168,212,0.38); --spBand:rgba(190,58,120,0.62); background: linear-gradient(168deg, #7a2b57 0%, #3d1428 58%, #5c1f40 100%); }
+.bg-golem    { --sp:#e7e5e4; --spSoft:rgba(231,229,228,0.34); --spBand:rgba(140,132,118,0.62); background: linear-gradient(168deg, #5c554b 0%, #2a2620 58%, #453f36 100%); }
+.bg-monolith { --sp:#c4b5fd; --spSoft:rgba(196,181,253,0.36); --spBand:rgba(118,86,205,0.62); background: linear-gradient(168deg, #4a3585 0%, #221a42 58%, #382a64 100%); }
+.bg-kawazumo { --sp:#6ee7b7; --spSoft:rgba(110,231,183,0.36); --spBand:rgba(21,138,96,0.62); background: linear-gradient(168deg, #166245 0%, #0b2c1f 58%, #114a35 100%); }
+.bg-gali     { --sp:#fcd34d; --spSoft:rgba(252,211,77,0.36);  --spBand:rgba(168,130,30,0.62); background: linear-gradient(168deg, #6d551a 0%, #33270c 58%, #524015 100%); }
+.bg-hinotori { --sp:#fdba74; --spSoft:rgba(253,186,116,0.38); --spBand:rgba(185,88,36,0.62); background: linear-gradient(168deg, #74381a 0%, #34180a 58%, #582a13 100%); }
+.bg-zan      { --sp:#fda4af; --spSoft:rgba(253,164,175,0.36); --spBand:rgba(176,46,72,0.62); background: linear-gradient(168deg, #6e2032 0%, #310e17 58%, #521826 100%); }
+.bg-common   { --sp:#93c5fd; --spSoft:rgba(147,197,253,0.34); --spBand:rgba(66,109,158,0.62); background: linear-gradient(168deg, #2f4c6e 0%, #16243a 58%, #243c5b 100%); }
 /* ケガなどの妨害カードは赤く。Tailwindのbg-red-900より詳細度を上げて上書きする */
 .card.bg-red-900 { --sp:#ef4444; --spSoft:rgba(239,68,68,0.34);
   background: linear-gradient(168deg, #2a1210 0%, #140807 62%, #1e0d0b 100%); }
@@ -5641,7 +5647,7 @@ const d=document.createElement('div');
 const realCost = isR ? (c.cost||0) : getCardCost(c);
 const discounted = realCost < (c.cost||0);
 const can=isR||state.player.energy>=realCost;
-let bg="bg-common"; if(c.isInjury)bg="bg-red-900"; else if(c.mid==='motchi')bg="bg-motchi"; else if(c.mid==='golem')bg="bg-golem"; else if(c.mid==='monolith')bg="bg-monolith"; else if(c.mid==='kawazumo')bg="bg-kawazumo"; else if(c.mid==='gali')bg="bg-gali"; else if(c.mid==='hinotori')bg="bg-hinotori";
+let bg="bg-common"; if(c.isInjury)bg="bg-red-900"; else if(c.mid==='motchi')bg="bg-motchi"; else if(c.mid==='golem')bg="bg-golem"; else if(c.mid==='monolith')bg="bg-monolith"; else if(c.mid==='kawazumo')bg="bg-kawazumo"; else if(c.mid==='gali')bg="bg-gali"; else if(c.mid==='hinotori')bg="bg-hinotori"; else if(c.mid==='zan')bg="bg-zan";
 d.className=`card ${bg} ${isSmall?'small':''} rarity-${c.rarity} type-${cardRoleOf(c).cls} ${can?'':'disabled'} ${c.upgraded?'upgraded-card':''}`;
 const lrMark = '';
 const nameColor = c.isInjury ? 'style="color:#ff6b6b;font-weight:900;"' : (c.rarity==='LR' ? 'style="background:linear-gradient(90deg,#fff700,#ff00ff,#00ffff,#fff700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;animation:lr-border 1.5s linear infinite;"' : '');
