@@ -219,8 +219,9 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 50% { box-shadow: 0 0 16px rgba(253,224,71,0.85), 0 0 5px rgba(255,255,255,0.7) inset; }
 }
 .monster-sprite { animation: idle 3s ease-in-out infinite; display: inline-block; font-size: 5rem; line-height: 1; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
-.loadout-acc-layer { position:absolute; top:50%; left:50%; pointer-events:none; z-index:20; }
-.loadout-acc-layer img { position:absolute; top:0; left:0; transform-origin:center center; }
+.loadout-acc-img { position:absolute; top:0; left:0; z-index:20; pointer-events:none; transform-origin:center center; display:none; }
+#player-visual-wrap { animation: idle 3s ease-in-out infinite; }
+#player-visual.monster-sprite { animation: none; }
 .player-sprite-img { width: 5.5rem; height: 5.5rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
 .enemy-sprite-img { width: 6rem; height: 7rem; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
 .enemy-sprite-icon { font-size: 4rem; }
@@ -509,19 +510,19 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   <div class="flex items-center justify-between p-3 border-b border-zinc-700 shrink-0">
     <button onclick="window.game.closeLoadout()" class="text-zinc-300 text-sm font-bold px-2">← 戻る</button>
     <h2 class="text-amber-300 font-black text-base pixel-font">カスタム装備</h2>
-    <button onclick="window.game.debugUnlockAllCosmetics()" title="テスト用" class="text-zinc-600 text-[9px] px-1">🔧全所持</button>
+    <div class="w-10"></div>
   </div>
   <div class="flex-grow overflow-y-auto p-3">
     <!-- 種族タブ -->
     <div id="loadout-species-tabs" class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3"></div>
     <!-- プレビュー -->
     <div class="flex justify-center mb-4">
-      <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700">
+      <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700 overflow-hidden">
         <img id="loadout-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
-        <div id="loadout-acc-hat" class="loadout-acc-layer"></div>
-        <div id="loadout-acc-mask" class="loadout-acc-layer"></div>
-        <div id="loadout-acc-other" class="loadout-acc-layer"></div>
-        <div id="loadout-acc-weapon" class="loadout-acc-layer"></div>
+        <img id="loadout-acc-hat" class="loadout-acc-img" src="">
+        <img id="loadout-acc-mask" class="loadout-acc-img" src="">
+        <img id="loadout-acc-other" class="loadout-acc-img" src="">
+        <img id="loadout-acc-weapon" class="loadout-acc-img" src="">
       </div>
     </div>
     <!-- スキン -->
@@ -652,7 +653,13 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <span id="player-block" class="bg-blue-900/80 px-2 py-0.5 rounded-full border border-blue-400/50 shadow-lg backdrop-blur-sm font-bold text-blue-200 text-[10px] whitespace-nowrap">🛡️ 0</span>
 <div id="player-statuses" class="flex flex-wrap justify-center gap-1"></div>
 </div>
+<div id="player-visual-wrap" class="relative inline-block">
 <div id="player-visual" class="monster-sprite transition-transform"></div>
+<img id="battle-acc-hat" class="loadout-acc-img" src="">
+<img id="battle-acc-mask" class="loadout-acc-img" src="">
+<img id="battle-acc-other" class="loadout-acc-img" src="">
+<img id="battle-acc-weapon" class="loadout-acc-img" src="">
+</div>
 </div>
 <!-- Enemy -->
 <div id="enemy-monster-node" class="flex flex-col items-center relative w-1/3">
@@ -1153,6 +1160,7 @@ function renderBattleSprites() {
     const displayImg = skinImg || spec.img;
     if(displayImg){ ui.playerVisual.innerHTML = `<img src="${displayImg}" class="player-sprite-img">`; }
     else { ui.playerVisual.innerHTML = spec.icon||''; }
+    if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
   }
   if(state.enemy && state.enemy.hp !== undefined){
     const t = state.enemy;
@@ -1538,7 +1546,7 @@ function loadCosmetics(){
   const fallback = {
     ownedSkins: [],           // 所持スキンidの配列
     equippedSkin: {},         // {種族id: スキンid} 未設定/nullなら通常見た目
-    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100}}
+    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100}}
     equippedAccessories: { hat:null, mask:null, other:null, weapon:null },
     ownedAuras: [],           // 所持オーラidの配列
     equippedAura: null,
@@ -1572,15 +1580,70 @@ function getEquippedSkinImg(speciesId){
   const skin = findSkinById(skinId);
   return skin ? skin.img : null;
 }
-// テスト用: ガチャ実装前に見た目を確認できるよう、全スキン・アクセサリ・オーラを所持済みにする
-window.game.debugUnlockAllCosmetics = function(){
+// アクセサリの座標は「キャラの表示サイズに対する%」で持っているので、
+// 実際に表示されているスプライトの幅・高さを測ってから位置を計算する(装備画面でもバトルでも同じロジックで正しくスケールする)
+function computeAccVisual(pos, custom, spriteW, spriteH){
+  const p = pos || {xPct:0,yPct:0,wPct:20,hPct:20,rotate:0};
+  const c = custom || {hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100};
+  const scaleMult = (c.scale||100)/100;
+  const w = (p.wPct/100*spriteW) * scaleMult;
+  const h = (p.hPct/100*spriteH) * scaleMult;
+  const finalX = (p.xPct/100*spriteW) + ((c.offsetXPct||0)/100*spriteW);
+  const finalY = (p.yPct/100*spriteH) + ((c.offsetYPct||0)/100*spriteH);
+  const rotate = (p.rotate||0) + (c.rotate||0);
+  return { w, h, left: finalX - w/2, top: finalY - h/2, rotate, hue: c.hue||0 };
+}
+function renderBattleAccessories(speciesId){
+  const wrap = document.getElementById('player-visual-wrap');
+  if(!wrap) return;
+  // offsetWidthでの実測は、バトル画面がまだ非表示(display:none)の間は0になってしまうため、
+  // CSSのブレークポイントから期待される表示サイズを直接計算する(可視状態に依存しない)
+  const isCompact = (typeof window!=='undefined' && window.matchMedia) ? window.matchMedia('(max-height: 700px)').matches : false;
+  const remPx = (typeof getComputedStyle!=='undefined') ? (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) : 16;
+  const spriteW = (isCompact ? 4.2 : 5.5) * remPx;
+  const spriteH = spriteW;
   const c = loadCosmetics();
-  for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(!c.ownedSkins.includes(s.id)) c.ownedSkins.push(s.id); }); }
-  ACCESSORIES.forEach(a=>{ if(!c.ownedAccessories[a.id]) c.ownedAccessories[a.id] = {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100}; });
-  AURAS.forEach(a=>{ if(!c.ownedAuras.includes(a.id)) c.ownedAuras.push(a.id); });
-  saveCosmetics(c);
-  if(typeof renderLoadoutScene === 'function') renderLoadoutScene();
-};
+  ['hat','mask','other','weapon'].forEach(cat=>{
+    const img = document.getElementById('battle-acc-'+cat);
+    if(!img) return;
+    const accId = c.equippedAccessories[cat];
+    if(!accId || spriteW<=0 || spriteH<=0){ img.style.display = 'none'; img.src=''; return; }
+    const acc = (typeof ACCESSORIES!=='undefined') ? ACCESSORIES.find(a=>a.id===accId) : null;
+    if(!acc){ img.style.display = 'none'; img.src=''; return; }
+    const pos = acc.pos[speciesId];
+    const custom = c.ownedAccessories[accId];
+    const v = computeAccVisual(pos, custom, spriteW, spriteH);
+    img.src = acc.img;
+    img.style.display = 'block';
+    img.style.width = v.w+'px';
+    img.style.height = v.h+'px';
+    img.style.left = `calc(50% + ${v.left}px)`;
+    img.style.top = `calc(50% + ${v.top}px)`;
+    img.style.transform = `rotate(${v.rotate}deg)`;
+    img.style.filter = `hue-rotate(${v.hue}deg)`;
+  });
+}
+// デバッグ用: URLに ?resetCosmetics=1 を付けて開くと、所持スキン・アクセサリ・オーラ・装備状態と
+// ガチャの天井カウントを全て消去できる(ガチャを本来の確率で引き直したい時のリセット用)
+// あわせて、開発中の不具合のお詫びとして初回のみダイヤ200を付与する
+(function(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('resetCosmetics') === '1'){
+      localStorage.removeItem(COSMETICS_STORAGE_KEY);
+      localStorage.removeItem(GACHA_STORAGE_KEY);
+      console.log('コスメ所持データ・ガチャ天井カウントをリセットしました');
+      const APOLOGY_FLAG_KEY = 'mf_reset_apology_claimed';
+      if(!localStorage.getItem(APOLOGY_FLAG_KEY)){
+        const dp = loadDiaProgress();
+        dp.dia += 200;
+        saveDiaProgress(dp);
+        localStorage.setItem(APOLOGY_FLAG_KEY, '1');
+        console.log('お詫びとしてダイヤ200を付与しました');
+      }
+    }
+  }catch(e){ console.warn('リセット処理に失敗しました', e); }
+})();
 // ==================== コスメ所持・装備データここまで ====================
 
 let loadoutSelectedSpecies = null;
@@ -1620,29 +1683,24 @@ function renderLoadoutPreview(){
   const skinId = c.equippedSkin[loadoutSelectedSpecies];
   const skin = skinId ? findSkinById(skinId) : null;
   document.getElementById('loadout-preview-img').src = skin ? skin.img : sp.img;
+  // プレビュー枠(160px)の中でキャラは最大85%(136px)まで表示される想定を基準サイズとして使う
+  const refSize = 136;
   ['hat','mask','other','weapon'].forEach(cat=>{
-    const layer = document.getElementById('loadout-acc-'+cat);
-    layer.innerHTML = '';
+    const img = document.getElementById('loadout-acc-'+cat);
     const accId = c.equippedAccessories[cat];
-    if(!accId) return;
+    if(!accId){ img.style.display = 'none'; img.src=''; return; }
     const acc = ACCESSORIES.find(a=>a.id===accId);
-    if(!acc) return;
-    const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
-    const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
-    const scaleMult = (custom.scale||100)/100;
-    const w = pos.w*scaleMult, h = pos.h*scaleMult;
-    const finalX = pos.x + (custom.offsetX||0);
-    const finalY = pos.y + (custom.offsetY||0);
-    const totalRotate = (pos.rotate||0) + (custom.rotate||0);
-    const img = document.createElement('img');
+    if(!acc){ img.style.display = 'none'; img.src=''; return; }
+    const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], c.ownedAccessories[accId], refSize, refSize);
     img.src = acc.img;
-    img.style.width = w+'px';
-    img.style.height = h+'px';
-    img.style.left = (finalX - w/2) + 'px';
-    img.style.top = (finalY - h/2) + 'px';
-    img.style.transform = `rotate(${totalRotate}deg)`;
-    img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
-    layer.appendChild(img);
+    img.style.display = 'block';
+    img.style.width = v.w+'px';
+    img.style.height = v.h+'px';
+    // プレビュー枠(160px = w-40)の中心を基準に配置
+    img.style.left = (80 + v.left) + 'px';
+    img.style.top = (80 + v.top) + 'px';
+    img.style.transform = `rotate(${v.rotate}deg)`;
+    img.style.filter = `hue-rotate(${v.hue}deg)`;
   });
 }
 function renderLoadoutSkinGrid(){
@@ -1734,7 +1792,7 @@ function selectAccInPicker(accId){
   const hueSlider = document.getElementById('acc-hue-slider');
   const rotSlider = document.getElementById('acc-rotate-slider');
   const scaleSlider = document.getElementById('acc-scale-slider');
-  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
+  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100};
   hueSlider.value = custom.hue||0;
   rotSlider.value = custom.rotate||0;
   scaleSlider.value = custom.scale||100;
@@ -1744,7 +1802,7 @@ function selectAccInPicker(accId){
   hueSlider.oninput = () => {
     document.getElementById('acc-hue-val').innerText = hueSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
     c2.ownedAccessories[accId].hue = parseInt(hueSlider.value);
     saveCosmetics(c2);
     renderAccPickerPreview(accId);
@@ -1753,7 +1811,7 @@ function selectAccInPicker(accId){
   rotSlider.oninput = () => {
     document.getElementById('acc-rotate-val').innerText = rotSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
     c2.ownedAccessories[accId].rotate = parseInt(rotSlider.value);
     saveCosmetics(c2);
     renderAccPickerPreview(accId);
@@ -1762,7 +1820,7 @@ function selectAccInPicker(accId){
   scaleSlider.oninput = () => {
     document.getElementById('acc-scale-val').innerText = scaleSlider.value;
     const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
+    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
     c2.ownedAccessories[accId].scale = parseInt(scaleSlider.value);
     saveCosmetics(c2);
     renderAccPickerPreview(accId);
@@ -1772,6 +1830,8 @@ function selectAccInPicker(accId){
   setupAccDrag(accId);
   renderLoadoutPreview();
 }
+// ピッカーのミニプレビュー枠は144px、キャラは最大85%(約122px)まで表示される想定
+const ACC_PICKER_PREVIEW_REF = 122;
 function renderAccPickerPreview(accId){
   const c = loadCosmetics();
   const sp = SPECIES[loadoutSelectedSpecies];
@@ -1780,22 +1840,16 @@ function renderAccPickerPreview(accId){
   document.getElementById('acc-picker-preview-img').src = skin ? skin.img : sp.img;
   const acc = ACCESSORIES.find(a=>a.id===accId);
   if(!acc) return;
-  const pos = acc.pos[loadoutSelectedSpecies] || {x:0,y:0,w:40,h:40,rotate:0};
-  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
-  const scaleMult = (custom.scale||100)/100;
-  const w = pos.w*scaleMult, h = pos.h*scaleMult;
-  const finalX = pos.x + (custom.offsetX||0);
-  const finalY = pos.y + (custom.offsetY||0);
-  const totalRotate = (pos.rotate||0) + (custom.rotate||0);
+  const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], c.ownedAccessories[accId], ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
   const img = document.getElementById('acc-picker-preview-acc');
   img.src = acc.img;
-  img.style.width = w+'px';
-  img.style.height = h+'px';
+  img.style.width = v.w+'px';
+  img.style.height = v.h+'px';
   // プレビュー枠(144px = w-36)の中心を基準に配置
-  img.style.left = (72 + finalX - w/2) + 'px';
-  img.style.top = (72 + finalY - h/2) + 'px';
-  img.style.transform = `rotate(${totalRotate}deg)`;
-  img.style.filter = `hue-rotate(${custom.hue||0}deg)`;
+  img.style.left = (72 + v.left) + 'px';
+  img.style.top = (72 + v.top) + 'px';
+  img.style.transform = `rotate(${v.rotate}deg)`;
+  img.style.filter = `hue-rotate(${v.hue}deg)`;
 }
 function setupAccDrag(accId){
   const img = document.getElementById('acc-picker-preview-acc');
@@ -1807,24 +1861,27 @@ function setupAccDrag(accId){
     document.removeEventListener('mouseup', accDragHandlers.up);
     document.removeEventListener('touchend', accDragHandlers.up);
   }
-  let dragging = false, startX=0, startY=0, startOffsetX=0, startOffsetY=0;
+  let dragging = false, startX=0, startY=0, startOffsetXPct=0, startOffsetYPct=0;
   function pointerDown(e){
     dragging = true;
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX; startY = pt.clientY;
     const c = loadCosmetics();
-    const custom = c.ownedAccessories[accId] || {offsetX:0, offsetY:0};
-    startOffsetX = custom.offsetX||0; startOffsetY = custom.offsetY||0;
+    const custom = c.ownedAccessories[accId] || {offsetXPct:0, offsetYPct:0};
+    startOffsetXPct = custom.offsetXPct||0; startOffsetYPct = custom.offsetYPct||0;
     e.preventDefault();
   }
   function pointerMove(e){
     if(!dragging) return;
     const pt = e.touches ? e.touches[0] : e;
     const dx = pt.clientX - startX, dy = pt.clientY - startY;
+    // ドラッグしたピクセル量を、プレビュー基準サイズに対する%に変換して保存する(表示先のサイズが変わっても比率が保たれる)
+    const dxPct = dx / ACC_PICKER_PREVIEW_REF * 100;
+    const dyPct = dy / ACC_PICKER_PREVIEW_REF * 100;
     const c = loadCosmetics();
-    c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
-    c.ownedAccessories[accId].offsetX = Math.round(startOffsetX + dx);
-    c.ownedAccessories[accId].offsetY = Math.round(startOffsetY + dy);
+    c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
+    c.ownedAccessories[accId].offsetXPct = Math.round((startOffsetXPct + dxPct)*10)/10;
+    c.ownedAccessories[accId].offsetYPct = Math.round((startOffsetYPct + dyPct)*10)/10;
     saveCosmetics(c);
     renderAccPickerPreview(accId);
     e.preventDefault();
@@ -1846,9 +1903,9 @@ function resetAccPosition(){
   const c = loadCosmetics();
   const accId = c.equippedAccessories[accPickerCategory];
   if(!accId) return;
-  c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetX:0,offsetY:0,scale:100};
-  c.ownedAccessories[accId].offsetX = 0;
-  c.ownedAccessories[accId].offsetY = 0;
+  c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
+  c.ownedAccessories[accId].offsetXPct = 0;
+  c.ownedAccessories[accId].offsetYPct = 0;
   c.ownedAccessories[accId].scale = 100;
   saveCosmetics(c);
   document.getElementById('acc-scale-slider').value = 100;
@@ -1924,7 +1981,7 @@ function resolveGachaTier(tier){
       const mp = loadMetaProgress(); mp.points += 50; saveMetaProgress(mp);
       return { tier, rewardType:'dupe', item:acc, amount:50 };
     }
-    c.ownedAccessories[acc.id] = {hue:0, rotate:0, offsetX:0, offsetY:0, scale:100};
+    c.ownedAccessories[acc.id] = {hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100};
     saveCosmetics(c);
     return { tier, rewardType:'new', item:acc };
   }
@@ -2109,6 +2166,7 @@ ui.playerSpeciesName.innerText=spec.name;
   } else {
     ui.playerVisual.innerText=spec.icon||'';
   }
+  if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
 }
 
 // デバッグ用: URLに ?floor=61 のように付けると、その階層から開始できる（動作確認用）
