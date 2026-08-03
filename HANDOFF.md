@@ -301,6 +301,11 @@ localStorageキー `mf_cosmetics`。
 画像素材は一切不要。**CSSのグラデーションのみ**で全7種族に使い回せる(当初SVGを想定していた覇王の闘気も、
 `repeating-conic-gradient`+`mask`で同じ絵が作れるためDOMを増やさずCSSだけで実装した。いずれも独自実装で著作物不使用)。
 
+**呼び出し漏れに注意**: プレイヤーのスプライトを組み立てる場所は
+`renderBattleSprites()`(冒険の再開時)と`window.game.selectMonster()`(通常の開始時)の**2箇所ある**。
+`renderAura()`が片方にしか無く、**普通に始めた冒険ではオーラが最後まで出ない**不具合が起きた。
+`renderBattleAccessories()`を呼んでいる場所には`renderAura()`もセットで置くこと。
+
 **構造**: `#battle-aura-fx`(バトル)と`#loadout-aura-fx`(装備プレビュー)を**静的に**置いてある。
 中身は`.aura-layer-a` / `.aura-layer-b` / `.aura-p`(粒子6個)の固定8要素で、
 どれを使うか・どう見せるかは全て`.aura-fx[data-aura="..."]`のCSS側が持つ。

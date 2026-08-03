@@ -2447,6 +2447,7 @@ const CHANGELOG = [
     '初期デッキのカードにも種族の色が付くようになりました',
     'アクセサリの装備と調整を、モンスターごとに別々に保存できるようにしました',
     'タイトル画面に「更新履歴」ボタンを追加しました',
+    'オーラが戦闘中に表示されない不具合を修正しました',
   ]},
   { date:'2026/08/03', title:'カード演出モーション', items:[
     'カードを使ったときの演出を15種追加(攻撃/防御/強化/弱体/回復 × 各3種)',
@@ -3691,6 +3692,9 @@ ui.playerSpeciesName.innerText=spec.name;
     ui.playerVisual.innerText=spec.icon||'';
   }
   if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
+  // オーラもここで反映する。これが無いと、冒険を再開した時(renderBattleSprites経由)しか
+  // オーラが出ず、普通に始めた冒険では最後まで表示されない
+  if(typeof renderAura==='function') renderAura(document.getElementById('battle-aura-fx'), document.getElementById('player-visual-wrap'));
 }
 
 // デバッグ用: URLに ?floor=61 のように付けると、その階層から開始できる（動作確認用）
