@@ -275,7 +275,18 @@ localStorageキー `mf_cosmetics`。
 - 大きさ(`scale`、30〜250%)
 - 位置(`offsetXPct`/`offsetYPct`、プレビュー内をドラッグして調整)
 
-**現状の座標は全種族共通の仮値**。種族ごとの微調整は装備画面のドラッグ機能で手動で詰める想定。
+**装備も調整値も種族ごとに別々に保存される**(`mf_cosmetics`)。
+
+- `equippedAccessories`: `{種族id: {hat,mask,other,weapon}}`
+- `accessoryTuning`: `{種族id: {アクセサリid: {hue,rotate,offsetXPct,offsetYPct,scale}}}`
+- `ownedAccessories`: 所持の記録(旧形式の名残で調整値も残っているが、表示には使わない)
+
+以前は全種族で共通だったため、体格の違う種族に持ち替えると位置がズレていた。
+旧データは`migrateAccessoryData()`が**全種族に同じ設定をコピーする**形で引き継ぐので、見た目は変わらない。
+
+**注意**: 調整値の書き込みは必ず`updateAccTuning()`を使うこと。
+この関数は内部で`loadCosmetics`→`saveCosmetics`まで行うので、
+呼び出し側で先に読んだ`c`を後から`saveCosmetics(c)`すると**変更が消える**。
 
 ### オーラ(5種・実装済み)
 

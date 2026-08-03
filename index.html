@@ -1126,7 +1126,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <button onclick="window.game.showMetaShop()" class="ornate-panel w-full py-2 text-amber-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏯 継承ショップ</button>
 <button onclick="window.game.openLoadout()" class="ornate-panel w-full py-2 text-pink-200 text-xs font-bold rounded-sm transition-all active:scale-95">🎨 カスタム装備</button>
 <button onclick="window.game.showRanking()" class="ornate-panel w-full py-2 text-cyan-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏆 ランキング</button>
-<button onclick="window.game.showTitles()" class="ornate-panel w-full py-2 text-amber-100 text-xs font-bold rounded-sm transition-all active:scale-95 col-span-2">🎖️ 称号・挑戦回数</button>
+<button onclick="window.game.showTitles()" class="ornate-panel w-full py-2 text-amber-100 text-xs font-bold rounded-sm transition-all active:scale-95">🎖️ 称号</button>
+<button onclick="window.game.showChangelog()" class="ornate-panel w-full py-2 text-zinc-200 text-xs font-bold rounded-sm transition-all active:scale-95">📜 更新履歴</button>
 </div>
 </div>
 </section>
@@ -1164,7 +1165,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">カードを使ったときの演出です。場面ごとに設定できます。<b>ランダム</b>を選ぶと、所持しているものから毎回抽選されます。モーションはガチャのSR枠で手に入ります。</p>
     <div id="loadout-motion-grid" class="flex flex-col gap-3 mb-5"></div>
     <!-- アクセサリ -->
-    <h3 class="text-zinc-400 text-xs font-bold mb-2">アクセサリ</h3>
+    <h3 class="text-zinc-400 text-xs font-bold mb-1">アクセサリ</h3>
+    <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">装備と調整（色・角度・大きさ・位置）は<b>モンスターごとに別々に保存</b>されます。体格が違うので、それぞれで位置を詰められます。</p>
     <div id="loadout-accessory-slots" class="grid grid-cols-4 gap-2 mb-5"></div>
     <!-- オーラ -->
     <h3 class="text-zinc-400 text-xs font-bold mb-2">オーラ</h3>
@@ -2443,6 +2445,8 @@ const CHANGELOG = [
   { date:'2026/08/03', title:'大型アップデート記念', items:[
     '記念にダイヤ150をお配りしました（1端末につき1回）',
     '初期デッキのカードにも種族の色が付くようになりました',
+    'アクセサリの装備と調整を、モンスターごとに別々に保存できるようにしました',
+    'タイトル画面に「更新履歴」ボタンを追加しました',
   ]},
   { date:'2026/08/03', title:'カード演出モーション', items:[
     'カードを使ったときの演出を15種追加(攻撃/防御/強化/弱体/回復 × 各3種)',
@@ -2592,8 +2596,9 @@ function loadCosmetics(){
   const fallback = {
     ownedSkins: [],           // 所持スキンidの配列
     equippedSkin: {},         // {種族id: スキンid} 未設定/nullなら通常見た目
-    ownedAccessories: {},     // {アクセサリid: {hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100}}
-    equippedAccessories: { hat:null, mask:null, other:null, weapon:null },
+    ownedAccessories: {},     // {アクセサリid: {...}} 所持の記録。中身は旧形式の名残で調整値も入っている
+    equippedAccessories: {},  // {種族id: {hat,mask,other,weapon}} 種族ごとに別々に装備できる
+    accessoryTuning: {},      // {種族id: {アクセサリid: {hue,rotate,offsetXPct,offsetYPct,scale}}}
     ownedAuras: [],           // 所持オーラidの配列
     equippedAura: null,
     starterCards: {},         // {種族id: 初期技のカードid} 未設定/nullなら種族の通常の看板技
@@ -2602,20 +2607,76 @@ function loadCosmetics(){
   };
   try{
     const raw = localStorage.getItem(COSMETICS_STORAGE_KEY);
-    if(!raw) return fallback;
+    if(!raw) return migrateAccessoryData(fallback);
     const c = JSON.parse(raw);
-    return {
+    const out = {
       ownedSkins: c.ownedSkins || [],
       equippedSkin: c.equippedSkin || {},
       ownedAccessories: c.ownedAccessories || {},
-      equippedAccessories: Object.assign({hat:null,mask:null,other:null,weapon:null}, c.equippedAccessories||{}),
+      equippedAccessories: c.equippedAccessories || {},
+      accessoryTuning: c.accessoryTuning || {},
       ownedAuras: c.ownedAuras || [],
       equippedAura: c.equippedAura || null,
       starterCards: c.starterCards || {},
       ownedMotions: c.ownedMotions || [],
       equippedMotions: c.equippedMotions || {},
     };
-  }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return fallback; }
+    return migrateAccessoryData(out);
+  }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return migrateAccessoryData(fallback); }
+}
+// ---- アクセサリの種族ごと保存 ----
+// 以前はアクセサリの装備も調整値(色・角度・大きさ・位置)も全種族で共通だった。
+// 種族ごとに体格が違って位置が合わないため、種族ごとに持てるようにした。
+// 旧データは「全種族に同じ設定をコピーする」形で引き継ぐので、見た目は変わらない。
+const ACC_SLOT_KEYS = ['hat','mask','other','weapon'];
+const ACC_DEFAULT_TUNING = { hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100 };
+function migrateAccessoryData(c){
+  const speciesIds = (typeof SPECIES !== 'undefined') ? Object.keys(SPECIES) : [];
+  c.equippedAccessories = c.equippedAccessories || {};
+  c.accessoryTuning = c.accessoryTuning || {};
+  // 旧形式の判定: スロット名がそのまま最上位に入っていたら全種族共通の古いデータ
+  const isOldEquip = ACC_SLOT_KEYS.some(k => k in c.equippedAccessories);
+  if(isOldEquip){
+    const flat = {};
+    ACC_SLOT_KEYS.forEach(k => flat[k] = c.equippedAccessories[k] || null);
+    const next = {};
+    speciesIds.forEach(sp => next[sp] = Object.assign({}, flat));
+    c.equippedAccessories = next;
+  }
+  // 調整値も旧データ(ownedAccessories側)から全種族へコピーする
+  if(Object.keys(c.accessoryTuning).length === 0){
+    speciesIds.forEach(sp => {
+      c.accessoryTuning[sp] = {};
+      Object.keys(c.ownedAccessories || {}).forEach(id => {
+        const t = c.ownedAccessories[id];
+        if(t && typeof t === 'object') c.accessoryTuning[sp][id] = Object.assign({}, ACC_DEFAULT_TUNING, t);
+      });
+    });
+  }
+  return c;
+}
+// その種族の装備スロット(無ければ作る)
+function accSlots(c, speciesId){
+  c.equippedAccessories = c.equippedAccessories || {};
+  if(!c.equippedAccessories[speciesId]){
+    const slots = {}; ACC_SLOT_KEYS.forEach(k => slots[k] = null);
+    c.equippedAccessories[speciesId] = slots;
+  }
+  return c.equippedAccessories[speciesId];
+}
+// その種族・そのアクセサリの調整値(無ければ既定値)
+function accTuning(c, speciesId, accId){
+  const perSp = (c.accessoryTuning || {})[speciesId] || {};
+  return Object.assign({}, ACC_DEFAULT_TUNING, perSp[accId] || {});
+}
+// 調整値を書き換えて保存する
+function updateAccTuning(speciesId, accId, patch){
+  const c = loadCosmetics();
+  c.accessoryTuning = c.accessoryTuning || {};
+  c.accessoryTuning[speciesId] = c.accessoryTuning[speciesId] || {};
+  c.accessoryTuning[speciesId][accId] = Object.assign({}, ACC_DEFAULT_TUNING, c.accessoryTuning[speciesId][accId] || {}, patch);
+  saveCosmetics(c);
+  return c.accessoryTuning[speciesId][accId];
 }
 function saveCosmetics(c){
   try{ localStorage.setItem(COSMETICS_STORAGE_KEY, JSON.stringify(c)); }catch(e){ console.warn('コスメデータの保存に失敗しました', e); }
@@ -2703,12 +2764,12 @@ function renderBattleAccessories(speciesId){
   ['hat','mask','other','weapon'].forEach(cat=>{
     const img = document.getElementById('battle-acc-'+cat);
     if(!img) return;
-    const accId = c.equippedAccessories[cat];
+    const accId = accSlots(c, speciesId)[cat];
     if(!accId || spriteW<=0 || spriteH<=0){ img.style.display = 'none'; img.src=''; return; }
     const acc = (typeof ACCESSORIES!=='undefined') ? ACCESSORIES.find(a=>a.id===accId) : null;
     if(!acc){ img.style.display = 'none'; img.src=''; return; }
     const pos = acc.pos[speciesId];
-    const custom = c.ownedAccessories[accId];
+    const custom = accTuning(c, speciesId, accId);
     const v = computeAccVisual(pos, custom, spriteW, spriteH);
     img.src = acc.img;
     img.style.display = 'block';
@@ -2838,11 +2899,11 @@ function renderLoadoutPreview(){
   const refSize = 136;
   ['hat','mask','other','weapon'].forEach(cat=>{
     const img = document.getElementById('loadout-acc-'+cat);
-    const accId = c.equippedAccessories[cat];
+    const accId = accSlots(c, loadoutSelectedSpecies)[cat];
     if(!accId){ img.style.display = 'none'; img.src=''; return; }
     const acc = ACCESSORIES.find(a=>a.id===accId);
     if(!acc){ img.style.display = 'none'; img.src=''; return; }
-    const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], c.ownedAccessories[accId], refSize, refSize);
+    const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutSelectedSpecies, accId), refSize, refSize);
     img.src = acc.img;
     img.style.display = 'block';
     img.style.width = v.w+'px';
@@ -2955,7 +3016,7 @@ function renderLoadoutAccessorySlots(){
   const el = document.getElementById('loadout-accessory-slots');
   el.innerHTML = '';
   ['hat','mask','other','weapon'].forEach(cat=>{
-    const accId = c.equippedAccessories[cat];
+    const accId = accSlots(c, loadoutSelectedSpecies)[cat];
     const acc = accId ? ACCESSORIES.find(a=>a.id===accId) : null;
     const btn = document.createElement('button');
     btn.className = 'aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-1 ' + (acc ? 'border-pink-400 bg-pink-900/20' : 'border-zinc-700 bg-zinc-800');
@@ -2979,12 +3040,12 @@ function renderAccPickerGrid(){
   const el = document.getElementById('acc-picker-grid');
   el.innerHTML = '';
   const noneBtn = document.createElement('button');
-  const noneEquipped = !c.equippedAccessories[accPickerCategory];
+  const noneEquipped = !accSlots(c, loadoutSelectedSpecies)[accPickerCategory];
   noneBtn.className = 'aspect-square rounded-lg border-2 flex items-center justify-center text-[9px] text-zinc-400 ' + (noneEquipped?'border-amber-400 bg-amber-900/30':'border-zinc-700 bg-zinc-800');
   noneBtn.innerText = 'なし';
   noneBtn.onclick = () => {
     const c2 = loadCosmetics();
-    c2.equippedAccessories[accPickerCategory] = null;
+    accSlots(c2, loadoutSelectedSpecies)[accPickerCategory] = null;
     saveCosmetics(c2);
     document.getElementById('acc-picker-modal').classList.add('hidden');
     renderLoadoutScene();
@@ -2993,7 +3054,7 @@ function renderAccPickerGrid(){
   const items = ACCESSORIES.filter(a=>a.category===accPickerCategory);
   items.forEach(acc=>{
     const owned = !!c.ownedAccessories[acc.id];
-    const equipped = c.equippedAccessories[accPickerCategory] === acc.id;
+    const equipped = accSlots(c, loadoutSelectedSpecies)[accPickerCategory] === acc.id;
     const btn = document.createElement('button');
     btn.className = 'relative aspect-square rounded-lg border-2 flex items-center justify-center ' + (equipped?'border-amber-400 bg-amber-900/30':owned?'border-zinc-600 bg-zinc-800':'border-zinc-800 bg-zinc-900');
     btn.innerHTML = `<img src="${acc.img}" class="w-3/4 h-3/4 object-contain ${owned?'':'grayscale opacity-30'}">` + (owned?'':'<span class="absolute inset-0 flex items-center justify-center text-lg">🔒</span>');
@@ -3008,14 +3069,14 @@ function closeAccPicker(){
 }
 function selectAccInPicker(accId){
   const c = loadCosmetics();
-  c.equippedAccessories[accPickerCategory] = accId;
+  accSlots(c, loadoutSelectedSpecies)[accPickerCategory] = accId;
   saveCosmetics(c);
   renderAccPickerGrid();
   document.getElementById('acc-picker-customize').classList.remove('hidden');
   const hueSlider = document.getElementById('acc-hue-slider');
   const rotSlider = document.getElementById('acc-rotate-slider');
   const scaleSlider = document.getElementById('acc-scale-slider');
-  const custom = c.ownedAccessories[accId] || {hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100};
+  const custom = accTuning(c, loadoutSelectedSpecies, accId);
   hueSlider.value = custom.hue||0;
   rotSlider.value = custom.rotate||0;
   scaleSlider.value = custom.scale||100;
@@ -3024,28 +3085,19 @@ function selectAccInPicker(accId){
   document.getElementById('acc-scale-val').innerText = custom.scale||100;
   hueSlider.oninput = () => {
     document.getElementById('acc-hue-val').innerText = hueSlider.value;
-    const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
-    c2.ownedAccessories[accId].hue = parseInt(hueSlider.value);
-    saveCosmetics(c2);
+    updateAccTuning(loadoutSelectedSpecies, accId, { hue: parseInt(hueSlider.value) });
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
   rotSlider.oninput = () => {
     document.getElementById('acc-rotate-val').innerText = rotSlider.value;
-    const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
-    c2.ownedAccessories[accId].rotate = parseInt(rotSlider.value);
-    saveCosmetics(c2);
+    updateAccTuning(loadoutSelectedSpecies, accId, { rotate: parseInt(rotSlider.value) });
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
   scaleSlider.oninput = () => {
     document.getElementById('acc-scale-val').innerText = scaleSlider.value;
-    const c2 = loadCosmetics();
-    c2.ownedAccessories[accId] = c2.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
-    c2.ownedAccessories[accId].scale = parseInt(scaleSlider.value);
-    saveCosmetics(c2);
+    updateAccTuning(loadoutSelectedSpecies, accId, { scale: parseInt(scaleSlider.value) });
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
@@ -3063,7 +3115,7 @@ function renderAccPickerPreview(accId){
   document.getElementById('acc-picker-preview-img').src = skin ? skin.img : sp.img;
   const acc = ACCESSORIES.find(a=>a.id===accId);
   if(!acc) return;
-  const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], c.ownedAccessories[accId], ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
+  const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutSelectedSpecies, accId), ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
   const img = document.getElementById('acc-picker-preview-acc');
   img.src = acc.img;
   img.style.width = v.w+'px';
@@ -3090,7 +3142,7 @@ function setupAccDrag(accId){
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX; startY = pt.clientY;
     const c = loadCosmetics();
-    const custom = c.ownedAccessories[accId] || {offsetXPct:0, offsetYPct:0};
+    const custom = accTuning(c, loadoutSelectedSpecies, accId);
     startOffsetXPct = custom.offsetXPct||0; startOffsetYPct = custom.offsetYPct||0;
     e.preventDefault();
   }
@@ -3101,11 +3153,10 @@ function setupAccDrag(accId){
     // ドラッグしたピクセル量を、プレビュー基準サイズに対する%に変換して保存する(表示先のサイズが変わっても比率が保たれる)
     const dxPct = dx / ACC_PICKER_PREVIEW_REF * 100;
     const dyPct = dy / ACC_PICKER_PREVIEW_REF * 100;
-    const c = loadCosmetics();
-    c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
-    c.ownedAccessories[accId].offsetXPct = Math.round((startOffsetXPct + dxPct)*10)/10;
-    c.ownedAccessories[accId].offsetYPct = Math.round((startOffsetYPct + dyPct)*10)/10;
-    saveCosmetics(c);
+    updateAccTuning(loadoutSelectedSpecies, accId, {
+      offsetXPct: Math.round((startOffsetXPct + dxPct)*10)/10,
+      offsetYPct: Math.round((startOffsetYPct + dyPct)*10)/10,
+    });
     renderAccPickerPreview(accId);
     e.preventDefault();
   }
@@ -3124,13 +3175,9 @@ function setupAccDrag(accId){
 }
 function resetAccPosition(){
   const c = loadCosmetics();
-  const accId = c.equippedAccessories[accPickerCategory];
+  const accId = accSlots(c, loadoutSelectedSpecies)[accPickerCategory];
   if(!accId) return;
-  c.ownedAccessories[accId] = c.ownedAccessories[accId] || {hue:0,rotate:0,offsetXPct:0,offsetYPct:0,scale:100};
-  c.ownedAccessories[accId].offsetXPct = 0;
-  c.ownedAccessories[accId].offsetYPct = 0;
-  c.ownedAccessories[accId].scale = 100;
-  saveCosmetics(c);
+  updateAccTuning(loadoutSelectedSpecies, accId, { offsetXPct:0, offsetYPct:0, scale:100 });
   document.getElementById('acc-scale-slider').value = 100;
   document.getElementById('acc-scale-val').innerText = 100;
   renderAccPickerPreview(accId);
