@@ -876,6 +876,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <option value="hard">難易度：ハード (敵攻撃力 1.2倍 / 最終スコア 1.2倍)</option>
 <option value="expert">難易度：エキスパート (敵ステ 1.25倍 / 最終スコア 1.5倍)</option>
 <option value="veryhard">難易度：ベリーハード (敵ステ 1.3倍 / 最終スコア 1.75倍 / レジェンドボスラッシュ解放)</option>
+<option value="legend">難易度：レジェンド (敵ステ 1.5倍 / 最終スコア 2.25倍 / 初期デッキに呪い / 大ケガ)</option>
 </select>
 
 <button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
@@ -1786,6 +1787,7 @@ function metaItemCurrentValue(item, lv){
 }
 // 難易度に応じた継承ポイントの倍率(最終スコアの倍率と揃えてある)
 function getMetaDifficultyMult(){
+  if(state.difficulty==='legend') return 2.25;
   if(state.difficulty==='veryhard') return 1.75;
   if(state.difficulty==='expert') return 1.5;
   if(state.difficulty==='hard') return 1.2;
@@ -2040,13 +2042,15 @@ function registerDiaPlayCount(){
 
 // ---- 階層到達(毎回付与): 15/30/45/60F は難易度別、63Fはベリーハードのみ ----
 const DIA_FLOOR_BONUS = {
-  15: {normal:3, hard:4, expert:5, veryhard:7},
-  30: {normal:5, hard:7, expert:9, veryhard:12},
-  45: {normal:8, hard:11, expert:14, veryhard:18},
-  60: {normal:15, hard:20, expert:26, veryhard:35},
+  15: {normal:3, hard:4, expert:5, veryhard:7, legend:9},
+  30: {normal:5, hard:7, expert:9, veryhard:12, legend:16},
+  45: {normal:8, hard:11, expert:14, veryhard:18, legend:24},
+  60: {normal:15, hard:20, expert:26, veryhard:35, legend:45},
 };
 // ---- 種族別初踏破称号(1回のみ、難易度別) ----
 function diaTitleBonus(difficulty, floor){
+  if(floor>=63 && difficulty==='legend') return 220;
+  if(difficulty==='legend') return 170;
   if(floor>=63 && difficulty==='veryhard') return 150;
   if(difficulty==='veryhard') return 120;
   if(difficulty==='expert') return 90;
@@ -2062,7 +2066,7 @@ function awardDiaRewards(){
   [15,30,45,60].forEach(f => {
     if(floor >= f && DIA_FLOOR_BONUS[f][diffKey] !== undefined) earned += DIA_FLOOR_BONUS[f][diffKey];
   });
-  if(floor >= 63 && diffKey === 'veryhard') earned += 50;
+  if(floor >= 63 && (diffKey === 'veryhard' || diffKey === 'legend')) earned += 50;
   // 初踏破称号(60F以上到達、種族×難易度の組み合わせごとに1回のみ)
   if(floor >= 60 && state.player.species){
     const titleKey = `${state.player.species.id}_${diffKey}`;
@@ -2079,13 +2083,14 @@ function awardDiaRewards(){
 // ==================== 称号画面 ====================
 // 「累計プレイ回数のダイヤが何の説明もなく増える」のが分かりにくかったため、
 // 挑戦回数・次の報酬までの残り・獲得済みの称号をまとめて見られる画面を用意する。
-const DIA_DIFF_LABEL = { normal:'ノーマル', hard:'ハード', expert:'エキスパート', veryhard:'ベリーハード' };
+const DIA_DIFF_LABEL = { normal:'ノーマル', hard:'ハード', expert:'エキスパート', veryhard:'ベリーハード', legend:'レジェンド' };
 // 難易度ごとの称号の格。60階以上を踏破した種族×難易度の組み合わせごとに1回だけ獲得できる
 const DIA_TITLE_RANK = {
   normal:   { suffix:'踏破者', color:'text-zinc-200',   border:'border-zinc-500' },
   hard:     { suffix:'猛者',   color:'text-emerald-200', border:'border-emerald-500' },
   expert:   { suffix:'達人',   color:'text-sky-200',     border:'border-sky-500' },
   veryhard: { suffix:'覇者',   color:'text-amber-200',   border:'border-amber-500' },
+  legend:   { suffix:'伝説',   color:'text-rose-200',    border:'border-rose-500' },
 };
 // 次に回数報酬が貰える挑戦回数と、その報酬額を返す
 function nextDiaPlayMilestone(current){
@@ -3089,6 +3094,8 @@ applyMetaShopBonuses();
 }
 state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
 applyStarterCardChoice(spec.id); // スキン専用の初期技を選んでいれば看板技を差し替える
+// レジェンド難易度は初期デッキに「呪い」を1枚背負って始める
+if(state.difficulty==='legend') state.deck.push({...CURSE_CARD, instanceId:Math.random()});
 ui.playerSpeciesName.innerText=spec.name;
 {
   const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
@@ -3530,7 +3537,7 @@ window.game.showForge = function() {
     if(selected.length < 2) {
       const seen = new Set();
       let shown = 0;
-      state.deck.filter(c=>!c.fusion).forEach(c => {
+      state.deck.filter(c=>!c.fusion && !c.noRemove).forEach(c => {
         if(seen.has(c.name)) return; seen.add(c.name);
         if(selected.includes(c)) return;
         const b = document.createElement('button');
@@ -3872,6 +3879,10 @@ t.maxHp = t.hp; // Update maxHp for UI
 t.dmg = Math.floor(t.dmg * 1.3);
 t.hp = Math.floor(t.hp * 1.3);
 t.maxHp = t.hp; // Update maxHp for UI
+} else if (state.difficulty === 'legend') {
+t.dmg = Math.floor(t.dmg * 1.5);
+t.hp = Math.floor(t.hp * 1.5);
+t.maxHp = t.hp; // Update maxHp for UI
 }
 
 state.enemy={...t,maxHp:t.hp,mode:mode,weak:0,vuln:0,burn:0,freeze:0,shock:0,block:0,evasion:0,bleed:0,turnCount:0,isElite:mode!=='normal',_baseDmg:t.dmg}; state.battleEnded=false;
@@ -4013,6 +4024,12 @@ if((state.player.nextTurnHandReduce||0)>0){
 
 // ケガカード定義（バトル中のみ山札に追加される邪魔カード）
 const INJURY_CARD = {id:'injury',name:'ケガ',cost:10,val:0,rarity:'N',desc:'ガッツ10 ダメージ0 消滅',isInjury:true,remove:true,instanceId:0};
+// レジェンド難易度のレジェンドボスラッシュ(61階以降)では、必殺技のケガがこの大ケガになる。
+// 使うには重く、抱えたままターンを終えると自分にダメージが返ってくる。
+const BIG_INJURY_CARD = {id:'big_injury',name:'大ケガ',cost:30,val:0,rarity:'N',desc:'ガッツ30 ダメージ0 消滅\nターン終了時に手札に残っていると自身に10ダメージ',isInjury:true,remove:true,handEndSelfDmg:10,instanceId:0};
+// レジェンド難易度で初期デッキに1枚だけ入る呪い。
+// カード削除・落とし穴・合成のいずれでも取り除けない(noRemoveで守っている)。
+const CURSE_CARD = {id:'curse',name:'呪い',cost:0,val:0,rarity:'N',desc:'何も起こらない\nデッキから取り除けない',isInjury:true,noRemove:true};
 const BURN_CARD = {id:'yakedo',name:'火傷',cost:15,val:0,selfDmg:15,rarity:'N',desc:'ガッツ15 ダメージ0 自傷15 消滅',isInjury:true,remove:true,instanceId:0};
 function addBurnCards(n){
   for(let i=0;i<n;i++){
@@ -4022,8 +4039,10 @@ function addBurnCards(n){
   }
 }
 function addInjuryCards(n){
+  // レジェンド難易度のレジェンドボスラッシュ中だけ、ケガの代わりに大ケガを入れる
+  const base = (state.difficulty==='legend' && state.legendRush) ? BIG_INJURY_CARD : INJURY_CARD;
   for(let i=0;i<n;i++){
-    const c={...INJURY_CARD,instanceId:Math.random()};
+    const c={...base,instanceId:Math.random()};
     // 山札（drawPile）の中にランダム挿入
     const pos=Math.floor(Math.random()*(state.drawPile.length+1));
     state.drawPile.splice(pos,0,c);
@@ -4032,7 +4051,7 @@ function addInjuryCards(n){
 
 function setEnemyIntent() {
 const e=state.enemy, r=Math.random();
-const diffMult = state.difficulty === 'veryhard' ? 1.3 : (state.difficulty === 'expert' ? 1.25 : (state.difficulty === 'hard' ? 1.2 : 1.0));
+const diffMult = state.difficulty === 'legend' ? 1.5 : (state.difficulty === 'veryhard' ? 1.3 : (state.difficulty === 'expert' ? 1.25 : (state.difficulty === 'hard' ? 1.2 : 1.0)));
 const adjust = (val) => Math.floor(val * diffMult);
 
 if(e.trait === 'carmine') {
@@ -4355,6 +4374,15 @@ e.intent=r<0.15?{type:'weak',val:0,desc:'攻弱'}:r<0.30?{type:'vuln',val:0,desc
 async function handleEndTurn() {
 state.isPlayerTurn=false; state.selectedCardIndex=null; renderHand(); ui.endTurnBtn.disabled=true; playSfx('turn');
 try {
+// 大ケガを手札に抱えたままターンを終えると自分にダメージ(捨てる前に判定する)
+{
+  const holdDmg = state.hand.reduce((sum,c)=>sum + (c.handEndSelfDmg||0), 0);
+  if(holdDmg > 0){
+    applySelfDamage(holdDmg); // 中でフロートテキスト表示と死亡判定まで行う
+    updateUI();
+    if(state.battleEnded) return;
+  }
+}
 state.discardPile.push(...state.hand); state.hand=[]; renderHand(); await new Promise(r=>setTimeout(r,600));
 // Status Effects Before Enemy Attack
 if (state.enemy.burn > 0) {
@@ -5019,7 +5047,7 @@ function nextFloor() {
   ui.modal.classList.add('hidden');
   stopVictoryBGM();
   if (state.floor === 60 && !state.legendRush) {
-    if (state.difficulty === 'veryhard') { showLegendRushChoice(); return; }
+    if (state.difficulty === 'veryhard' || state.difficulty === 'legend') { showLegendRushChoice(); return; }
     gameClear(); return;
   }
   state.floor++;
@@ -5031,6 +5059,7 @@ let s = Math.max(0, state.score);
 if (state.difficulty === 'hard') s = Math.floor(s * 1.2);
 if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
+if (state.difficulty === 'legend') s = Math.floor(s * 2.25);
 return s;
 }
 function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();}; }
@@ -5095,19 +5124,19 @@ function applySelfDamage(amount, el) {
 function showModal(t,d){ ui.modal.classList.remove('hidden'); ui.modalTitle.innerText=t; ui.modalDesc.innerText=d; ui.rewardList.innerHTML=''; ui.modalBtn.classList.add('hidden'); ui.modalConfirm.classList.add('hidden'); ui.modalConfirm.innerText="決定"; }
 function showCardRemoval() {
 showModal("修行 (削除)","除外するカードを選択"); const g=document.createElement('div'); g.className="grid grid-cols-4 gap-2 w-full";
-state.deck.forEach((c,i)=>{ const el=createCardUI(c,-1,true,true); el.onclick=()=>{state.deck.splice(i,1);nextFloor();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
+state.deck.forEach((c,i)=>{ if(c.noRemove) return; const el=createCardUI(c,-1,true,true); el.onclick=()=>{state.deck.splice(i,1);nextFloor();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
 }
 function showShopCardRemoval() {
 showModal("修行 (削除)","除外するカードを選択"); const g=document.createElement('div'); g.className="grid grid-cols-4 gap-2 w-full";
-state.deck.forEach((c,i)=>{ const el=createCardUI(c,-1,true,true); el.onclick=()=>{state.deck.splice(i,1);window.game.shopProceed();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
+state.deck.forEach((c,i)=>{ if(c.noRemove) return; const el=createCardUI(c,-1,true,true); el.onclick=()=>{state.deck.splice(i,1);window.game.shopProceed();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
 }
 function showCardUpgrade() {
 showModal("修行 (強化)","強化するカードを選択"); const g=document.createElement('div'); g.className="grid grid-cols-4 gap-2 w-full";
-state.deck.forEach((c,i)=>{ if(c.upgraded)return; const el=createCardUI(c,-1,true,true); el.onclick=()=>{upgradeCard(c);nextFloor();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
+state.deck.forEach((c,i)=>{ if(c.upgraded||c.noRemove)return; const el=createCardUI(c,-1,true,true); el.onclick=()=>{upgradeCard(c);nextFloor();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
 }
 function showShopCardUpgrade() {
 showModal("修行 (強化)","強化するカードを選択"); const g=document.createElement('div'); g.className="grid grid-cols-4 gap-2 w-full";
-state.deck.forEach((c,i)=>{ if(c.upgraded)return; const el=createCardUI(c,-1,true,true); el.onclick=()=>{upgradeCard(c);window.game.shopProceed();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
+state.deck.forEach((c,i)=>{ if(c.upgraded||c.noRemove)return; const el=createCardUI(c,-1,true,true); el.onclick=()=>{upgradeCard(c);window.game.shopProceed();}; g.appendChild(el); }); ui.rewardList.appendChild(g);
 }
 function upgradeCard(c) {
 c.upgraded=true;
@@ -5166,7 +5195,7 @@ if(c.crit)parts.push(`会心:${c.crit}`);
 if(parts.length>0)c.desc=parts.join(' ');
 }
 function upgradeRandomCards(n) {
-let candidates = state.deck.filter(c => !c.upgraded);
+let candidates = state.deck.filter(c => !c.upgraded && !c.noRemove);
 if (candidates.length === 0) return;
 for(let i=0; i<n; i++){
 if (candidates.length === 0) break;
@@ -5389,7 +5418,9 @@ function showEvent() {
       a:()=>{
         state.player.hp=Math.max(0,state.player.hp-25); updateUI();
         let removedName='（なし）';
-        if(state.deck.length>0){ const ri=Math.floor(Math.random()*state.deck.length); removedName=state.deck[ri].name; state.deck.splice(ri,1); }
+        // 呪い(noRemove)は落とし穴でも消えない
+        const removable=state.deck.map((c,i)=>({c,i})).filter(x=>!x.c.noRemove);
+        if(removable.length>0){ const pick=removable[Math.floor(Math.random()*removable.length)]; removedName=pick.c.name; state.deck.splice(pick.i,1); }
         if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
         showResult(`ドスン！😵<br>ライフ <b>−25</b><br>「<b>${removedName}</b>」がデッキから消えた！`);
         return 'skip';
