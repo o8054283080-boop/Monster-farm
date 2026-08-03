@@ -907,6 +907,9 @@ background: linear-gradient(135deg, #300000, #3f2e00);
    要素は静的に置いておき、JSは data-aura を差し替えるだけ(動的にDOMを作らない)。
    サイズは全て%指定なので、バトル画面(5.5rem/4.2rem)でもプレビュー枠(160px)でも同じ見た目になる。 */
 .aura-fx { position: absolute; inset: 0; pointer-events: none; z-index: 5; display: none; }
+/* 装備プレビューは枠(160px)に対してキャラが85%しかないので、そのままだとオーラが
+   バトル中より大きく見えて枠からはみ出す。少し縮めて実際の見え方に近づける */
+#loadout-aura-fx { transform: scale(0.78); }
 .aura-fx .aura-layer, .aura-fx .aura-p { position: absolute; display: none; }
 /* 全オーラ共通で使い回す動き。回転系は translate(-50%,-50%) を含めないと中心がズレる */
 @keyframes aura-breathe { from { opacity: 0.55; transform: translate(-50%,-50%) scale(0.93); } to { opacity: 1; transform: translate(-50%,-50%) scale(1.07); } }
@@ -1142,9 +1145,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   <div class="flex-grow overflow-y-auto p-3">
     <!-- 種族タブ -->
     <div id="loadout-species-tabs" class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3"></div>
-    <!-- プレビュー -->
-    <div class="flex justify-center mb-4">
-      <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700 overflow-hidden">
+    <!-- プレビュー。左にアクセサリ4枠、右にオーラ枠を並べて縦の長さを詰めている -->
+    <div class="flex justify-center items-start gap-2 mb-3">
+      <div id="loadout-accessory-slots" class="flex flex-col gap-1.5 w-[52px] shrink-0"></div>
+      <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700 overflow-hidden shrink-0">
         <div id="loadout-aura-fx" class="aura-fx"><span class="aura-layer aura-layer-a"></span><span class="aura-layer aura-layer-b"></span><span class="aura-p p1"></span><span class="aura-p p2"></span><span class="aura-p p3"></span><span class="aura-p p4"></span><span class="aura-p p5"></span><span class="aura-p p6"></span></div>
         <img id="loadout-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
         <img id="loadout-acc-hat" class="loadout-acc-img" src="">
@@ -1152,7 +1156,11 @@ background: linear-gradient(135deg, #300000, #3f2e00);
         <img id="loadout-acc-other" class="loadout-acc-img" src="">
         <img id="loadout-acc-weapon" class="loadout-acc-img" src="">
       </div>
+      <div class="flex flex-col gap-1.5 w-[52px] shrink-0">
+        <button id="loadout-aura-slot" onclick="openAuraPicker()" class="w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-800"></button>
+      </div>
     </div>
+    <p class="text-zinc-500 text-[9px] text-center mb-4 leading-relaxed">左＝アクセサリ（モンスターごとに保存）／ 右＝オーラ</p>
     <!-- スキン -->
     <h3 class="text-zinc-400 text-xs font-bold mb-2">スキン</h3>
     <div id="loadout-skin-grid" class="grid grid-cols-4 gap-2 mb-5"></div>
@@ -1164,15 +1172,18 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <h3 class="text-zinc-400 text-xs font-bold mb-1">カード演出モーション</h3>
     <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">カードを使ったときの演出です。場面ごとに設定できます。<b>ランダム</b>を選ぶと、所持しているものから毎回抽選されます。モーションはガチャのSR枠で手に入ります。</p>
     <div id="loadout-motion-grid" class="flex flex-col gap-3 mb-5"></div>
-    <!-- アクセサリ -->
-    <h3 class="text-zinc-400 text-xs font-bold mb-1">アクセサリ</h3>
-    <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">装備と調整（色・角度・大きさ・位置）は<b>モンスターごとに別々に保存</b>されます。体格が違うので、それぞれで位置を詰められます。</p>
-    <div id="loadout-accessory-slots" class="grid grid-cols-4 gap-2 mb-5"></div>
-    <!-- オーラ -->
-    <h3 class="text-zinc-400 text-xs font-bold mb-2">オーラ</h3>
-    <div id="loadout-aura-grid" class="grid grid-cols-3 gap-2 mb-4"></div>
   </div>
 </section>
+
+<!-- オーラ選択用サブモーダル -->
+<div id="aura-picker-modal" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4" onclick="if(event.target===this) closeAuraPicker()">
+  <div class="bg-zinc-900 border border-amber-600 rounded-2xl w-full max-w-sm max-h-[85vh] overflow-y-auto p-4 relative">
+    <button onclick="closeAuraPicker()" class="absolute top-3 right-3 text-zinc-400 hover:text-white text-lg font-bold">✕</button>
+    <h3 class="text-amber-300 font-bold text-sm mb-1">オーラを選択</h3>
+    <p class="text-zinc-500 text-[9px] mb-3">戦闘中、キャラの周りに出るエフェクトです。全モンスター共通の設定です。</p>
+    <div id="aura-picker-grid" class="grid grid-cols-2 gap-2"></div>
+  </div>
+</div>
 
 <!-- アクセサリ選択・カスタマイズ用サブモーダル -->
 <div id="acc-picker-modal" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
@@ -2442,6 +2453,11 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
+  { date:'2026/08/03', title:'カスタム装備画面の整理', items:[
+    'カスタム装備画面が縦に長すぎたので短くしました',
+    'アクセサリ枠をプレビューの左、オーラ枠を右に並べました',
+    'オーラは枠をタップして一覧から選ぶ方式に変更しました',
+  ]},
   { date:'2026/08/03', title:'大型アップデート記念', items:[
     '記念にダイヤ150をお配りしました（1端末につき1回）',
     '初期デッキのカードにも種族の色が付くようになりました',
@@ -2825,7 +2841,7 @@ function renderLoadoutScene(){
   renderLoadoutStarterCardGrid();
   renderLoadoutMotionGrid();
   renderLoadoutAccessorySlots();
-  renderLoadoutAuraGrid();
+  renderLoadoutAuraSlot();
 }
 // 初期技の選択欄。「通常」＋そのモンスターのスキン専用技を並べ、未所持のものは鍵付きで見せる
 function renderLoadoutStarterCardGrid(){
@@ -3020,10 +3036,10 @@ function renderLoadoutAccessorySlots(){
     const accId = accSlots(c, loadoutSelectedSpecies)[cat];
     const acc = accId ? ACCESSORIES.find(a=>a.id===accId) : null;
     const btn = document.createElement('button');
-    btn.className = 'aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-1 ' + (acc ? 'border-pink-400 bg-pink-900/20' : 'border-zinc-700 bg-zinc-800');
+    btn.className = 'w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center ' + (acc ? 'border-pink-400 bg-pink-900/20' : 'border-zinc-700 bg-zinc-800');
     btn.innerHTML = acc
-      ? `<img src="${acc.img}" class="w-2/3 h-2/3 object-contain"><span class="text-[8px] text-zinc-300">${ACC_CATEGORY_LABEL[cat]}</span>`
-      : `<span class="text-lg text-zinc-600">＋</span><span class="text-[8px] text-zinc-500">${ACC_CATEGORY_LABEL[cat]}</span>`;
+      ? `<img src="${acc.img}" class="w-3/4 h-3/4 object-contain"><span class="text-[7px] leading-none text-zinc-300 truncate w-full text-center">${ACC_CATEGORY_LABEL[cat]}</span>`
+      : `<span class="text-base leading-none text-zinc-600">＋</span><span class="text-[7px] leading-none text-zinc-500 mt-0.5 truncate w-full text-center">${ACC_CATEGORY_LABEL[cat]}</span>`;
     btn.onclick = () => openAccPicker(cat);
     el.appendChild(btn);
   });
@@ -3184,23 +3200,51 @@ function resetAccPosition(){
   renderAccPickerPreview(accId);
   renderLoadoutPreview();
 }
-function renderLoadoutAuraGrid(){
+// プレビュー右側のオーラ枠。押すと選択モーダルが開く
+function renderLoadoutAuraSlot(){
+  const el = document.getElementById('loadout-aura-slot');
+  if(!el) return;
   const c = loadCosmetics();
-  const el = document.getElementById('loadout-aura-grid');
+  const aura = c.equippedAura ? AURAS.find(a=>a.id===c.equippedAura) : null;
+  el.className = 'w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center ' +
+    (aura ? 'border-fuchsia-400 bg-fuchsia-900/20' : 'border-zinc-700 bg-zinc-800');
+  el.innerHTML = aura
+    ? `<span class="text-base leading-none">✨</span><span class="text-[7px] leading-none text-fuchsia-200 mt-0.5 truncate w-full text-center px-0.5">${aura.name}</span>`
+    : `<span class="text-base leading-none text-zinc-600">＋</span><span class="text-[7px] leading-none text-zinc-500 mt-0.5">オーラ</span>`;
+}
+function openAuraPicker(){
+  renderAuraPickerGrid();
+  document.getElementById('aura-picker-modal').classList.remove('hidden');
+}
+function closeAuraPicker(){
+  document.getElementById('aura-picker-modal').classList.add('hidden');
+  renderLoadoutScene();
+}
+function renderAuraPickerGrid(){
+  const c = loadCosmetics();
+  const el = document.getElementById('aura-picker-grid');
   el.innerHTML = '';
-  const noneBtn = document.createElement('button');
-  noneBtn.className = 'rounded-lg border-2 p-2 text-[10px] font-bold ' + (!c.equippedAura ? 'border-amber-400 bg-amber-900/30 text-amber-200' : 'border-zinc-700 bg-zinc-800 text-zinc-400');
-  noneBtn.innerText = 'なし';
-  noneBtn.onclick = () => { const c2=loadCosmetics(); c2.equippedAura = null; saveCosmetics(c2); renderLoadoutScene(); };
-  el.appendChild(noneBtn);
-  AURAS.forEach(aura=>{
+  const make = (label, sub, active, locked, onClick) => {
+    const b = document.createElement('button');
+    b.className = 'rounded-lg border-2 p-2 text-left transition ' +
+      (locked ? 'border-zinc-800 bg-zinc-900/40 text-zinc-600 cursor-default'
+        : active ? 'border-amber-400 bg-amber-900/30 text-amber-100'
+        : 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700');
+    b.innerHTML = `<div class="text-[11px] font-bold leading-tight">${locked ? '🔒 ' : ''}${label}</div>
+      <div class="text-[8px] leading-tight ${locked ? 'text-zinc-700' : 'text-zinc-400'} mt-0.5">${sub}</div>`;
+    if(!locked) b.onclick = onClick;
+    el.appendChild(b);
+  };
+  make('なし', 'オーラを出さない', !c.equippedAura, false, () => {
+    const c2 = loadCosmetics(); c2.equippedAura = null; saveCosmetics(c2);
+    playSfx('select'); renderAuraPickerGrid(); renderLoadoutAuraSlot(); renderLoadoutPreview();
+  });
+  AURAS.forEach(aura => {
     const owned = c.ownedAuras.includes(aura.id);
-    const equipped = c.equippedAura === aura.id;
-    const btn = document.createElement('button');
-    btn.className = 'relative rounded-lg border-2 p-2 text-[10px] font-bold ' + (equipped?'border-amber-400 bg-amber-900/30 text-amber-200':owned?'border-zinc-600 bg-zinc-800 text-zinc-200':'border-zinc-800 bg-zinc-900 text-zinc-600');
-    btn.innerText = aura.name + (owned?'':' 🔒');
-    if(owned){ btn.onclick = () => { const c2=loadCosmetics(); c2.equippedAura = aura.id; saveCosmetics(c2); renderLoadoutScene(); }; }
-    el.appendChild(btn);
+    make(aura.name, owned ? (aura.desc || '') : 'ガチャで入手', c.equippedAura === aura.id, !owned, () => {
+      const c2 = loadCosmetics(); c2.equippedAura = aura.id; saveCosmetics(c2);
+      playSfx('select'); renderAuraPickerGrid(); renderLoadoutAuraSlot(); renderLoadoutPreview();
+    });
   });
 }
 
