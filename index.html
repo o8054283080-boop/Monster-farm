@@ -1627,8 +1627,15 @@ const META_SHOP_ITEMS = [
   { key:'ssr', label:'SSRカード確率アップ', type:'percent', maxLevel:3, totalPct:[0,0.5,1.0,1.5], costs:[500,1000,2000] },
   { key:'mr', label:'MRカード確率アップ', type:'percent', maxLevel:3, totalPct:[0,0.25,0.5,1.0], costs:[750,1500,3000] },
   { key:'rareRelic', label:'レア遺物確率アップ', type:'percent', maxLevel:3, totalPct:[0,2,4,7], costs:[700,1400,2500] },
+  { key:'startGold', label:'初期ゴールド', type:'stat', maxLevel:10, perLevel:15, costs:[50,75,100,300,500,800,1100,1400,1700,2000] },
+  { key:'goldGain', label:'取得ゴールドアップ', type:'percent', maxLevel:5, totalPct:[0,5,10,15,20,25], costs:[500,1000,1500,2000,2500] },
+  { key:'handSize', label:'初期手札+1', type:'stat', maxLevel:1, perLevel:1, costs:[3000] },
 ];
 const META_RELIC_UNLOCK_COST = 1000;
+// 不屈: 1冒険につき1度だけ、ライフ0になっても最大ライフの30%で復活する買い切り。
+// 「あと1回耐えられれば…」で終わる瞬間を救うのが目的。
+const META_FUKUTSU_COST = 3500;
+const FUKUTSU_REVIVE_RATIO = 0.3;
 // 初期遺物解放(継承ショップ1000pt)で持ち込める遺物の候補。
 // 「序盤の理不尽さを和らげる」のが目的なので、地味に効くものを中心に、
 // 守り/ガッツ/耐久/攻め/長期リターン がバランスよく混ざるように選んである。
@@ -1658,7 +1665,7 @@ function getStarterRelicPool(){
 }
 
 function loadMetaProgress(){
-  const fallback = { points:0, levels:{life:0,pow:0,def:0,gutsRegen:0,gutsCap:0,ssr:0,mr:0,rareRelic:0}, relicUnlocked:false };
+  const fallback = { points:0, levels:{life:0,pow:0,def:0,gutsRegen:0,gutsCap:0,ssr:0,mr:0,rareRelic:0,startGold:0,goldGain:0,handSize:0}, relicUnlocked:false, fukutsuUnlocked:false };
   try{
     const raw = localStorage.getItem(META_STORAGE_KEY);
     if(!raw) return fallback;
@@ -1666,6 +1673,7 @@ function loadMetaProgress(){
     mp.levels = Object.assign({}, fallback.levels, mp.levels||{});
     mp.points = mp.points || 0;
     mp.relicUnlocked = !!mp.relicUnlocked;
+    mp.fukutsuUnlocked = !!mp.fukutsuUnlocked;
     return mp;
   }catch(e){ console.warn('継承データの読み込みに失敗しました', e); return fallback; }
 }
@@ -1708,8 +1716,21 @@ function applyMetaShopBonuses(){
   state.player.metaRegenEnergy = (lv.gutsRegen||0) * 1;
   state.player.regenEnergy += state.player.metaRegenEnergy;
   state.player.maxEnergy += (lv.gutsCap||0) * 4;
+  state.gold = (state.gold||0) + (lv.startGold||0) * 15;
+  // 取得ゴールドアップは冒険中ずっと効くので、毎回localStorageを読まずに済むよう
+  // 冒険開始時に倍率を確定させてstateへ持たせる(セーブ・再開でもそのまま引き継がれる)
+  state.goldGainMult = 1 + metaItemCurrentValue(META_SHOP_ITEMS.find(i=>i.key==='goldGain'), lv.goldGain||0) / 100;
+  // 初期手札+1は戦闘開始時に1枚多く引く形で実現する(startBattle側で参照)
+  state.player.metaExtraHand = (lv.handSize||0);
+  // 不屈は1冒険につき1回。使用済みフラグはここで初期化する
+  state.player.fukutsuAvailable = !!mp.fukutsuUnlocked;
   // 初期遺物は「候補3つから1つ選ぶ」形にしたので、ここでは付与しない
   // (種族選択の直後に showStarterRelicChoice() で選ばせる)
+}
+// ゴールドの獲得は必ずこれを通す(継承ショップの「取得ゴールドアップ」を一律で反映するため)
+function gainGold(n){
+  const mult = state.goldGainMult || 1;
+  state.gold = (state.gold||0) + Math.floor(n * mult);
 }
 // 初期遺物解放を購入済みなら、冒険開始時に候補3つから1つ選ばせる。
 // 1000ptと高価な買い切りなので、ランダムで1つ渡すより選べた方が納得感がある。
@@ -1784,29 +1805,43 @@ function renderMetaShop(){
     row.appendChild(info); row.appendChild(btn);
     wrap.appendChild(row);
   });
-  const relicRow = document.createElement('div');
-  relicRow.className = 'p-3 bg-zinc-800/80 border border-yellow-700 rounded-xl flex items-center justify-between gap-2';
-  const relicInfo = document.createElement('div');
-  relicInfo.className = 'text-left';
-  relicInfo.innerHTML = `<div class="text-xs font-bold text-yellow-300">✨ 初期遺物解放</div><div class="text-[10px] text-zinc-400 mt-0.5">冒険開始時に遺物を1つ持てるようになる(中身は近日追加)</div>`;
-  const relicBtn = document.createElement('button');
-  const relicCanBuy = !mp.relicUnlocked && mp.points >= META_RELIC_UNLOCK_COST;
-  relicBtn.className = mp.relicUnlocked ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-400'
-    : (relicCanBuy ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-yellow-700 hover:bg-yellow-600 text-yellow-100 active:scale-95 transition' : 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-500');
-  relicBtn.innerText = mp.relicUnlocked ? '解放済み' : `${META_RELIC_UNLOCK_COST}pt`;
-  if(relicCanBuy){
-    relicBtn.onclick = () => {
-      const mp2 = loadMetaProgress();
-      if(mp2.relicUnlocked || mp2.points < META_RELIC_UNLOCK_COST) return;
-      mp2.points -= META_RELIC_UNLOCK_COST;
-      mp2.relicUnlocked = true;
-      saveMetaProgress(mp2);
-      playSfx('select');
-      renderMetaShop();
-    };
+  // 買い切り(レベルを持たない)項目は共通の作りにしてある
+  function appendUnlockRow(opt){
+    const row = document.createElement('div');
+    row.className = `p-3 bg-zinc-800/80 border ${opt.border} rounded-xl flex items-center justify-between gap-2`;
+    const info = document.createElement('div');
+    info.className = 'text-left';
+    info.innerHTML = `<div class="text-xs font-bold ${opt.titleColor}">${opt.title}</div><div class="text-[10px] text-zinc-400 mt-0.5">${opt.desc}</div>`;
+    const btn = document.createElement('button');
+    const owned = opt.owned;
+    const canBuy = !owned && mp.points >= opt.cost;
+    btn.className = owned ? 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-400'
+      : (canBuy ? `shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold ${opt.btnColor} active:scale-95 transition` : 'shrink-0 px-3 py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-500');
+    btn.innerText = owned ? '解放済み' : `${opt.cost}pt`;
+    if(canBuy){
+      btn.onclick = () => {
+        const mp2 = loadMetaProgress();
+        if(mp2[opt.flag] || mp2.points < opt.cost) return;
+        mp2.points -= opt.cost;
+        mp2[opt.flag] = true;
+        saveMetaProgress(mp2);
+        playSfx('select');
+        renderMetaShop();
+      };
+    }
+    row.appendChild(info); row.appendChild(btn);
+    wrap.appendChild(row);
   }
-  relicRow.appendChild(relicInfo); relicRow.appendChild(relicBtn);
-  wrap.appendChild(relicRow);
+  appendUnlockRow({
+    title:'✨ 初期遺物解放', desc:'冒険開始時に、候補3つの中から遺物を1つ選んで持ち込める',
+    flag:'relicUnlocked', owned:mp.relicUnlocked, cost:META_RELIC_UNLOCK_COST,
+    border:'border-yellow-700', titleColor:'text-yellow-300', btnColor:'bg-yellow-700 hover:bg-yellow-600 text-yellow-100',
+  });
+  appendUnlockRow({
+    title:'🔥 不屈', desc:`1回の冒険につき1度だけ、ライフ0になっても最大ライフの${Math.round(FUKUTSU_REVIVE_RATIO*100)}%で復活する`,
+    flag:'fukutsuUnlocked', owned:mp.fukutsuUnlocked, cost:META_FUKUTSU_COST,
+    border:'border-red-700', titleColor:'text-red-300', btnColor:'bg-red-800 hover:bg-red-700 text-red-100',
+  });
   ui.rewardList.appendChild(wrap);
 }
 window.game.showMetaShop = function(){
@@ -3694,6 +3729,7 @@ if(state.player.relics.some(r=>r.id==='br_mahougyoku')) state.player.regenEnergy
 if(state.player.relics.some(r=>r.id==='br_soul_eater')) state.player.regenEnergy+=15;
 if(state.player.relics.some(r=>r.id==='br_bag')) state.player.regenDraw=(state.player.regenDraw||0)+1;
 if(state.player.relics.some(r=>r.id==='mu_heart')) state.player.regenDraw=(state.player.regenDraw||0)+1;
+if(state.player.metaExtraHand) drawCards(state.player.metaExtraHand); // 継承ショップ「初期手札+1」
 if(state.player.relics.some(r=>r.id==='br_conqueror')) drawCards(2); // 初期手札+2（戦闘開始時のみ・毎ターンではない）
 if(state.player.relics.some(r=>r.id==='br_m_belt_most')) { state.player.regenEnergy+=15; drawCards(1); } // 初期手札+1（戦闘開始時のみ）
 if(state.player.relics.some(r=>r.id==='br_m_mochi_obj')) state.player.regenDraw=(state.player.regenDraw||0)+1;
@@ -4647,7 +4683,7 @@ let goldReward = 0;
 if(state.enemy.mode==='boss') goldReward = 300 + state.floor*5;
 else if(state.enemy.isElite) goldReward = 150 + Math.floor(state.floor*4);
 else goldReward = 60 + Math.floor(state.floor*2);
-state.gold = (state.gold||0) + goldReward; playSfx('coin');
+gainGold(goldReward); playSfx('coin');
 // 通常敵・強敵撃破の基礎スコア(ボスは別枠のボーナスがあるためここでは対象外)
 if(state.enemy.mode!=='boss'){
   if(state.enemy.isElite) state.score += 1200 * state.floor;
@@ -4668,7 +4704,7 @@ if([15,30,45].includes(state.floor)){
   state.player.hp = Math.min(state.player.maxHp, state.player.hp + healAmt);
 }
 }
-if(state.enemy.isRareElite) { state.score+=100000; state.gold=(state.gold||0)+300+Math.floor(state.floor*10); updateUI(); }
+if(state.enemy.isRareElite) { state.score+=100000; gainGold(300+Math.floor(state.floor*10)); updateUI(); }
 state.isPlayerTurn=false; state.selectedCardIndex=null;
 setTimeout(()=>{
 if(state.enemy.mode==='boss' && [15,30,45,60].includes(state.floor)) { showBossRelicChoice(); return; }
@@ -4821,6 +4857,16 @@ function gameOver(){
     state.player._revived = true;
     state.player.hp = Math.ceil(state.player.maxHp/2);
     showFloatingText('復活！','heal',ui.playerNode);
+    updateUI();
+    return;
+  }
+  // 継承ショップ「不屈」: 1冒険につき1度だけ最大ライフの30%で復活する
+  // (ヒノトリの復活とは別枠。種族特性を使い切った後でもこちらが働く)
+  if(state.player.fukutsuAvailable){
+    state.player.fukutsuAvailable = false;
+    state.player.hp = Math.max(1, Math.ceil(state.player.maxHp * FUKUTSU_REVIVE_RATIO));
+    showFloatingText('不屈！','heal',ui.playerNode);
+    showDiaToast('🔥 <b>不屈</b> で踏みとどまった！');
     updateUI();
     return;
   }
@@ -4980,7 +5026,7 @@ ui.rewardList.appendChild(skip);
 }
 function applyRelicEffect(r) {
 const m={
-ancient_coin:()=>{state.gold=(state.gold||0)+100},silver_lump:()=>{state.gold=(state.gold||0)+300},gold_lump:()=>{state.gold=(state.gold||0)+500},platinum:()=>{state.gold=(state.gold||0)+1000},
+ancient_coin:()=>{gainGold(100)},silver_lump:()=>{gainGold(300)},gold_lump:()=>{gainGold(500)},platinum:()=>{gainGold(1000)},
 silver_peach:()=>{state.player.maxHp+=25;state.player.hp+=25},banana:()=>{state.player.maxHp+=5;state.player.hp+=5},torres:()=>{state.player.maxHp+=10;state.player.hp+=10},gold_peach:()=>{state.player.maxHp+=50;state.player.hp+=50},bad_peach:()=>{state.player.maxHp+=15;state.player.hp+=15},oil:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+50),mango:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+20),
 tororon:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.atkBase+=10},catine:()=>{state.player.maxHp=Math.max(1,state.player.maxHp-15);state.player.hp=Math.min(state.player.hp,state.player.maxHp);state.player.blockBase+=10},
 crab:()=>{state.player.atkBase+=3;state.player.blockBase+=5},glove:()=>state.player.atkBase+=3,shield_iron:()=>state.player.blockBase+=3,zenon_hammer:()=>{state.player.atkBase+=15;state.player.maxHp+=50;state.player.hp=Math.min(state.player.maxHp,state.player.hp+50);},gali_mantle:()=>{state.player.blockBase+=15;state.player.regenBlock=(state.player.regenBlock||0)+3;},
@@ -5078,7 +5124,7 @@ if(state.player.hp > state.player.maxHp) state.player.hp = state.player.maxHp;
 if(state.player.hp < 0) state.player.hp = 0;
 
 const cm={'coin_most':150000,'coin_politoka':150000};
-if(cm[r.id]) { state.score += cm[r.id]; state.gold=(state.gold||0)+150; updateUI(); }
+if(cm[r.id]) { state.score += cm[r.id]; gainGold(150); updateUI(); }
 }
 function showEvent() {
   const r = Math.random();
@@ -5094,7 +5140,7 @@ function showEvent() {
     { t:'☠️ 毒沼', d:'10ダメージを受ける。ゴールド100か何もなしを選べる。', rare:false,
       choices:[
         { label:'ゴールド+100を受け取る', result:'ライフ <b>−10</b>、ゴールド <b>+100</b>！',
-          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} state.gold=(state.gold||0)+100; }},
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} gainGold(100); }},
         { label:'何もしない', result:'ライフ <b>−10</b>…',
           fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();} }}
       ]},
@@ -5102,7 +5148,7 @@ function showEvent() {
     { t:'🌋 溶岩地帯', d:'25ダメージを受けるか、10ダメージを受けてゴールド+500か選べる。', rare:false,
       choices:[
         { label:'25ダメージを受けてゴールド+500', result:'ライフ <b>−25</b>、ゴールド <b>+500</b>！',
-          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-25); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} state.gold=(state.gold||0)+500; }},
+          fn:()=>{ state.player.hp=Math.max(0,state.player.hp-25); updateUI(); if(state.player.hp<=0){gameOver(); if(state.battleEnded) return;} gainGold(500); }},
         { label:'10ダメージのみ受ける', result:'ライフ <b>−10</b>…',
           fn:()=>{ state.player.hp=Math.max(0,state.player.hp-10); updateUI(); if(state.player.hp<=0){gameOver();} }}
       ]},
