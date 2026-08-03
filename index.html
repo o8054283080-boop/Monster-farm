@@ -799,6 +799,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <button onclick="window.game.showMetaShop()" class="ornate-panel w-full py-2 text-amber-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏯 継承ショップ</button>
 <button onclick="window.game.openLoadout()" class="ornate-panel w-full py-2 text-pink-200 text-xs font-bold rounded-sm transition-all active:scale-95">🎨 カスタム装備</button>
 <button onclick="window.game.showRanking()" class="ornate-panel w-full py-2 text-cyan-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏆 ランキング</button>
+<button onclick="window.game.showTitles()" class="ornate-panel w-full py-2 text-amber-100 text-xs font-bold rounded-sm transition-all active:scale-95 col-span-2">🎖️ 称号・挑戦回数</button>
 </div>
 </div>
 </section>
@@ -1940,6 +1941,115 @@ function awardDiaRewards(){
   saveDiaProgress(dp);
   return earned;
 }
+
+// ==================== 称号画面 ====================
+// 「累計プレイ回数のダイヤが何の説明もなく増える」のが分かりにくかったため、
+// 挑戦回数・次の報酬までの残り・獲得済みの称号をまとめて見られる画面を用意する。
+const DIA_DIFF_LABEL = { normal:'ノーマル', hard:'ハード', expert:'エキスパート', veryhard:'ベリーハード' };
+// 難易度ごとの称号の格。60階以上を踏破した種族×難易度の組み合わせごとに1回だけ獲得できる
+const DIA_TITLE_RANK = {
+  normal:   { suffix:'踏破者', color:'text-zinc-200',   border:'border-zinc-500' },
+  hard:     { suffix:'猛者',   color:'text-emerald-200', border:'border-emerald-500' },
+  expert:   { suffix:'達人',   color:'text-sky-200',     border:'border-sky-500' },
+  veryhard: { suffix:'覇者',   color:'text-amber-200',   border:'border-amber-500' },
+};
+// 次に回数報酬が貰える挑戦回数と、その報酬額を返す
+function nextDiaPlayMilestone(current){
+  for(let n = current + 1; n <= current + 400; n++){
+    if(isDiaPlayMilestone(n)) return { at:n, reward:diaPlayMilestoneReward(n) };
+  }
+  return null;
+}
+// これまでに通過した回数報酬の節目を、達成済みとして列挙する(直近数件+次の1件)
+function listDiaPlayMilestones(current){
+  const out = [];
+  for(let n = 1; n <= current + 60; n++){
+    if(isDiaPlayMilestone(n)) out.push({ at:n, reward:diaPlayMilestoneReward(n), done:n <= current });
+  }
+  const nextIdx = out.findIndex(m => !m.done);
+  if(nextIdx === -1) return out.slice(-6);
+  return out.slice(Math.max(0, nextIdx - 4), nextIdx + 2);
+}
+window.game.showTitles = function(){
+  showModal('🎖️ 称号', '');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '閉じる';
+  ui.modalConfirm.onclick = () => ui.modal.classList.add('hidden');
+  renderTitlesScreen();
+};
+function renderTitlesScreen(){
+  const dp = loadDiaProgress();
+  ui.modalDesc.innerText = `所持ダイヤ: 💎${dp.dia}`;
+  ui.rewardList.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'flex flex-col gap-4 w-full';
+
+  // ---- 挑戦回数 ----
+  const next = nextDiaPlayMilestone(dp.totalPlays);
+  const countBox = document.createElement('div');
+  countBox.className = 'bg-zinc-800/80 border border-zinc-600 rounded-xl p-3 text-center';
+  countBox.innerHTML = `<div class="text-[10px] text-zinc-400">通算の挑戦回数</div>
+    <div class="text-3xl font-black text-amber-300 pixel-font leading-tight">${dp.totalPlays}<span class="text-sm ml-1">回</span></div>
+    <div class="text-[10px] text-zinc-300 mt-1">${next ? `次の回数報酬は <span class="text-amber-200 font-bold">${next.at}回目</span>(あと${next.at - dp.totalPlays}回)で 💎+${next.reward}` : ''}</div>`;
+  wrap.appendChild(countBox);
+
+  // ---- 回数報酬の一覧 ----
+  const msHead = document.createElement('div');
+  msHead.className = 'text-[11px] text-zinc-400 font-bold text-left';
+  msHead.innerText = '回数報酬';
+  wrap.appendChild(msHead);
+  const msList = document.createElement('div');
+  msList.className = 'flex flex-col gap-1';
+  listDiaPlayMilestones(dp.totalPlays).forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between px-3 py-1.5 rounded-lg border text-[11px] ' +
+      (m.done ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200' : 'bg-zinc-800/60 border-zinc-700 text-zinc-400');
+    row.innerHTML = `<span>${m.done ? '✅' : '🔒'} ${m.at}回目の挑戦</span><span class="font-bold">💎+${m.reward}</span>`;
+    msList.appendChild(row);
+  });
+  wrap.appendChild(msList);
+
+  // ---- 種族別の初踏破称号 ----
+  const tHead = document.createElement('div');
+  tHead.className = 'text-[11px] text-zinc-400 font-bold text-left mt-1';
+  const totalTitles = Object.keys(SPECIES).length * Object.keys(DIA_DIFF_LABEL).length;
+  tHead.innerHTML = `初踏破称号 <span class="text-zinc-500">(${dp.firstClearTitles.length} / ${totalTitles})</span>
+    <div class="text-[9px] text-zinc-500 font-normal mt-0.5">60階まで到達すると、その種族と難易度の組み合わせごとに1回だけ獲得できます</div>`;
+  wrap.appendChild(tHead);
+
+  Object.keys(SPECIES).forEach(spId => {
+    const sp = SPECIES[spId];
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2';
+    const name = document.createElement('div');
+    name.className = 'text-[10px] text-zinc-300 font-bold w-16 shrink-0 text-left truncate';
+    name.innerText = sp.name;
+    row.appendChild(name);
+    const badges = document.createElement('div');
+    badges.className = 'grid grid-cols-4 gap-1 flex-1';
+    Object.keys(DIA_DIFF_LABEL).forEach(diff => {
+      const rank = DIA_TITLE_RANK[diff];
+      const got = dp.firstClearTitles.includes(`${spId}_${diff}`);
+      const b = document.createElement('div');
+      b.className = 'rounded border px-1 py-1 text-center ' +
+        (got ? `bg-zinc-900 ${rank.border} ${rank.color}` : 'bg-zinc-900/40 border-zinc-800 text-zinc-600');
+      b.innerHTML = `<div class="text-[8px] leading-tight">${DIA_DIFF_LABEL[diff]}</div>
+        <div class="text-[9px] font-bold leading-tight">${got ? rank.suffix : '未取得'}</div>
+        <div class="text-[8px] leading-tight">${got ? '✅' : `💎${diaTitleBonus(diff, 60)}`}</div>`;
+      badges.appendChild(b);
+    });
+    row.appendChild(badges);
+    wrap.appendChild(row);
+  });
+
+  const note = document.createElement('div');
+  note.className = 'text-[9px] text-zinc-500 leading-relaxed text-left';
+  note.innerText = 'ベリーハードで63階(レジェンドボスラッシュ)まで踏破した場合は、称号のダイヤが💎150になります。';
+  wrap.appendChild(note);
+
+  ui.rewardList.appendChild(wrap);
+}
+// ==================== 称号画面ここまで ====================
 // ==================== ダイヤ通貨システムここまで ====================
 
 // ==================== コスメ所持・装備データ ====================
@@ -2750,7 +2860,15 @@ window.game.selectMonster = function(key) {
 const spec = SPECIES[key];
 state.player.species=spec; state.player.maxHp=spec.hp; state.player.hp=spec.hp;
 applyMetaShopBonuses();
-registerDiaPlayCount();
+// 回数報酬は今まで無言でダイヤが増えるだけだったので、何回目の挑戦で
+// いくら貰えたのかをトーストで知らせる(節目でない回は通知しない)
+{
+  const playsBefore = loadDiaProgress().totalPlays;
+  const playEarned = registerDiaPlayCount();
+  if(playEarned > 0){
+    showDiaToast(`🎖️ 通算${playsBefore + 1}回目の挑戦！<br>回数報酬 💎+${playEarned}`);
+  }
+}
 state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
 ui.playerSpeciesName.innerText=spec.name;
 {
