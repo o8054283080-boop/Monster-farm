@@ -37,6 +37,11 @@
 ### 音声・画像(リポジトリ直下)
 
 - BGM: `bgm-menu.mp3` / `bgm-battle-normal.mp3` / `bgm-battle-elite.mp3` / `bgm-battle-elite2.mp3` / `bgm-boss-mid.mp3` / `bgm-boss-rush-1〜3.mp3` / `bgm-victory.mp3`
+- BGM(タイトル配下の各画面): `bgm-select.mp3`(モンスター選択) / `bgm-gacha.mp3`(ガチャ) / `bgm-shop.mp3`(継承ショップ・カスタム装備)
+  - **必ずmp3にすること。** m4a(AAC)は再生できないブラウザがある(実際にAAC非対応のChromiumで無音になった)。
+    受け取った音源がm4aなら、PyAV(`pip install av`)でmp3に変換してから入れる
+  - 追加したら `playSceneBGM()` / `stopSceneBGM()` の仕組みに乗せる。画面を閉じるときは `backToMenuBGM()`。
+    `resumeCurrentBGM()`(復帰時・初回タップ時に呼ばれる)にも判定を足さないと、復帰後に無音になる
 - SE: `se-select.wav`(選択音) / `se-damage.wav`(ダメージ音)
 - 画像: `bg-dungeon.webp`(タイトル・マップ背景) / `title-logo.webp` + `title-logo.png`(ロゴ)
 

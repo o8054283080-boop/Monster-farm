@@ -1668,6 +1668,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <audio id="bgm-boss-rush-2" src="bgm-boss-rush-2.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-2.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-boss-rush-3" src="bgm-boss-rush-3.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-boss-rush-3.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-victory" src="bgm-victory.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-victory.mp3 が見つからないか壊れています', this.error)"></audio>
+<!-- タイトル配下の各画面用BGM。他のBGMと同じmp3に揃えてある(m4a/AACは再生できない環境がある) -->
+<audio id="bgm-select" src="bgm-select.mp3" loop preload="none" onerror="console.error('BGM読み込み失敗: bgm-select.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-gacha" src="bgm-gacha.mp3" loop preload="none" onerror="console.error('BGM読み込み失敗: bgm-gacha.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-shop" src="bgm-shop.mp3" loop preload="none" onerror="console.error('BGM読み込み失敗: bgm-shop.mp3 が見つからないか壊れています', this.error)"></audio>
 
 <script src="data-species.js"></script>
 <script src="data-enemies.js"></script>
@@ -2033,11 +2037,44 @@ function playVictoryBGM() {
 function stopVictoryBGM() {
   if (__bgmVictory) __bgmVictory.pause();
 }
+// ==== BGM（タイトル配下の各画面：モンスター選択／ガチャ／継承ショップ・カスタム装備） ====
+const __bgmSelect = document.getElementById('bgm-select');
+const __bgmGacha  = document.getElementById('bgm-gacha');
+const __bgmShop   = document.getElementById('bgm-shop');
+const __sceneBgms = [__bgmSelect, __bgmGacha, __bgmShop].filter(Boolean);
+function stopSceneBGM() { __sceneBgms.forEach(el => el.pause()); }
+// 画面用BGMを1つだけ鳴らす。他のBGMは全部止める
+function playSceneBGM(el) {
+  if (!el || !soundEnabled) return;
+  stopMenuBGM(); stopBattleBGM(); stopVictoryBGM();
+  __sceneBgms.forEach(x => { if (x !== el) x.pause(); });
+  if (!el.paused) return;   // 同じ曲が既に鳴っていれば頭出しし直さない
+  ensureAudioCtx();
+  connectBgmElement(el);
+  el.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）:', el.id, err && err.name); });
+}
+// 画面用BGMをやめてタイトルのBGMに戻す
+function backToMenuBGM() {
+  stopSceneBGM();
+  playMenuBGM();
+}
 function resumeCurrentBGM() {
   if (!soundEnabled) return;
+  const shown = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
+  const modalTitle = document.getElementById('modal-title');
+  const modalText = (shown('modal-overlay') && modalTitle) ? modalTitle.innerText : '';
   if (ui.battle && !ui.battle.classList.contains('hidden') && state && state.enemy && state.enemy.mode) {
     playBattleBGM(state.enemy.mode, state.floor);
+  } else if (shown('loadout-scene')) {
+    playSceneBGM(__bgmShop);
+  } else if (modalText.includes('継承ショップ')) {
+    playSceneBGM(__bgmShop);
+  } else if (modalText.includes('ガチャ') || shown('gacha-overlay')) {
+    playSceneBGM(__bgmGacha);
+  } else if (ui.select && !ui.select.classList.contains('hidden')) {
+    playSceneBGM(__bgmSelect);
   } else if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) {
+    stopSceneBGM();
     playMenuBGM();
   }
 }
@@ -2250,7 +2287,7 @@ const UPDATE_GIFT_AMOUNT = 150;
 })();
 
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
-window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); stopMenuBGM(); };
+window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); stopMenuBGM(); playSceneBGM(__bgmSelect); };
 function renderSpeciesSelect(){
   const grid = document.getElementById('select-grid');
   if(!grid) return;
@@ -2500,8 +2537,9 @@ window.game.showMetaShop = function(){
   showModal('🏯 継承ショップ', '');
   ui.modalConfirm.classList.remove('hidden');
   ui.modalConfirm.innerText = '閉じる';
-  ui.modalConfirm.onclick = () => ui.modal.classList.add('hidden');
+  ui.modalConfirm.onclick = () => { ui.modal.classList.add('hidden'); backToMenuBGM(); };
   renderMetaShop();
+  playSceneBGM(__bgmShop);
 };
 // ==================== 継承ショップここまで ====================
 
@@ -2671,6 +2709,11 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'BGMを追加', items:[
+    'モンスター選択画面に専用のBGMが流れるようになりました',
+    'ガチャに専用のBGMが流れるようになりました',
+    '継承ショップとカスタム装備に専用のBGMが流れるようになりました',
+  ]},
   { date:'2026/08/04', title:'手札のカードを大きく', items:[
     '手札が5枚のときのカードが小さすぎたので、画面に入る限り大きく表示するようにしました',
     '6枚以上のときの大きさは変えていません',
@@ -3104,6 +3147,7 @@ function renderBattleAccessories(speciesId){
 let loadoutSelectedSpecies = null;
 window.game.openLoadout = function(){
   hideGlobalVolumeBtn(); // 左上で「← 戻る」と重なるため、装備画面の間は隠す
+  playSceneBGM(__bgmShop);   // 継承ショップと同じ曲
   document.getElementById('name-scene').classList.add('hidden');
   document.getElementById('loadout-scene').classList.remove('hidden');
   if(!loadoutSelectedSpecies) loadoutSelectedSpecies = Object.keys(SPECIES)[0];
@@ -3113,6 +3157,7 @@ window.game.closeLoadout = function(){
   showGlobalVolumeBtn();
   document.getElementById('loadout-scene').classList.add('hidden');
   document.getElementById('name-scene').classList.remove('hidden');
+  backToMenuBGM();
 };
 function renderLoadoutScene(){
   renderLoadoutSpeciesTabs();
@@ -3844,6 +3889,7 @@ function buildGachaPickupBanner(){
 window.game.showGacha = function(){
   showModal('💎 ガチャ', '');
   renderGachaScreen();
+  playSceneBGM(__bgmGacha);
 };
 function renderGachaScreen(){
   const dia = getDiaBalance();
@@ -3899,7 +3945,7 @@ function renderGachaScreen(){
   ui.modalBtn.classList.add('hidden');
   ui.modalConfirm.classList.remove('hidden');
   ui.modalConfirm.innerText = '閉じる';
-  ui.modalConfirm.onclick = () => { ui.modal.classList.add('hidden'); updateTitleDiaDisplay(); };
+  ui.modalConfirm.onclick = () => { ui.modal.classList.add('hidden'); updateTitleDiaDisplay(); backToMenuBGM(); };
 }
 // 提供割合の画面。表示はGACHA_RATESから組み立てるので、確率をいじれば勝手に一致する
 function showGachaRates(){
@@ -4192,6 +4238,7 @@ function playGachaAnimation(results, onComplete){
 // ==================== ガチャシステムここまで ====================
 
 window.game.selectMonster = function(key) {
+  stopSceneBGM();   // 選択画面のBGMをここで止める(この先はマップ/バトルのBGM)
 const spec = SPECIES[key];
 state.player.species=spec; state.player.maxHp=spec.hp; state.player.hp=spec.hp;
 applyMetaShopBonuses();
@@ -6187,7 +6234,7 @@ window.game.giveUpRun = function() {
   const dia = awardDiaRewards();
   showModal("冒険終了", `ここまでの冒険を終えた。\n最終スコア: ${s}\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`);
   ui.modalBtn.classList.remove('hidden');
-  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); stopVictoryBGM(); playMenuBGM(); showGlobalVolumeBtn(); updateTitleDiaDisplay(); };
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.nameScene.classList.remove('hidden'); stopBattleBGM(); stopVictoryBGM(); stopSceneBGM(); playMenuBGM(); showGlobalVolumeBtn(); updateTitleDiaDisplay(); };
 };
 function showLegendRushChoice() {
   showModal("🏆 キングラグナを撃破！", "レジェンドボスラッシュに挑戦しますか？（ベリーハード限定の追加コンテンツ）");
@@ -6223,7 +6270,7 @@ if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 if (state.difficulty === 'legend') s = Math.floor(s * 2.25);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();stopSceneBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
@@ -6244,7 +6291,7 @@ function gameOver(){
     updateUI();
     return;
   }
-  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();};
+  state.battleEnded=true; revertTempUpgrades(); clearAutosave(); playSfx('defeat'); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); showModal("敗北",`道半ばで倒れた...\n最終スコア: ${s}\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();stopSceneBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();};
 }
 // 自傷ダメージの共通処理（身代わり人形所持時は50%軽減）
 // 超修行などで戦闘中だけ強化状態にしたカードを、戦闘終了時に元の状態へ戻す
