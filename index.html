@@ -304,6 +304,33 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 }
 .monster-sprite { animation: idle 3s ease-in-out infinite; display: inline-block; font-size: 5rem; line-height: 1; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
 .loadout-acc-img { position:absolute; top:0; left:0; z-index:20; pointer-events:none; transform-origin:center center; display:none; }
+/* アクセサリの位置調整用スライドパッド。
+   プレビューを指で隠さずに動かせるように、離れた場所に置いたアナログスティック。
+   倒している間だけ、倒した量に応じた速さでアクセサリが動き続ける。 */
+.acc-pad {
+  position: relative; width: 104px; height: 104px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 50% 38%, #3f3f46, #18181b 72%);
+  border: 2px solid #52525b; box-shadow: inset 0 3px 8px rgba(0,0,0,0.65);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+/* 中央の十字ガイド */
+.acc-pad::before, .acc-pad::after {
+  content: ''; position: absolute; background: rgba(113,113,122,0.35); pointer-events: none;
+}
+.acc-pad::before { left: 12%; right: 12%; top: 50%; height: 1px; }
+.acc-pad::after { top: 12%; bottom: 12%; left: 50%; width: 1px; }
+.acc-pad-knob {
+  position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+  border-radius: 50%; pointer-events: none;
+  background: linear-gradient(180deg, #d4d4d8, #71717a 60%, #52525b);
+  border: 1px solid #e4e4e7; box-shadow: 0 3px 7px rgba(0,0,0,0.7);
+  transition: transform 0.14s ease-out;
+}
+.acc-pad.is-active { border-color: #f59e0b; }
+.acc-pad.is-active .acc-pad-knob {
+  transition: none;
+  box-shadow: 0 0 12px rgba(251,191,36,0.85), 0 3px 7px rgba(0,0,0,0.7);
+}
 #player-visual-wrap { animation: idle 3s ease-in-out infinite; }
 /* position指定が無いとz-index:10が効かず、後から重ねるオーラ(.aura-fx)が
    キャラの手前に来て顔が隠れてしまうため、必ずpositionを持たせておくこと */
@@ -1229,13 +1256,18 @@ background: linear-gradient(135deg, #300000, #3f2e00);
     <h3 id="acc-picker-title" class="text-amber-400 font-black text-sm mb-3 text-center">アクセサリを選択</h3>
     <div id="acc-picker-grid" class="grid grid-cols-4 gap-2 mb-4"></div>
     <div id="acc-picker-customize" class="hidden border-t border-zinc-700 pt-3">
-      <div class="flex justify-center mb-3">
-        <div id="acc-picker-preview" class="relative w-36 h-36 flex items-center justify-center bg-zinc-950/60 rounded-xl border border-zinc-700 overflow-hidden touch-none">
+      <!-- プレビューの右にスライドパッド。指でプレビューを隠さずに位置を動かせるようにしたもの -->
+      <div class="flex justify-center items-center gap-3 mb-2">
+        <div id="acc-picker-preview" class="relative w-36 h-36 shrink-0 flex items-center justify-center bg-zinc-950/60 rounded-xl border border-zinc-700 overflow-hidden touch-none">
           <img id="acc-picker-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
           <img id="acc-picker-preview-acc" class="absolute z-20 cursor-grab active:cursor-grabbing" src="" style="touch-action:none;">
         </div>
+        <div class="flex flex-col items-center gap-1 shrink-0">
+          <div id="acc-pad" class="acc-pad"><div id="acc-pad-knob" class="acc-pad-knob"></div></div>
+          <div class="text-[8px] text-zinc-500 leading-none">スライドパッド</div>
+        </div>
       </div>
-      <div class="text-[9px] text-zinc-500 text-center mb-2">アクセサリをドラッグして位置を調整できます</div>
+      <div class="text-[9px] text-zinc-500 text-center mb-2">アクセサリを直接ドラッグするか、右のパッドを倒して動かせます</div>
       <div class="text-[11px] text-zinc-400 mb-1">大きさ <span id="acc-scale-val">100</span>%</div>
       <input type="range" id="acc-scale-slider" min="30" max="250" value="100" class="w-full mb-3">
       <div class="text-[11px] text-zinc-400 mb-1">色相 <span id="acc-hue-val">0</span>°</div>
@@ -3131,6 +3163,12 @@ function renderAccPickerGrid(){
 }
 let accDragHandlers = null;
 function closeAccPicker(){
+  // 指を離すイベントを取り逃したまま閉じても回り続けないように、パッドのループを必ず止める
+  if(accPadRaf){ cancelAnimationFrame(accPadRaf); accPadRaf = null; }
+  const pad = document.getElementById('acc-pad');
+  if(pad){ pad.classList.remove('is-active'); }
+  const knob = document.getElementById('acc-pad-knob');
+  if(knob){ knob.style.transform = 'translate(0px, 0px)'; }
   document.getElementById('acc-picker-modal').classList.add('hidden');
   renderLoadoutScene();
 }
@@ -3170,6 +3208,7 @@ function selectAccInPicker(accId){
   };
   renderAccPickerPreview(accId);
   setupAccDrag(accId);
+  setupAccPad(accId);
   renderLoadoutPreview();
 }
 // ピッカーのミニプレビュー枠は144px、キャラは最大85%(約122px)まで表示される想定
@@ -3192,6 +3231,95 @@ function renderAccPickerPreview(accId){
   img.style.top = (ACC_PREVIEW_BOX/2 + v.top) + 'px';
   img.style.transform = `rotate(${v.rotate}deg)`;
   img.style.filter = `hue-rotate(${v.hue}deg)`;
+}
+// ---- スライドパッド ----
+// アクセサリを指でつまむとプレビューが指の下に隠れてしまうので、
+// 離れた場所から動かせるアナログスティックを用意した。
+// 倒している間だけ、倒した量に応じた速さで動き続ける(押しっぱなしで移動)。
+const ACC_PAD_RADIUS = 34;   // ノブが動ける半径(px)
+const ACC_PAD_DEADZONE = 5;  // 遊び。これ以下の傾きでは動かさない
+const ACC_PAD_SPEED = 42;    // 最大の速さ(基準サイズに対する%/秒)
+const ACC_PAD_LIMIT = 150;   // 行き過ぎ防止。この%を超えて離れられないようにする
+let accPadHandlers = null;
+let accPadRaf = null;
+function setupAccPad(accId){
+  const pad = document.getElementById('acc-pad');
+  const knob = document.getElementById('acc-pad-knob');
+  if(!pad || !knob) return;
+  // 前回のリスナーを掃除する(アクセを選び直すたびに呼ばれるため)
+  if(accPadHandlers){
+    document.removeEventListener('mousemove', accPadHandlers.move);
+    document.removeEventListener('touchmove', accPadHandlers.move);
+    document.removeEventListener('mouseup', accPadHandlers.up);
+    document.removeEventListener('touchend', accPadHandlers.up);
+    document.removeEventListener('touchcancel', accPadHandlers.up);
+  }
+  if(accPadRaf){ cancelAnimationFrame(accPadRaf); accPadRaf = null; }
+  const newPad = pad.cloneNode(true);
+  pad.parentNode.replaceChild(newPad, pad);
+  const padEl = document.getElementById('acc-pad');
+  const knobEl = document.getElementById('acc-pad-knob');
+
+  let active = false, vx = 0, vy = 0, lastT = 0;
+  const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
+
+  function setKnob(x, y){ knobEl.style.transform = `translate(${x}px, ${y}px)`; }
+  function aim(e){
+    const pt = e.touches ? e.touches[0] : e;
+    const r = padEl.getBoundingClientRect();
+    let dx = pt.clientX - (r.left + r.width/2);
+    let dy = pt.clientY - (r.top + r.height/2);
+    const dist = Math.hypot(dx, dy);
+    if(dist > ACC_PAD_RADIUS){ dx = dx/dist*ACC_PAD_RADIUS; dy = dy/dist*ACC_PAD_RADIUS; }
+    setKnob(dx, dy);
+    const mag = Math.min(1, Math.hypot(dx, dy)/ACC_PAD_RADIUS);
+    if(Math.hypot(dx, dy) <= ACC_PAD_DEADZONE){ vx = 0; vy = 0; return; }
+    // 傾きを2乗して効かせる。中央付近をゆっくりにして微調整しやすくするため
+    const speed = ACC_PAD_SPEED * mag * mag;
+    const nx = dx/Math.hypot(dx, dy), ny = dy/Math.hypot(dx, dy);
+    vx = nx*speed; vy = ny*speed;
+  }
+  function step(now){
+    if(!active) return;
+    const dt = lastT ? Math.min(0.1, (now - lastT)/1000) : 0;
+    lastT = now;
+    if(dt > 0 && (vx !== 0 || vy !== 0)){
+      const c = loadCosmetics();
+      const cur = accTuning(c, loadoutSelectedSpecies, accId);
+      updateAccTuning(loadoutSelectedSpecies, accId, {
+        offsetXPct: Math.round(clamp((cur.offsetXPct||0) + vx*dt, ACC_PAD_LIMIT)*10)/10,
+        offsetYPct: Math.round(clamp((cur.offsetYPct||0) + vy*dt, ACC_PAD_LIMIT)*10)/10,
+      });
+      renderAccPickerPreview(accId);
+    }
+    accPadRaf = requestAnimationFrame(step);
+  }
+  function padDown(e){
+    active = true; lastT = 0;
+    padEl.classList.add('is-active');
+    aim(e);
+    if(accPadRaf) cancelAnimationFrame(accPadRaf);
+    accPadRaf = requestAnimationFrame(step);
+    e.preventDefault();
+  }
+  function padMove(e){ if(!active) return; aim(e); e.preventDefault(); }
+  function padUp(){
+    if(!active) return;
+    active = false; vx = 0; vy = 0;
+    padEl.classList.remove('is-active');
+    setKnob(0, 0);
+    if(accPadRaf){ cancelAnimationFrame(accPadRaf); accPadRaf = null; }
+    renderLoadoutPreview();
+  }
+  padEl.addEventListener('mousedown', padDown);
+  padEl.addEventListener('touchstart', padDown, {passive:false});
+  document.addEventListener('mousemove', padMove);
+  document.addEventListener('touchmove', padMove, {passive:false});
+  document.addEventListener('mouseup', padUp);
+  document.addEventListener('touchend', padUp);
+  document.addEventListener('touchcancel', padUp);
+  accPadHandlers = { move: padMove, up: padUp };
+  setKnob(0, 0);
 }
 function setupAccDrag(accId){
   const img = document.getElementById('acc-picker-preview-acc');
