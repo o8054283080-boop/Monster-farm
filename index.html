@@ -3082,6 +3082,11 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'30階以降の強敵を強く', items:[
+    '30階から出る強敵が通常の敵とほとんど変わらない強さだったので、体力も攻撃力もはっきり上げました',
+    '報酬が良いぶん、挑むかどうか迷うくらいの相手になっています',
+    '29階までの強敵とボスの強さは変えていません',
+  ]},
   { date:'2026/08/04', title:'こちらの切り札にも必殺技演出', items:[
     'MRカードの大技を使うと、ボスと同じように画面いっぱいの演出と技名が出るようになりました',
     '技名から連想できる見た目になります(炎・氷・雷・斬撃・花吹雪など)',
@@ -5514,6 +5519,10 @@ dmgBase = t.dmg || 10;
 t.hp = hpBase; t.dmg = dmgBase;
 // 強敵 4-14F HP+50
 if(mode==='elite' && state.floor<=14) t.hp += 50;
+// 30階以降の強敵の底上げ。素のままだと通常敵とほとんど差が無く(HP+15%・ダメージ+11%)、
+// 「強敵」を選ぶ緊張感が出ないため。倍率は setEnemyIntent() 側のダメージ補正とセット。
+// **ナリキロッグ(レアモンスター)は階層ごとに個別調整済みなので対象外。**
+if(isEliteBoosted(mode, state.floor, t)) t.hp = Math.floor(t.hp * ELITE_LATE_HP_MULT);
 if(t.isRareElite && t.trait!=='narikillog') {
   t.hp = Math.floor(t.hp * 1.3);
   t.dmg = Math.floor(t.dmg * 1.2);
@@ -5731,10 +5740,29 @@ function diffMultFor(isBoss){
 // 敵の行動を決めて、最後に難易度のダメージ倍率をかける。
 // 本体(setEnemyIntentBase)は素の数値を入れるだけなので、敵を追加するときに
 // 倍率のかけ忘れが起きない。
+// ==== 30階以降の強敵の底上げ ====
+// 素の状態では 31〜44階の強敵と通常敵にほとんど差が無かった
+// (実測: HP 760 vs 661 / 平均ダメージ 60.3 vs 54.3。ヒノトリに至ってはHP560で通常敵より柔らかい)。
+// 「強敵」を選ぶ緊張感が出るよう、HPとダメージの両方に倍率をかける。
+// 【重要】data-enemies.js の dmg フィールドを上げても被ダメージは1も変わらない。
+// 実ダメージは強敵なら actions[].dmg、通常敵なら setEnemyIntentBase() の val で決まり、
+// どちらも最終的に intent.val になるので、倍率はここで一括してかけている。
+const ELITE_LATE_FLOOR = 30;
+const ELITE_LATE_HP_MULT = 1.35;
+const ELITE_LATE_DMG_MULT = 1.3;
+// 【重要】判定に e.isElite を使ってはいけない。あれは `mode!=='normal'` なので**ボスもtrueになる**。
+// ボスは階ごとに手で調整した数値なので、倍率をかけると意図が壊れる。必ず mode==='elite' で見ること。
+// ナリキロッグ(レアモンスター)は階層帯ごとに個別調整済みなので二重にかけない。
+function isEliteBoosted(mode, floor, e) {
+  return mode === 'elite' && floor >= ELITE_LATE_FLOOR && !!e && !e.isRareElite && e.trait !== 'narikillog';
+}
 function setEnemyIntent() {
   setEnemyIntentBase();
   const e = state.enemy;
   if(!e || !e.intent) return;
+  if(e.intent.val > 0 && isEliteBoosted(e.mode, state.floor, e)){
+    e.intent.val = Math.floor(e.intent.val * ELITE_LATE_DMG_MULT);
+  }
   const mult = diffMultFor(e.mode === 'boss').dmg;
   if(mult !== 1 && e.intent.val > 0) e.intent.val = Math.floor(e.intent.val * mult);
 }
