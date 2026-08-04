@@ -375,10 +375,14 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 #player-hand[data-density="md"] .card.small .card-val { font-size: 1.1rem !important; }
 #player-hand[data-density="md"] .card.small .card-emblem { font-size: 29px !important; }
 #player-hand[data-density="md"] .card.small .card-ft { font-size: 5px !important; padding: 0 3px 3px !important; }
-/* 6枚以上は5列×2行のグリッドに切り替える。横スクロールが不要になり、全部が一度に見える */
+/* 6枚以上は2行のグリッドに切り替える。横スクロールが不要になり、全部が一度に見える。
+   列数は --hand-cols(= 枚数の半分の切り上げ)。6枚なら3+3、7枚なら4+3、10枚なら5+5と
+   左右が均等に割れるので、右側だけ大きく空くことがない。
+   列幅は max-content(カードの実寸)にして、全体を justify-content:center で中央に置く。 */
 #player-hand[data-rows="2"]{
-  display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-  justify-items: center !important; align-items: end !important;
+  display: grid !important;
+  grid-template-columns: repeat(var(--hand-cols, 5), max-content) !important;
+  justify-content: center !important; justify-items: center !important; align-items: end !important;
   height: auto !important; overflow-x: hidden !important; overflow-y: visible !important;
   padding-bottom: 4px !important;
 }
@@ -1587,7 +1591,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div class="text-[10px] text-zinc-500 font-bold text-center pixel-font">Deck<br><span id="draw-count" class="text-white text-lg">0</span></div>
 </div>
 <!-- カードエリア：スクロール対応 -->
-<div id="player-hand" class="flex justify-start items-end h-[152px] w-full mb-1.5 gap-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
+<div id="player-hand" class="flex justify-center items-end h-[152px] w-full mb-1.5 gap-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
 <div class="flex justify-center">
 <button id="end-turn-btn" class="w-40 py-3 bg-gradient-to-b from-red-800 to-red-950 text-white font-black rounded-full border-2 border-red-600/50 text-sm pixel-font tracking-widest shadow-lg active:scale-95 hover:brightness-110 disabled:grayscale disabled:opacity-50">ターン終了</button>
 </div>
@@ -2643,6 +2647,10 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'手札の並びを中央に', items:[
+    '手札が左に寄っていて右側だけ空いていたのを、中央にそろえました',
+    '2行のときも上下の枚数が均等になるようにしました',
+  ]},
   { date:'2026/08/04', title:'レジェンドの難易度調整', items:[
     '最高難易度らしくなるよう、レジェンドの敵の体力を引き上げました',
     '他の難易度は変わりません',
@@ -7195,6 +7203,8 @@ function renderHand(){
   else if(n >= 5){ density='sm'; gap=5; }
   ui.hand.dataset.density = density;
   ui.hand.dataset.rows = twoRows ? '2' : '1';
+  // 2行のときは左右が均等になる列数にする(6枚→3+3、7枚→4+3、10枚→5+5)
+  ui.hand.style.setProperty('--hand-cols', twoRows ? String(Math.ceil(n/2)) : '');
   ui.hand.style.gap = gap+'px';
   state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true)));
 }
