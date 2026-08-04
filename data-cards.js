@@ -286,7 +286,7 @@ g_sr7:{mid:'golem',name:'ダンベルラッシュ',cost:26,val:17,crit:'C',hits:
 g_sr8:{mid:'golem',name:'ロックラリアット',cost:38,val:51,crit:'B',executeBelow:0.5,executeMult:2,rarity:'SR',desc:'攻51 会心B 敵ライフ50%以下でダメージ2倍'},
 g_ssr5:{mid:'golem',name:'力の誓い',cost:60,regenAtk:5,remove:true,rarity:'SSR',desc:'毎ターン力+5 消滅'},
 g_ssr6:{mid:'golem',name:'握りつぶす',cost:41,val:49,crit:'B',weak:3,vuln:3,enemyAtkDown:5,rarity:'SSR',desc:'攻49 会心B 攻弱守弱3 相手力-5'},
-g_mr5:{mid:'golem',name:'一撃入魂',cost:55,val:0,ikkiIssin:true,rarity:'MR',desc:'この戦闘中、連撃のないカードのダメージ3倍'},
+g_mr5:{mid:'golem',name:'一撃入魂',cost:55,val:0,ikkiIssin:true,remove:true,rarity:'MR',desc:'この戦闘中、連撃のないカードのダメージ3倍 消滅'},
 // モノリス
 mo_n6:{mid:'monolith',name:'壁ブーメラン',cost:9,val:18,crit:'E',block:10,rarity:'N',desc:'攻18 会心E 防10'},
 mo_r6:{mid:'monolith',name:'2連たおれこみ',cost:15,val:8,crit:'D',hits:2,rarity:'R',desc:'攻8 会心D 連撃2'},
@@ -295,7 +295,7 @@ mo_sr7:{mid:'monolith',name:'模様替え',cost:21,blockBattle:3,regenBlock:7,re
 mo_sr8:{mid:'monolith',name:'連続針ぶっ刺し',cost:34,val:13,crit:'C',hits:3,bleed:3,rarity:'SR',desc:'攻13 会心C 連撃3 出血3'},
 mo_ssr5:{mid:'monolith',name:'絶たおれこみ',cost:22,val:45,crit:'B',vuln:1,blockBattle:1,rarity:'SSR',desc:'攻45 会心B 守弱1 丈夫さ+1'},
 mo_ssr6:{mid:'monolith',name:'ダイヤモンド補修',cost:35,block:70,heal:5,nextTurnEnergy:25,rarity:'SSR',desc:'防70 ライフ5回復 次ガッツ25'},
-mo_mr5:{mid:'monolith',name:'絶対防御体制',cost:60,val:0,blockPersists:true,rarity:'MR',desc:'この戦闘中、ブロックがターン開始時にリセットされなくなる'},
+mo_mr5:{mid:'monolith',name:'絶対防御体制',cost:60,val:0,blockPersists:true,remove:true,rarity:'MR',desc:'この戦闘中、ブロックがターン開始時にリセットされなくなる 消滅'},
 // カワズモー
 k_n5:{mid:'kawazumo',name:'塩撒き',cost:8,val:4,crit:'G',weak:2,vuln:2,rarity:'N',desc:'攻4 会心G 攻弱守弱2'},
 k_r5:{mid:'kawazumo',name:'つっぱり',cost:22,val:4,crit:'D',hits:4,rarity:'R',desc:'攻4 会心D 連撃4'},

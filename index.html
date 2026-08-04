@@ -759,12 +759,15 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   60%{transform:rotate(-26deg) scaleX(1);opacity:1}
   100%{transform:rotate(-26deg) scaleX(1);opacity:0}
 }
+/* 標準モーションは爆砕と同じ部品を使い、色だけ白金にして場面を選ばない見た目にしている */
+.motion-fx[data-m="basic_std"] .ring,
 .motion-fx[data-m="atk_burst"] .ring{
   left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
   border:3px solid #f87171;box-shadow:0 0 16px #f87171;
   animation:mfx-burstring .5s cubic-bezier(.15,.75,.3,1) forwards;animation-delay:var(--d);
 }
 @keyframes mfx-burstring{0%{transform:scale(.3);opacity:1}100%{transform:scale(7);opacity:0}}
+.motion-fx[data-m="basic_std"] .shard,
 .motion-fx[data-m="atk_burst"] .shard{
   left:50%;top:50%;width:5px;height:14px;margin:-7px 0 0 -2.5px;border-radius:2px;
   background:linear-gradient(180deg,#fff,#f87171);box-shadow:0 0 8px #f87171;
@@ -774,6 +777,8 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   0%{transform:rotate(var(--a)) translateY(0) scale(.6);opacity:1}
   100%{transform:rotate(var(--a)) translateY(-58px) scale(.9);opacity:0}
 }
+.motion-fx[data-m="basic_std"] .ring{border-color:#fde68a;box-shadow:0 0 16px #fde68a}
+.motion-fx[data-m="basic_std"] .shard{background:linear-gradient(180deg,#fff,#fde68a);box-shadow:0 0 8px #fde68a}
 .motion-fx[data-m="atk_flash"] span{
   left:var(--x);top:var(--y);width:52px;height:2px;
   background:linear-gradient(90deg,transparent,#fff,transparent);
@@ -959,9 +964,95 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 @keyframes mv-pulse{
   0%,100%{transform:scale(1)}30%{transform:scale(1.08)}60%{transform:scale(.98)}
 }
+/* ---- 敵の動き ---- */
+/* 敵にも同じ仕組みで動きを付ける。プレイヤーと左右が逆なので符号を反転させている */
+#enemy-monster-node.emv-lunge{animation:emv-lunge .46s cubic-bezier(.3,.9,.3,1)}
+@keyframes emv-lunge{
+  0%{transform:translateX(0) scale(1,1)}15%{transform:translateX(7px) scale(.97,1.03)}
+  32%{transform:translateX(-26px) scale(1.07,.93)}55%{transform:translateX(-16px)}
+  100%{transform:translateX(0) scale(1,1)}
+}
+#enemy-monster-node.emv-charge{animation:emv-charge .58s cubic-bezier(.25,.9,.3,1)}
+@keyframes emv-charge{
+  0%{transform:translateX(0) rotate(0) scale(1,1)}18%{transform:translateX(12px) rotate(5deg) scale(.94,1.06)}
+  36%{transform:translateX(-34px) rotate(-6deg) scale(1.12,.9)}60%{transform:translateX(-20px) rotate(-2deg)}
+  100%{transform:translateX(0) rotate(0) scale(1,1)}
+}
+#enemy-monster-node.emv-rise{animation:emv-rise .7s ease-out}
+@keyframes emv-rise{
+  0%,100%{transform:translateY(0) scale(1,1)}
+  22%{transform:translateY(4px) scale(1.05,.94)}
+  55%{transform:translateY(-11px) scale(.95,1.07)}
+}
+#enemy-monster-node.emv-brace{animation:emv-brace .55s ease-out}
+@keyframes emv-brace{
+  0%,100%{transform:scale(1,1) translateY(0)}
+  30%{transform:scale(1.1,.88) translateY(5px)}
+  62%{transform:scale(.97,1.04) translateY(-2px)}
+}
+
+/* ==================== 属性エフェクト ====================
+   装備しているモーションとは別に、カードの中身から自動で出る演出。
+   炎上→炎 / 氷結→氷 / 感電→電気 / 「砲・ビーム」等の技名→ビーム。
+   .motion-fx とは別レイヤー(.elem-fx)なので、モーションと同時に出ても消し合わない。
+   色は --ec(主色) と --eg(グロー) の2変数だけで切り替えている。 */
+.elem-fx{position:absolute;inset:0;pointer-events:none;z-index:41;overflow:visible}
+.elem-fx span{position:absolute;display:block}
+/* 炎: 下から炎の舌が立ちのぼる */
+.elem-fx[data-e="fire"] span{
+  left:var(--x);bottom:4%;width:22%;height:22%;border-radius:50% 50% 46% 46%;
+  background:radial-gradient(circle at 50% 80%,#fff7cc,var(--ec) 55%,transparent 78%);
+  filter:blur(.4px);opacity:0;animation:efx-fire .62s ease-out var(--d) forwards;
+}
+@keyframes efx-fire{
+  0%{opacity:0;transform:translateY(6px) scaleY(.5)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translateY(-46px) scaleY(1.9) scaleX(.6)}
+}
+/* 氷: 結晶が四方から突き刺さる */
+.elem-fx[data-e="ice"] span{
+  left:50%;top:50%;width:8%;height:46%;margin-left:-4%;transform-origin:50% 100%;
+  background:linear-gradient(180deg,transparent,var(--ec));
+  box-shadow:0 0 8px var(--eg);opacity:0;
+  animation:efx-ice .55s cubic-bezier(.2,.9,.3,1) var(--d) forwards;
+}
+@keyframes efx-ice{
+  0%{opacity:0;transform:rotate(var(--a)) translateY(-60px) scaleY(.3)}
+  35%{opacity:1}
+  100%{opacity:0;transform:rotate(var(--a)) translateY(-6px) scaleY(1)}
+}
+/* 電気: ギザギザの稲妻が走る */
+.elem-fx[data-e="elec"] span{
+  left:var(--x);top:4%;width:5px;height:92%;
+  background:linear-gradient(180deg,transparent,var(--ec) 20%,#fff 50%,var(--ec) 80%,transparent);
+  box-shadow:0 0 10px var(--eg);opacity:0;
+  clip-path:polygon(40% 0,100% 34%,58% 40%,100% 68%,44% 74%,86% 100%,0 62%,42% 54%,0 28%);
+  animation:efx-elec .42s steps(3,end) var(--d) forwards;
+}
+@keyframes efx-elec{0%{opacity:0}20%{opacity:1}60%{opacity:.85}100%{opacity:0}}
+/* ビーム: 横一線の太い光条が通り抜ける */
+.elem-fx[data-e="beam"] .beam{
+  left:-40%;top:44%;width:180%;height:12%;margin-top:-6%;border-radius:999px;
+  background:linear-gradient(90deg,transparent,var(--ec) 22%,#fff 50%,var(--ec) 78%,transparent);
+  box-shadow:0 0 22px var(--eg);opacity:0;transform:scaleY(.1);
+  animation:efx-beam .5s ease-out forwards;
+}
+@keyframes efx-beam{
+  0%{opacity:0;transform:scaleY(.06) scaleX(.3)}
+  22%{opacity:1;transform:scaleY(1.15) scaleX(1)}
+  62%{opacity:1;transform:scaleY(.9) scaleX(1)}
+  100%{opacity:0;transform:scaleY(.06) scaleX(1)}
+}
+.elem-fx[data-e="beam"] .glow{
+  left:50%;top:50%;width:60%;height:60%;margin:-30% 0 0 -30%;border-radius:50%;
+  background:radial-gradient(circle,var(--eg),transparent 70%);opacity:0;
+  animation:efx-beamglow .5s ease-out forwards;
+}
+@keyframes efx-beamglow{0%{opacity:0;transform:scale(.3)}30%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
+
 @media (prefers-reduced-motion: reduce){
-  .motion-fx{display:none}
-  #player-visual-wrap[class*="mv-"]{animation:none !important}
+  .motion-fx,.elem-fx{display:none}
+  #player-visual-wrap[class*="mv-"],#enemy-monster-node[class*="emv-"]{animation:none !important}
 }
 
 /* ==================== オーラ(戦闘中・装備プレビュー共通) ====================
@@ -2692,6 +2783,21 @@ function renderTitlesScreen(){
 // ==================== ダイヤ通貨システムここまで ====================
 
 // ==================== コスメ所持・装備データ ====================
+// 標準モーションは全員が最初から持っていて、未設定の場面には自動で装備される。
+// ガチャを引いていない人でも演出が出るようにするためのもの。
+// 一度でも「なし」を選んだ場面は尊重する(equippedMotionsにキーがあれば触らない)。
+function ensureBasicMotion(c){
+  try{
+    if(typeof CARD_MOTIONS === 'undefined') return c;
+    c.ownedMotions = c.ownedMotions || [];
+    if(!c.ownedMotions.includes(MOTION_BASIC_ID)) c.ownedMotions.push(MOTION_BASIC_ID);
+    c.equippedMotions = c.equippedMotions || {};
+    MOTION_CATS.forEach(cat => {
+      if(!(cat.key in c.equippedMotions)) c.equippedMotions[cat.key] = MOTION_BASIC_ID;
+    });
+  }catch(e){ console.warn('標準モーションの初期化に失敗しました', e); }
+  return c;
+}
 function loadCosmetics(){
   const fallback = {
     ownedSkins: [],           // 所持スキンidの配列
@@ -2707,7 +2813,7 @@ function loadCosmetics(){
   };
   try{
     const raw = localStorage.getItem(COSMETICS_STORAGE_KEY);
-    if(!raw) return migrateAccessoryData(fallback);
+    if(!raw) return ensureBasicMotion(migrateAccessoryData(fallback));
     const c = JSON.parse(raw);
     const out = {
       ownedSkins: c.ownedSkins || [],
@@ -2721,8 +2827,8 @@ function loadCosmetics(){
       ownedMotions: c.ownedMotions || [],
       equippedMotions: c.equippedMotions || {},
     };
-    return migrateAccessoryData(out);
-  }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return migrateAccessoryData(fallback); }
+    return ensureBasicMotion(migrateAccessoryData(out));
+  }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return ensureBasicMotion(migrateAccessoryData(fallback)); }
 }
 // ---- アクセサリの種族ごと保存 ----
 // 以前はアクセサリの装備も調整値(色・角度・大きさ・位置)も全種族で共通だった。
@@ -3094,10 +3200,10 @@ function renderLoadoutMotionGrid(){
       });
     list.forEach(m => {
       const has = owned.includes(m.id);
-      chip(m.name, has ? m.desc : 'ガチャSR枠で入手', eq[cat.key] === m.id, !has, () => {
+      chip(m.basic ? m.name+'(標準)' : m.name, has ? m.desc : 'ガチャSR枠で入手', eq[cat.key] === m.id, !has, () => {
         const c2 = loadCosmetics(); c2.equippedMotions = c2.equippedMotions||{}; c2.equippedMotions[cat.key] = m.id;
         saveCosmetics(c2); playSfx('select'); renderLoadoutMotionGrid();
-        previewMotionOnLoadout(m);
+        previewMotionOnLoadout(m, cat.key);
       });
     });
     box.appendChild(row);
@@ -3105,16 +3211,18 @@ function renderLoadoutMotionGrid(){
   });
 }
 // 装備画面のプレビュー枠でモーションを1回再生してみせる
-function previewMotionOnLoadout(m){
+function previewMotionOnLoadout(m, cat){
   const host = document.getElementById('loadout-preview');
   if(!host || !m) return;
   buildMotionFx(host, m.id);
+  // 標準モーションは場面ごとに動きが変わるので、押された場面の動きを見せる
+  const move = m.basic ? ((MOTION_BASIC_BY_CAT[cat]||{}).move || 'mv-lunge') : m.move;
   const img = document.getElementById('loadout-preview-img');
-  if(img && m.move){
+  if(img && move){
     img.classList.remove('mv-lunge','mv-charge','mv-rapid','mv-brace','mv-rise','mv-cast','mv-pulse');
     void img.offsetWidth;
-    img.classList.add(m.move);
-    setTimeout(()=>img.classList.remove(m.move), 800);
+    img.classList.add(move);
+    setTimeout(()=>img.classList.remove(move), 800);
   }
 }
 function renderLoadoutAccessorySlots(){
@@ -3490,7 +3598,7 @@ function resolveGachaTier(tier){
   }
   // SR枠はSRスキンとモーションが半々。どちらもレア度の位置づけは同じ扱いにする
   if(tier==='srSkin' && typeof CARD_MOTIONS !== 'undefined' && Math.random() < 0.5){
-    const motion = pickRandom(CARD_MOTIONS);
+    const motion = pickRandom(gachaMotions());   // 標準モーションはガチャ対象外
     const c = loadCosmetics();
     c.ownedMotions = c.ownedMotions || [];
     if(c.ownedMotions.includes(motion.id)){
@@ -3709,7 +3817,7 @@ function showGachaRates(){
   // 種類数はデータから数える。スキンやアクセを増やしても表示が勝手に追従する
   const nSSR = allSkinsOfRarity('SSR').length;
   const nSR  = allSkinsOfRarity('SR').length;
-  const nMotion = (typeof CARD_MOTIONS !== 'undefined') ? CARD_MOTIONS.length : 0;
+  const nMotion = (typeof CARD_MOTIONS !== 'undefined') ? gachaMotions().length : 0;
   const rows = [
     { key:'aura',      label:'オーラ',           detail:`全${AURAS.length}種からランダム`,        color:'text-fuchsia-300' },
     { key:'ssrSkin',   label:'SSRスキン',        detail:`全${nSSR}種からランダム`,                color:'text-amber-300' },
@@ -3789,7 +3897,7 @@ function showPityChooser(type, onChosen){
   let choices = [];
   if(type==='sr'){
     choices = allSkinsOfRarity('SR').map(s=>({...s, kind:'skin'}));
-    if(typeof CARD_MOTIONS !== 'undefined') CARD_MOTIONS.forEach(m=>choices.push({id:m.id, name:m.name, img:null, kind:'motion'}));
+    if(typeof CARD_MOTIONS !== 'undefined') gachaMotions().forEach(m=>choices.push({id:m.id, name:m.name, img:null, kind:'motion'}));
   } else {
     choices = allSkinsOfRarity('SSR').map(s=>({...s, kind:'skin'}));
     AURAS.forEach(a=>choices.push({id:a.id, name:a.name, img:null, kind:'aura'}));
@@ -5379,6 +5487,11 @@ state.enemy.block=0; const i=state.enemy.intent; let dmg=0;
 let evadedThisAttack = false;
 // 力アップ分（_baseDmgからの増加）をval に加算
 const _atkBonus = Math.max(0, (state.enemy.dmg||0) - (state.enemy._baseDmg||state.enemy.dmg||0));
+// 敵の行動にも動きとエフェクトを付ける。技名から炎/氷/雷/ビームを推測して色を変える
+if (!isFrozen && typeof playEnemyMotion === 'function') {
+  const isAtk = (i.val||0) > 0;
+  playEnemyMotion(isAtk ? 'atk' : (i.block ? 'block' : 'buff'), isAtk ? enemyElementOf(i.desc) : null);
+}
 if (!isFrozen) {
 if(['atk','block_atk','atk_debuff','atk_vuln','atk_debuff_both','atk_weak','atk_debuff_both_3','atk_drain','atk_vuln_drain','atk_debuff_both_drain','atk_weak_drain','atk_debuff_both_3_drain','block_atk_drain','block_atk_vuln'].includes(i.type)) {
 const hits = i.hits || 1;
@@ -5561,6 +5674,8 @@ if(c.discardAll){const o=state.hand.filter((_,i)=>i!==idx); o.forEach(x=>state.d
 // （こうしておくことで、この後の効果処理中に万一エラーが起きても、カードが手札に残ったままにならない）
 state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
 resetCardMotions(); // このカードで各場面のモーションを1回ずつだけ鳴らす
+resetElemFx();      // 属性エフェクトも1枚につき1回だけ
+playElementFx(c);   // 炎上/氷結/感電、あるいは「砲・ビーム」等の技名から自動で出す
 updateUI(); renderHand();
 if(c.breakBlock)state.enemy.block=0;
 let actualHits=1;
@@ -6575,6 +6690,9 @@ const MOTION_CATS = [
   { key:'heal', label:'回復', note:'ライフが回復したとき',     color:'text-emerald-300' },
 ];
 const CARD_MOTIONS = [
+  // 標準モーション。ガチャには入れず、最初から全員が所持している唯一のモーション。
+  // cat:'all' なので5場面すべての選択肢に出る。出す場所と動きは場面ごとに決まる(MOTION_BASIC_BY_CAT)。
+  { id:'basic_std',   cat:'all',  name:'標準',      desc:'最初から使える基本の演出。場面に合わせて形が変わる', basic:true },
   { id:'atk_slash',   cat:'atk',  name:'斬撃',      desc:'白刃が三度、斜めに走り抜ける',   fxOn:'enemy',  move:'mv-lunge'  },
   { id:'atk_burst',   cat:'atk',  name:'爆砕',      desc:'着弾点から衝撃波と破片が弾ける', fxOn:'enemy',  move:'mv-charge' },
   { id:'atk_flash',   cat:'atk',  name:'連閃',      desc:'細かい閃光が四方から次々と刺さる', fxOn:'enemy', move:'mv-rapid' },
@@ -6591,8 +6709,20 @@ const CARD_MOTIONS = [
   { id:'heal_light',  cat:'heal', name:'聖光',      desc:'天から光の柱が降りそそぐ',         fxOn:'player', move:'mv-rise'  },
   { id:'heal_pulse',  cat:'heal', name:'再生',      desc:'緑の輪が広がって包み込む',         fxOn:'player', move:'mv-pulse' },
 ];
+// 標準モーションは1つで5場面を兼ねるので、場面ごとの出し先と動きをここで決める
+const MOTION_BASIC_BY_CAT = {
+  atk:  { fxOn:'enemy',  move:'mv-lunge' },
+  def:  { fxOn:'player', move:'mv-brace' },
+  buf:  { fxOn:'player', move:'mv-rise'  },
+  deb:  { fxOn:'enemy',  move:'mv-cast'  },
+  heal: { fxOn:'player', move:'mv-rise'  },
+};
+const MOTION_BASIC_ID = 'basic_std';
 function findMotion(id){ return CARD_MOTIONS.find(m=>m.id===id) || null; }
-function motionsOfCat(cat){ return CARD_MOTIONS.filter(m=>m.cat===cat); }
+// cat:'all' の標準モーションはどの場面の一覧にも出す
+function motionsOfCat(cat){ return CARD_MOTIONS.filter(m=>m.cat===cat || m.cat==='all'); }
+// ガチャの抽選対象。標準モーションは対象外(最初から持っているため)
+function gachaMotions(){ return CARD_MOTIONS.filter(m=>!m.basic); }
 
 // モーションが必要とする要素を組み立てて対象へ差し込む
 function buildMotionFx(host, id){
@@ -6637,6 +6767,8 @@ function buildMotionFx(host, id){
       add('col');
       for(let i=0;i<6;i++) add('spark',`--x:${rnd(14,72).toFixed(0)}%;--y:${rnd(16,58).toFixed(0)}%;--d:${rnd(0,0.35).toFixed(3)}s`); break;
     case 'heal_pulse': ['0s','.13s'].forEach(d=>add('',`--d:${d}`)); break;
+    // 標準モーション。既存の部品を組み合わせただけの素直な衝撃波
+    case 'basic_std': add('ring','--d:0s'); for(let i=0;i<6;i++) add('shard',`--a:${i*60}deg;--d:0s`); break;
   }
   host.appendChild(fx);
   setTimeout(()=>fx.remove(), 1100);
@@ -6662,19 +6794,115 @@ function playCardMotion(cat){
   try{
     const m = pickMotionForCat(cat);
     if(!m) return;
-    if(__cardMotionUsed[m.fxOn]) return;
-    __cardMotionUsed[m.fxOn] = true;
-    const host = m.fxOn === 'enemy' ? ui.enemyVisual : ui.playerVisual;
+    // 標準モーションは場面ごとに出し先と動きが変わる
+    const fxOn = m.basic ? (MOTION_BASIC_BY_CAT[cat]||{}).fxOn : m.fxOn;
+    const move = m.basic ? (MOTION_BASIC_BY_CAT[cat]||{}).move : m.move;
+    if(!fxOn) return;
+    if(__cardMotionUsed[fxOn]) return;
+    __cardMotionUsed[fxOn] = true;
+    const host = fxOn === 'enemy' ? ui.enemyVisual : ui.playerVisual;
     if(host) buildMotionFx(host, m.id);
     const wrap = document.getElementById('player-visual-wrap');
-    if(wrap && m.move && !__cardMotionUsed.move){
+    if(wrap && move && !__cardMotionUsed.move){
       __cardMotionUsed.move = true;
       wrap.classList.remove('mv-lunge','mv-charge','mv-rapid','mv-brace','mv-rise','mv-cast','mv-pulse');
       void wrap.offsetWidth;
-      wrap.classList.add(m.move);
-      setTimeout(()=>wrap.classList.remove(m.move), 800);
+      wrap.classList.add(move);
+      setTimeout(()=>wrap.classList.remove(move), 800);
     }
   }catch(e){ console.warn('モーション再生に失敗しました', e); }
+}
+
+// ==================== 属性エフェクト ====================
+// 装備モーションとは無関係に、カードの中身から自動で出る演出。
+// 「何が起きたか」が見た目で分かるようにするのが目的なので、所持や装備の概念はない。
+const ELEM_THEME = {
+  fire: { c:'#fb923c', g:'rgba(251,146,60,0.85)' },
+  ice:  { c:'#7dd3fc', g:'rgba(125,211,252,0.85)' },
+  elec: { c:'#facc15', g:'rgba(250,204,21,0.85)' },
+  beam: { c:'#c084fc', g:'rgba(192,132,252,0.85)' },
+};
+// 技名にこれらが入っていたらビーム演出にする
+const BEAM_NAME_HINTS = ['砲','ビーム','レーザー','光線','フォース','キャノン','ブレス','波動','衝撃波'];
+// カード1枚から「出すべき属性」を決める。炎/氷/電の状態異常が優先、無ければ技名でビーム判定
+function elementOfCard(c){
+  if(!c) return null;
+  if(c.burn)  return 'fire';
+  if(c.freeze) return 'ice';
+  if(c.shock) return 'elec';
+  const n = c.name || '';
+  if(BEAM_NAME_HINTS.some(k => n.includes(k))) return 'beam';
+  return null;
+}
+function buildElemFx(host, elem){
+  if(!host || !ELEM_THEME[elem]) return;
+  const old = host.querySelector('.elem-fx');
+  if(old) old.remove();
+  const th = ELEM_THEME[elem];
+  const fx = document.createElement('div');
+  fx.className = 'elem-fx';
+  fx.dataset.e = elem;
+  fx.style.cssText = `--ec:${th.c};--eg:${th.g}`;
+  const add = (cls, style) => { const sp=document.createElement('span'); if(cls) sp.className=cls; if(style) sp.style.cssText=style; fx.appendChild(sp); };
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  if(elem === 'fire'){
+    for(let i=0;i<7;i++) add('', `--x:${rnd(8,78).toFixed(0)}%;--d:${(i*0.055).toFixed(3)}s`);
+  } else if(elem === 'ice'){
+    for(let i=0;i<6;i++) add('', `--a:${i*60}deg;--d:${(i*0.045).toFixed(3)}s`);
+  } else if(elem === 'elec'){
+    for(let i=0;i<5;i++) add('', `--x:${rnd(14,76).toFixed(0)}%;--d:${(i*0.05).toFixed(3)}s`);
+  } else if(elem === 'beam'){
+    add('beam'); add('glow');
+  }
+  host.appendChild(fx);
+  setTimeout(()=>fx.remove(), 900);
+}
+// 1枚のカードにつき1回だけ出す(連撃で何度も重ならないように)
+let __elemFxUsed = false;
+function resetElemFx(){ __elemFxUsed = false; }
+function playElementFx(card){
+  try{
+    if(__elemFxUsed) return;
+    const elem = elementOfCard(card);
+    if(!elem) return;
+    __elemFxUsed = true;
+    buildElemFx(ui.enemyVisual, elem);
+  }catch(e){ console.warn('属性エフェクトの再生に失敗しました', e); }
+}
+
+// ==================== 敵のモーション ====================
+// 敵が攻撃したとき・自分を強化したときに動きとエフェクトを出す。
+// プレイヤー側と違い装備の概念はなく、行動の種類から自動で決まる。
+function playEnemyMotion(kind, elem){
+  try{
+    const node = document.getElementById('enemy-monster-node');
+    if(node){
+      const move = kind==='buff' ? 'emv-rise' : (kind==='block' ? 'emv-brace' : 'emv-lunge');
+      node.classList.remove('emv-lunge','emv-charge','emv-rise','emv-brace');
+      void node.offsetWidth;
+      node.classList.add(move);
+      setTimeout(()=>node.classList.remove(move), 800);
+    }
+    // 攻撃ならプレイヤー側に、強化なら敵自身にエフェクトを出す
+    if(kind === 'buff'){
+      buildMotionFx(ui.enemyVisual, 'buf_updraft');
+    } else {
+      buildMotionFx(ui.playerVisual, 'basic_std');
+      if(elem) buildElemFx(ui.playerVisual, elem);
+    }
+  }catch(e){ console.warn('敵モーションの再生に失敗しました', e); }
+}
+// 敵の技名から属性を推測する(炎/氷/雷を思わせる名前ならその色を出す)
+const ENEMY_ELEM_HINTS = [
+  ['fire', ['ファイア','炎','火','フレイム','マグマ','溶岩','バーン','灼']],
+  ['ice',  ['アイス','氷','ブリザード','フリーズ','冷','雪']],
+  ['elec', ['サンダー','雷','電','スパーク','ライトニング','プラズマ']],
+  ['beam', ['ビーム','光線','砲','レーザー','キャノン','ブレス','波動','衝撃波','怪光']],
+];
+function enemyElementOf(desc){
+  const n = desc || '';
+  for(const [elem, keys] of ENEMY_ELEM_HINTS){ if(keys.some(k=>n.includes(k))) return elem; }
+  return null;
 }
 // ==================== カード演出モーションここまで ====================
 function cardRoleOf(c){
