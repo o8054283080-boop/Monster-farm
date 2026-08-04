@@ -1982,7 +1982,7 @@ function buildEnemyImgLookup() {
 }
 // 画像の縦横比が他と違う敵(横長など)は、containで縮んで小さく見えるので個別に倍率をかける。
 // 例: ビークロンの画像は360x269の横長で、6rem×7remの縦長枠に収めると高さが7割ほどしか使われない。
-const ENEMY_SPRITE_SCALE = { beaklon: 1.4 };
+const ENEMY_SPRITE_SCALE = { beaklon: 1.4, baku: 1.2 };
 function enemySpriteAttr(t){
   const sc = t && ENEMY_SPRITE_SCALE[t.trait];
   return sc ? ` data-scale="1" style="--esc:${sc}"` : '';
