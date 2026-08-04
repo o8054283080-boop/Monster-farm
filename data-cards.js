@@ -41,7 +41,9 @@ mono_b3_skin2:{mid:'monolith',id:'mono_b3_skin2',name:'魔王の雄叫び',cost:
 k_b3_skin:{mid:'kawazumo',id:'k_b3_skin',name:'がっぷりよつ蒼',cost:15,val:17,vuln:2,block:8,crit:'C',rarity:'SR',desc:'攻17 守弱2 防8',isStarter:true,skinCardOf:'kawazumo_ssr_01',replaces:'k_b3'},
 ga_b3_skin:{mid:'gali',id:'ga_b3_skin',name:'深淵の焔',cost:22,val:12,weak:2,vuln:2,burn:2,crit:'F',rarity:'SR',desc:'攻12 攻弱守弱2 炎上2',isStarter:true,skinCardOf:'gali_ssr_01',replaces:'ga_b3'},
 hinotori_b3_skin:{mid:'hinotori',id:'hinotori_b3_skin',name:'黄金雷撃',cost:27,val:32,shock:2,crit:'B',rarity:'SR',desc:'攻32 感電2',isStarter:true,skinCardOf:'hinotori_ssr_01',replaces:'hinotori_b3'},
-zan_b3_skin:{mid:'zan',id:'zan_b3_skin',name:'溶岩の型',cost:13,burn:2,selfBleedOnHit:1,remove:true,rarity:'N',desc:'炎上2 今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true,skinCardOf:'zan_ssr_01',replaces:'zan_b3'}
+zan_b3_skin:{mid:'zan',id:'zan_b3_skin',name:'溶岩の型',cost:13,burn:2,selfBleedOnHit:1,remove:true,rarity:'N',desc:'炎上2 今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true,skinCardOf:'zan_ssr_01',replaces:'zan_b3'},
+hinotori_b3_skin2:{mid:'hinotori',id:'hinotori_b3_skin2',name:'ハデスフレア',cost:21,val:29,burn:2,bleed:3,crit:'B',rarity:'SR',desc:'攻29 炎上2 出血3',isStarter:true,skinCardOf:'hinotori_ssr_02',replaces:'hinotori_b3'},
+motchi_b3_skin2:{mid:'motchi',id:'motchi_b3_skin2',name:'無下限呪術',cost:9,val:14,block:25,weak:2,crit:'A',rarity:'SR',desc:'攻14 防25 攻弱2',isStarter:true,skinCardOf:'motchi_ssr_02',replaces:'motchi_b3'},
 };
 const CARDS = {
 hinotori_b1:{mid:'hinotori',id:'hinotori_b1',name:'くちばし',cost:11,val:16,crit:'D',rarity:'N',desc:'攻16',isStarter:true},
@@ -351,7 +353,7 @@ c_mr7:{name:'三日月の舞',cost:62,grantEvasion:2,remove:true,rarity:'MR',des
 // exhaustHandAll: 手札を全部消滅。drawPerExhausted: 消滅した枚数ぶんドロー。
 // energyFromExhausted: 消滅させたカードのコスト合計ぶんガッツを得る。
 // **4枚とも remove:true(使ったら消滅)。** これを外すと「引く→捨てる→引く」が無限に回るため。
-c_r13:{name:'選別',cost:8,chooseExhaust:1,draw:1,remove:true,rarity:'R',desc:'手札から1枚選んで消滅 ドロー1 消滅'},
+c_r13:{name:'選別',cost:11,chooseExhaust:1,draw:1,rarity:'R',desc:'手札から1枚選んで消滅 ドロー1'},
 c_sr10:{name:'昇華',cost:12,chooseExhaust:1,energyFromExhausted:true,remove:true,rarity:'SR',desc:'手札から1枚選んで消滅 そのカードのコストぶんガッツ回復 消滅'},
 c_sr11:{name:'整理整頓',cost:15,exhaustHandAll:true,drawPerExhausted:true,remove:true,rarity:'SR',desc:'手札を全て消滅 消滅した枚数ぶんドロー 消滅'},
 c_ssr15:{name:'忘却の礎',cost:8,chooseExhaust:2,draw:1,heal:30,remove:true,rarity:'SSR',desc:'手札から2枚選んで消滅 ドロー1 回復30 消滅'},

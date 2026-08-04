@@ -2656,8 +2656,8 @@ function showDiaToast(html){
 
 // 大型アップデート記念の配布。フラグを見て1端末につき1回だけ配る。
 // 次回また配るときは、キーの日付部分を変えて金額を書き換えるだけでよい。
-const UPDATE_GIFT_KEY = 'mf_update_gift_20260803';
-const UPDATE_GIFT_AMOUNT = 150;
+const UPDATE_GIFT_KEY = 'mf_update_gift_20260805';
+const UPDATE_GIFT_AMOUNT = 200;
 (function(){
   try{
     if(localStorage.getItem(UPDATE_GIFT_KEY)) return;
@@ -2668,7 +2668,7 @@ const UPDATE_GIFT_AMOUNT = 150;
     updateTitleDiaDisplay();
     // ログインボーナスのトーストと重ならないよう、少し遅らせて出す
     setTimeout(()=>{
-      showDiaToast(`🎉 <b>大型アップデート記念</b><br>💎+${UPDATE_GIFT_AMOUNT}<br><span style="font-size:10px;color:#a8a29e;">左下の「最終アップデート」から更新内容を見られます</span>`);
+      showDiaToast(`🎉 <b>ガチャ確率アップ記念</b><br>💎+${UPDATE_GIFT_AMOUNT}<br><span style="font-size:10px;color:#a8a29e;">左下の「最終アップデート」から更新内容を見られます</span>`);
     }, 900);
   }catch(e){ console.warn('アップデート記念配布の処理に失敗しました', e); }
 })();
@@ -3096,6 +3096,19 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/05', title:'ガチャ確率アップ＆新SSRスキン', items:[
+    'SSRスキンの確率を5%、オーラを5%、SRスキン/モーションを12%に引き上げました',
+    'ヒノトリの新SSRスキン「冥炎の守護鳥」を追加しました。専用技は「ハデスフレア」です',
+    'モッチーの新SSRスキン「ゴジョモッチー」を追加しました。専用技は「無下限呪術」です',
+    '確率アップ記念に💎200を配布しています',
+  ]},
+  { date:'2026/08/05', title:'カードの説明が消える不具合を修正', items:[
+    'カードを強化すると、説明文から効果が消えてしまう不具合を修正しました',
+    '「一撃入魂」「仕切り直し」など27枚が対象でした（効果自体は正しく働いていました）',
+  ]},
+  { date:'2026/08/05', title:'「選別」の調整', items:[
+    'ガッツを少し重くし、そのかわりカード自身は消滅しないようにしました',
+  ]},
   { date:'2026/08/04', title:'手札を整理するカードを追加', items:[
     '戦闘中に、手札のカードを選んで消滅させられるカードを4種類追加しました',
     'ケガや呪いなど、邪魔なカードを引いてしまったときに流せます',
@@ -4129,8 +4142,8 @@ const GACHA_SINGLE_COST = 15;
 const GACHA_TEN_COST = 135;
 // 合計が100%になるように保つこと(rollGachaTierは合計で正規化するので、
 // 崩れると表示している提供割合と実際の確率がズレる)
-const GACHA_RATES = { hazure:0.63, dia150:0.10, accessory:0.15, srSkin:0.08, ssrSkin:0.02, aura:0.02 };
-const GACHA_RARE_OR_BETTER = { accessory:0.15, srSkin:0.08, ssrSkin:0.02, aura:0.02 };
+const GACHA_RATES = { hazure:0.53, dia150:0.10, accessory:0.15, srSkin:0.12, ssrSkin:0.05, aura:0.05 };
+const GACHA_RARE_OR_BETTER = { accessory:0.15, srSkin:0.12, ssrSkin:0.05, aura:0.05 };
 
 function loadGachaProgress(){
   const fallback = { totalPulls:0, pullsSinceSrPity:0, pullsSinceSsrAuraPity:0 };
@@ -4246,8 +4259,8 @@ const GACHA_TIER_LABEL = { hazure:'ハズレ', dia150:'大量継承pt', accessor
 // ガチャ画面の一番上に出す「新しく引けるようになったラインナップ」の告知。
 // 次に何か追加したら、ここにidを足すだけで表示に載る(確率は変えていない)。
 const GACHA_PICKUP = {
-  date: '2026/08/04',
-  skins: ['monolith_ssr_02', 'golem_ssr_02'],
+  date: '2026/08/05',
+  skins: ['hinotori_ssr_02', 'motchi_ssr_02'],
   accessories: ['acc_hat_kanzashi','acc_hat_horns','acc_hat_flamehorn',
                 'acc_other_rose','acc_other_scarab','acc_other_sapphire',
                 'acc_weapon_rapier','acc_weapon_dagger','acc_weapon_katana'],
@@ -7044,6 +7057,50 @@ if(c.energyFromExhausted)parts.push(`消滅させたコストぶんガッツ回�
 if(c.exhaustHandAll)parts.push(`手札を全て消滅`);
 if(c.drawPerExhausted)parts.push(`消滅した枚数ぶんドロー`);
 if(c.randomExhaustHand)parts.push(`手札からランダムに${c.randomExhaustHand}枚消滅`);
+// 会心にひもづく効果
+if(c.critEnergy)parts.push(`会心時ガッツ${c.critEnergy}回復`);
+if(c.critDraw)parts.push(`会心時${c.critDraw}ドロー`);
+if(c.critWeak)parts.push(`会心時攻弱${c.critWeak}`);
+if(c.critBlock)parts.push(`会心時防${c.critBlock}`);
+if(c.critBonusDmg)parts.push(`会心時追加ダメージ${c.critBonusDmg}`);
+if(c.kiaiTurns)parts.push(`${c.kiaiTurns}T気合い状態(会心率+30%)`);
+if(c.critDmgBoostTurns)parts.push(`${c.critDmgBoostTurns}T会心ダメージ+25%`);
+// 相手の状態にひもづく効果
+if(c.combo)parts.push(`守弱時ガッツ回復`);
+if(c.comboEnergy)parts.push(`守弱時ガッツ${c.comboEnergy}回復`);
+if(c.comboDmg)parts.push(`守弱時ダメージ+${c.comboDmg}`);
+if(c.weakCombo)parts.push(`攻弱時ガッツ${c.weakCombo}回復`);
+if(c.executeBelow)parts.push(`敵ライフ${Math.round(c.executeBelow*100)}%以下でダメージ${c.executeMult||2}倍`);
+if(c.enemyAtkDown)parts.push(`相手の力-${c.enemyAtkDown}`);
+if(c.breakBlock)parts.push(`相手のブロックを破壊`);
+if(c.godRising)parts.push(`敵の状態異常の種類ぶん連撃`);
+if(c.dmgEqualsBlock)parts.push(`ダメージは現在のブロックと同値`);
+// 倍率・この戦闘中ずっと続く効果
+if(c.currentTurnDouble)parts.push(`このターン与ダメ2倍`);
+if(c.currentTurnBlockDouble)parts.push(`このターンブロック2倍`);
+if(c.nextTurnDouble)parts.push(`次のターン与ダメ2倍`);
+if(c.nextAtkBonusMult)parts.push(`次の攻撃のダメージ${c.nextAtkBonusMult}倍`);
+if(c.permDmgMultBonus)parts.push(`この戦闘中ダメージ+${Math.round(c.permDmgMultBonus*100)}%(累積)`);
+if(c.regenAtk)parts.push(`毎ターン力+${c.regenAtk}`);
+if(c.costReducePct)parts.push(`この戦闘中の消費ガッツ-${c.costReducePct}%`);
+if(c.blockPersists)parts.push(`この戦闘中ブロックがターン開始時にリセットされない`);
+if(c.ikkiIssin)parts.push(`この戦闘中、連撃のないカードのダメージ3倍`);
+if(c.selfDmgCardsDoubled)parts.push(`この戦闘中、自傷持ちカードのダメージ3倍`);
+if(c.godCoreActive)parts.push(`この戦闘中「神核」を付与`);
+if(c.godMiracleCostDown)parts.push(`「ゴッド」名のカードの消費ガッツ-5`);
+if(c.enoOhActive)parts.push(`この戦闘中「炎王」を付与`);
+if(c.drainReduceTurns)parts.push(`${c.drainReduceTurns}T受けるガッツダウン-${c.drainReduceAmt||0}`);
+// 手札・自分への効果
+if(c.discardAll)parts.push(`手札を全て捨てる`);
+if(c.discardTwo)parts.push(`手札を2枚捨てる`);
+if(c.tempUpgradeHand)parts.push(`手札の他のカードを強化(戦闘終了時に解除)`);
+if(c.cureDebuffs)parts.push(`自身の弱体効果を全て解除`);
+if(c.grantEvasion)parts.push(`回避${c.grantEvasion}を付与`);
+// 効果キーを持たず、カード名で分岐している数枚ぶん(playCardの該当箇所を参照)。
+// キーが無いのでここに書かないと、強化した瞬間に説明から消えてしまう
+if(c.name==='いじわる')parts.push(`守弱時ガッツ10回復`);
+if(c.name==='モン刺し')parts.push(`守弱時ガッツ7回復`);
+if(c.name==='ファイアウェーブ')parts.push(`炎上中の敵に使うとガッツ15回復`);
 if(c.crit)parts.push(`会心:${c.crit}`);
 // 【重要】ここは強化(upgradeCard)のときに説明文を作り直す場所。
 // 効果のキーを足したらここにも足すこと。書き忘れると、強化した瞬間に
