@@ -346,4 +346,13 @@ c_ssr13:{name:'グランドウォール',cost:22,block:35,heal:10,nextTurnEnergy
 c_ssr14:{name:'厄払い',cost:50,cureDebuffs:true,remove:true,rarity:'SSR',desc:'自身の弱体効果を全て解除 消滅'},
 c_mr6:{name:'無念無双',cost:31,val:39,crit:'B',hits:3,randomExhaustHand:1,rarity:'MR',desc:'攻39 会心B 連撃3 手札からランダムに1枚消滅'},
 c_mr7:{name:'三日月の舞',cost:62,grantEvasion:2,remove:true,rarity:'MR',desc:'回避2を付与 消滅'},
+// ==== 消滅系(手札を整理するカード) ====
+// chooseExhaust: 手札から何枚選んで消滅させるか。選ばせるUIは index.html の「手札消滅の選択モード」。
+// exhaustHandAll: 手札を全部消滅。drawPerExhausted: 消滅した枚数ぶんドロー。
+// energyFromExhausted: 消滅させたカードのコスト合計ぶんガッツを得る。
+// **4枚とも remove:true(使ったら消滅)。** これを外すと「引く→捨てる→引く」が無限に回るため。
+c_r13:{name:'選別',cost:8,chooseExhaust:1,draw:1,remove:true,rarity:'R',desc:'手札から1枚選んで消滅 ドロー1 消滅'},
+c_sr10:{name:'昇華',cost:12,chooseExhaust:1,energyFromExhausted:true,remove:true,rarity:'SR',desc:'手札から1枚選んで消滅 そのカードのコストぶんガッツ回復 消滅'},
+c_sr11:{name:'整理整頓',cost:15,exhaustHandAll:true,drawPerExhausted:true,remove:true,rarity:'SR',desc:'手札を全て消滅 消滅した枚数ぶんドロー 消滅'},
+c_ssr15:{name:'忘却の礎',cost:8,chooseExhaust:2,draw:1,heal:30,remove:true,rarity:'SSR',desc:'手札から2枚選んで消滅 ドロー1 回復30 消滅'},
 };

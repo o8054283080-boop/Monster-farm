@@ -1124,6 +1124,15 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 }
 @keyframes efx-beamglow{0%{opacity:0;transform:scale(.3)}30%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
 
+/* 「消滅させるカードを選ぶ」モード中の手札の見た目。
+   選べる札は破線、選んだ札は赤枠で少し浮かせる。使ったカード自身は薄く出して選べないと分かるようにする。 */
+#player-hand .card.pick-target{ outline:2px dashed #fbbf24; outline-offset:2px; cursor:pointer; }
+#player-hand .card.pick-target.disabled{ opacity:1; filter:none; }   /* ガッツが足りない札も選べる */
+#player-hand .card.is-picked{ outline:3px solid #f87171; outline-offset:2px; filter:brightness(1.2); transform:translateY(-8px); }
+#player-hand .card.pick-self{ opacity:.4; }
+@keyframes exhaust-bar-in{ from{ opacity:0; transform:translateY(6px) } to{ opacity:1; transform:translateY(0) } }
+#exhaust-pick-bar:not(.hidden){ display:flex; animation:exhaust-bar-in .18s ease-out }
+
 /* ==================== ボスの必殺技演出 ====================
    ボス戦のときだけ、技名から連想できる大きなエフェクトを画面いっぱいに出す。
    【設計】「形(data-k)」と「色(--bc/--bg2)」を分けているのが肝。
@@ -1791,6 +1800,11 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 <!-- Controls -->
 <div class="bg-gradient-to-t from-black via-zinc-900/95 to-transparent pt-2 pb-4 shrink-0 z-10 px-1" id="control-area">
+<!-- 「消滅させるカードを選ぶ」モードの案内。中身はJSが書き換える(updateExhaustPickBar) -->
+<div id="exhaust-pick-bar" class="hidden items-center justify-center gap-2 mb-1.5 px-3 py-1.5 mx-2 rounded-lg bg-amber-950/90 border border-amber-500/70 shadow-lg">
+<span id="exhaust-pick-text" class="text-[11px] font-bold text-amber-100"></span>
+<button onclick="window.game.cancelExhaustPick()" class="shrink-0 text-[10px] font-bold px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-300">やめる</button>
+</div>
 <div class="flex items-center justify-center space-x-6 mb-1.5">
 <div onclick="window.game.showDiscardPile()" title="捨て札を見る" class="text-[10px] text-zinc-500 font-bold text-center pixel-font cursor-pointer select-none px-1.5 py-0.5 rounded-md hover:bg-white/10 hover:text-zinc-300 active:scale-95 transition">Grave<br><span id="discard-count" class="text-white text-lg">0</span></div>
 <div class="relative group flex flex-col items-center">
@@ -3082,6 +3096,12 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'手札を整理するカードを追加', items:[
+    '戦闘中に、手札のカードを選んで消滅させられるカードを4種類追加しました',
+    'ケガや呪いなど、邪魔なカードを引いてしまったときに流せます',
+    'カードを使うと手札から選ぶモードになります。やめることもできます',
+    '「選別」「昇華」「整理整頓」「忘却の礎」の4枚で、どの種族でも手に入ります',
+  ]},
   { date:'2026/08/04', title:'30階以降の強敵を強く', items:[
     '30階から出る強敵が通常の敵とほとんど変わらない強さだったので、体力も攻撃力もはっきり上げました',
     '報酬が良いぶん、挑むかどうか迷うくらいの相手になっています',
@@ -5548,7 +5568,7 @@ if(mode==='boss' && state.floor>=61){
   state.enemy.legendaryAura = true;   // 伝説のオーラ: バトル開始時・3ターン目にケガを2枚強制追加
   state.enemy.legendaryWhim = true;   // 伝説のきまぐれ: 連撃ダメージ半減、連撃のないダメージ2倍
 }
-state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null;
+state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null; __exhaustPick=null; updateExhaustPickBar();
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
 state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
 if(state.enemy.legendaryAura){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
@@ -6093,7 +6113,7 @@ e.intent=r<0.15?{type:'weak',val:0,desc:'攻弱'}:r<0.30?{type:'vuln',val:0,desc
 }
 
 async function handleEndTurn() {
-state.isPlayerTurn=false; state.selectedCardIndex=null; renderHand(); ui.endTurnBtn.disabled=true; playSfx('turn');
+state.isPlayerTurn=false; state.selectedCardIndex=null; window.game.cancelExhaustPick(); renderHand(); ui.endTurnBtn.disabled=true; playSfx('turn');
 try {
 // 大ケガを手札に抱えたままターンを終えると自分にダメージ(捨てる前に判定する)
 {
@@ -6330,7 +6350,68 @@ function getCardCost(c) {
   if (state.player.costUpTurns && state.player.costUpTurns > 0) cost = Math.ceil(cost * (1 + (state.player.costUpPct||0)/100));
   return Math.max(0, cost);
 }
-function clickCard(idx) { if(!state.isPlayerTurn)return; playCard(idx); }
+// ==================== 手札消滅の選択モード ====================
+// 「手札から◯枚選んで消滅」系のカード(選別・昇華・忘却の礎)を使うと、
+// 手札を直接タップして消す札を選ぶモードに入る。
+//
+// 【重要】カードを消費するのは「選び終わってから」。
+// 先にカードを消費して選択待ちにすると、その途中でアプリを閉じられたときに
+// 「カードだけ消えて何も起きていない」状態で復帰してしまう。
+// この順序なら、途中でやめても・落ちても、何も起きていない状態に戻るだけで壊れようがない。
+// (選択中であることはセーブしない。復帰すれば自動的にキャンセル扱いになる)
+let __exhaustPick = null;   // { idx, need, picked:[instanceId,...] }
+function isExhaustPicking(){ return !!__exhaustPick; }
+function updateExhaustPickBar(){
+  const bar = document.getElementById('exhaust-pick-bar');
+  const txt = document.getElementById('exhaust-pick-text');
+  if(!bar || !txt) return;
+  if(!__exhaustPick){ bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  txt.innerText = `消滅させるカードを選ぶ　${__exhaustPick.picked.length} / ${__exhaustPick.need}`;
+}
+function beginExhaustPick(idx){
+  const c = state.hand[idx];
+  // 自分以外に選べる札が無いときは、選択を飛ばしてそのまま使う(ドローや回復だけ発生する)
+  const others = state.hand.length - 1;
+  const need = Math.min(c.chooseExhaust || 0, others);
+  if(need <= 0){ playCard(idx); return; }
+  __exhaustPick = { idx, need, picked: [] };
+  renderHand(); updateExhaustPickBar();
+}
+window.game.cancelExhaustPick = function(){
+  __exhaustPick = null;
+  renderHand(); updateExhaustPickBar();
+};
+function toggleExhaustPick(idx){
+  if(!__exhaustPick) return;
+  if(idx === __exhaustPick.idx) return;          // 使ったカード自身は選べない
+  const c = state.hand[idx];
+  if(!c) return;
+  const at = __exhaustPick.picked.indexOf(c.instanceId);
+  if(at >= 0) __exhaustPick.picked.splice(at, 1);
+  else if(__exhaustPick.picked.length < __exhaustPick.need) __exhaustPick.picked.push(c.instanceId);
+  renderHand(); updateExhaustPickBar();
+  if(__exhaustPick.picked.length >= __exhaustPick.need){
+    const pick = __exhaustPick;
+    __exhaustPick = null;
+    updateExhaustPickBar();
+    const card = state.hand[pick.idx];
+    if(card) card._chosenExhaust = pick.picked.slice();   // playCard側で実際に消滅させる
+    playCard(pick.idx);
+  }
+}
+function clickCard(idx) {
+  if(!state.isPlayerTurn) return;
+  if(__exhaustPick){ toggleExhaustPick(idx); return; }   // 選択モード中はタップ＝選択
+  const c = state.hand[idx];
+  // 選ばせるカードは、消費する前に選択を済ませる(上のコメント参照)
+  if(c && (c.chooseExhaust||0) > 0){
+    if(state.player.energy < getCardCost(c)) return;     // 使えないなら選択にも入らない
+    beginExhaustPick(idx);
+    return;
+  }
+  playCard(idx);
+}
 async function playCard(idx) {
 const c=state.hand[idx]; 
 let cardCost = getCardCost(c);
@@ -6559,6 +6640,31 @@ if(c.enoOhActive) state.player.enoOhActive=true;
 if(c.ikkiIssin) state.player.ikkiIssin=true;
 if(c.blockPersists) state.player.blockPersists=true;
 if(c.cureDebuffs){ state.player.weak=0; state.player.vuln=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.nextTurnHandReduce=0; state.player.nextTurnDrain=0; }
+// 手札から選んで消滅させる。どれを消すかは clickCard 側で先に決めてある(_chosenExhaust)
+if(c.chooseExhaust && Array.isArray(c._chosenExhaust) && c._chosenExhaust.length){
+  let costSum = 0;
+  c._chosenExhaust.forEach(id => {
+    const j = state.hand.findIndex(h => h.instanceId === id);
+    if(j >= 0){
+      costSum += (state.hand[j].cost || 0);
+      state.exhaustPile.push(state.hand[j]);
+      state.hand.splice(j, 1);
+    }
+  });
+  c._chosenExhaust = null;
+  // 昇華: 消滅させたカードのコスト合計ぶんガッツを得る
+  if(c.energyFromExhausted && costSum > 0){
+    state.player.energy = Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy + costSum);
+    showFloatingText(`ガッツ+${costSum}`, 'heal', ui.playerNode);
+  }
+}
+// 整理整頓: 手札を全部消滅させ、消滅した枚数ぶん引き直す
+if(c.exhaustHandAll && state.hand.length > 0){
+  const n = state.hand.length;
+  state.exhaustPile.push(...state.hand);
+  state.hand = [];
+  if(c.drawPerExhausted) drawCards(n);
+}
 if(c.randomExhaustHand && state.hand.length>0){
   for(let ri=0; ri<c.randomExhaustHand && state.hand.length>0; ri++){
     const rj=Math.floor(Math.random()*state.hand.length);
@@ -6933,7 +7039,16 @@ if(c.bleedBlock)parts.push(`出血分ブロック`);
 if(c.zeroCostHand)parts.push(`手札消費ガッツ0`);
 if(c.selfBleedOnHit)parts.push(`攻撃時出血+${c.selfBleedOnHit}`);
 if(c.statusImmune)parts.push(`状態異常無効×${c.statusImmune}`);
+if(c.chooseExhaust)parts.push(`手札から${c.chooseExhaust}枚選んで消滅`);
+if(c.energyFromExhausted)parts.push(`消滅させたコストぶんガッツ回復`);
+if(c.exhaustHandAll)parts.push(`手札を全て消滅`);
+if(c.drawPerExhausted)parts.push(`消滅した枚数ぶんドロー`);
+if(c.randomExhaustHand)parts.push(`手札からランダムに${c.randomExhaustHand}枚消滅`);
 if(c.crit)parts.push(`会心:${c.crit}`);
+// 【重要】ここは強化(upgradeCard)のときに説明文を作り直す場所。
+// 効果のキーを足したらここにも足すこと。書き忘れると、強化した瞬間に
+// その効果の説明だけが説明文から消えてしまう(「消滅」も長らく抜けていた)。
+if(c.remove || c.exhaust)parts.push(`消滅`);
 if(parts.length>0)c.desc=parts.join(' ');
 }
 function upgradeRandomCards(n) {
@@ -8067,7 +8182,20 @@ function renderHand(){
   // 2行のときは左右が均等になる列数にする(6枚→3+3、7枚→4+3、10枚→5+5)
   ui.hand.style.setProperty('--hand-cols', twoRows ? String(Math.ceil(n/2)) : '');
   ui.hand.style.gap = gap+'px';
-  state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true)));
+  state.hand.forEach((c,i)=>{
+    const el = createCardUI(c,i,false,true);
+    // 消滅させる札を選んでいる間は、見た目もタップ処理も選択用に差し替える。
+    // ガッツが足りない札も選べるようにするため、onclickは上書きする(createCardUIは使える札にしか付けない)
+    if(isExhaustPicking()){
+      if(i === __exhaustPick.idx){ el.classList.add('pick-self'); el.onclick = null; }
+      else {
+        el.classList.add('pick-target');
+        if(__exhaustPick.picked.includes(c.instanceId)) el.classList.add('is-picked');
+        el.onclick = (e)=>{ e.stopPropagation(); toggleExhaustPick(i); };
+      }
+    }
+    ui.hand.appendChild(el);
+  });
 }
 function shuffle(a){let r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 // 手札の上限。これを超えるドローは捨てられる(引かなかったことになる)。
@@ -8283,6 +8411,8 @@ ui.endTurnBtn.onclick = handleEndTurn;
   }
 
   function startDrag(idx, x, y, cardEl){
+    // 消滅させる札を選んでいる間は、上へドラッグして出す操作を止める(タップ=選択に一本化)
+    if(typeof isExhaustPicking==='function' && isExhaustPicking()){ clickCard(idx); return; }
     dragging=true; dragIdx=idx; dragCardEl=cardEl; dragMoved=false;
     cardEl.style.touchAction='none';
     // ゴーストを同じ内容に
