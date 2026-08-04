@@ -1124,9 +1124,170 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 }
 @keyframes efx-beamglow{0%{opacity:0;transform:scale(.3)}30%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
 
+/* ==================== ボスの必殺技演出 ====================
+   ボス戦のときだけ、技名から連想できる大きなエフェクトを画面いっぱいに出す。
+   【設計】「形(data-k)」と「色(--bc/--bg2)」を分けているのが肝。
+   形は技名のキーワードから、色は属性の言葉かボスごとのテーマ色から決まるので、
+   「フレイムキャノン → ビームの形 + 炎の色」のような組み合わせが自動でできる。
+   画像素材は使わずCSSだけ。技を増やしても、名前に手掛かりの語が入っていれば演出が付く。 */
+#boss-fx-layer{position:fixed;inset:0;pointer-events:none;z-index:140;overflow:hidden}
+.boss-fx{position:absolute;inset:0;overflow:hidden}
+.boss-fx span{position:absolute;display:block}
+/* 必殺技のときだけ足す全画面フラッシュ */
+.boss-fx .bfx-flash{inset:0;background:radial-gradient(ellipse at 50% 42%,var(--bg2) 0%,transparent 70%);opacity:0;animation:bfx-flash .55s ease-out forwards}
+@keyframes bfx-flash{0%{opacity:0}18%{opacity:.85}100%{opacity:0}}
+
+/* 斬撃: 画面を横切る太い剣閃 */
+.boss-fx[data-k="slash"] span{left:-30%;top:var(--y,42%);width:160%;height:var(--h,12px);
+  background:linear-gradient(90deg,transparent,#fff 34%,var(--bc) 50%,#fff 66%,transparent);
+  box-shadow:0 0 26px var(--bg2);transform-origin:0 50%;opacity:0;
+  animation:bfx-slash .5s cubic-bezier(.15,.9,.3,1) var(--d,0s) forwards}
+@keyframes bfx-slash{0%{opacity:0;transform:rotate(var(--r,-26deg)) scaleX(0)}
+  20%{opacity:1;transform:rotate(var(--r,-26deg)) scaleX(1)}
+  100%{opacity:0;transform:rotate(var(--r,-26deg)) scaleX(1)}}
+
+/* ビーム: 溜めのリング → 極太の光線 */
+.boss-fx[data-k="beam"] .core{left:0;top:40%;width:100%;height:0;margin-top:-38px;
+  background:linear-gradient(90deg,transparent,var(--bc) 18%,#fff 50%,var(--bc) 82%,transparent);
+  box-shadow:0 0 40px var(--bg2),0 0 90px var(--bg2);animation:bfx-beam .8s ease-out .18s forwards}
+@keyframes bfx-beam{0%{height:0;opacity:0}20%{height:76px;opacity:1}72%{height:58px;opacity:1}100%{height:0;opacity:0}}
+.boss-fx[data-k="beam"] .ring{left:50%;top:40%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;
+  border:4px solid var(--bc);box-shadow:0 0 30px var(--bg2);opacity:0;animation:bfx-ring .75s ease-out var(--d,0s) forwards}
+@keyframes bfx-ring{0%{transform:scale(.15);opacity:1}100%{transform:scale(7);opacity:0}}
+
+/* 雷: 上から落ちるギザギザの稲妻 */
+.boss-fx[data-k="thunder"] span{top:-8%;left:var(--x,50%);width:18px;height:78%;
+  background:linear-gradient(180deg,#fff,var(--bc));box-shadow:0 0 26px var(--bg2);
+  clip-path:polygon(45% 0,100% 30%,58% 37%,100% 64%,38% 100%,55% 58%,0 52%,42% 28%);
+  transform-origin:50% 0;opacity:0;animation:bfx-bolt .46s steps(4) var(--d,0s) forwards}
+@keyframes bfx-bolt{0%{opacity:0;transform:scaleY(.15)}25%{opacity:1;transform:scaleY(1)}
+  60%{opacity:1}100%{opacity:0;transform:scaleY(1)}}
+
+/* 氷: 四方から中心へ突き刺さる氷柱 */
+.boss-fx[data-k="ice"] span{left:50%;top:44%;width:8px;height:120px;margin:-60px 0 0 -4px;
+  background:linear-gradient(180deg,rgba(255,255,255,.95),var(--bc));box-shadow:0 0 20px var(--bg2);
+  clip-path:polygon(50% 0,100% 26%,100% 100%,0 100%,0 26%);opacity:0;
+  animation:bfx-icicle .6s cubic-bezier(.2,.9,.3,1) var(--d,0s) forwards}
+@keyframes bfx-icicle{0%{opacity:0;transform:rotate(var(--a,0deg)) translateY(-260px) scale(1.4)}
+  45%{opacity:1;transform:rotate(var(--a,0deg)) translateY(-70px) scale(1)}
+  100%{opacity:0;transform:rotate(var(--a,0deg)) translateY(-52px) scale(.9)}}
+
+/* 花吹雪: 舞い散る花びら */
+.boss-fx[data-k="petal"] span{top:-8%;left:var(--x,50%);width:16px;height:22px;
+  background:radial-gradient(circle at 32% 28%,#fff,var(--bc));border-radius:50% 12% 50% 12%;
+  box-shadow:0 0 12px var(--bg2);opacity:0;animation:bfx-petal 1.1s linear var(--d,0s) forwards}
+@keyframes bfx-petal{0%{opacity:0;transform:translateY(0) rotate(0deg)}
+  12%{opacity:1}100%{opacity:0;transform:translateY(100vh) translateX(var(--dx,40px)) rotate(680deg)}}
+
+/* 炎: 下から一気に立ちのぼる火柱 */
+.boss-fx[data-k="flame"] span{bottom:-10%;left:var(--x,50%);width:var(--w,46px);height:0;
+  margin-left:calc(var(--w,46px) / -2);border-radius:50% 50% 22% 22%;
+  background:linear-gradient(0deg,var(--bc) 30%,rgba(255,255,255,.75));
+  filter:blur(1px);box-shadow:0 0 26px var(--bg2);opacity:0;
+  animation:bfx-flame .78s ease-out var(--d,0s) forwards}
+@keyframes bfx-flame{0%{height:0;opacity:0}30%{height:52vh;opacity:.8}100%{height:68vh;opacity:0}}
+
+/* 闇: 画面を飲み込む渦とふちから侵食する霧 */
+.boss-fx[data-k="dark"] .vortex{left:50%;top:42%;width:150px;height:150px;margin:-75px 0 0 -75px;border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 0deg,var(--bc) 40deg,transparent 90deg,var(--bc) 200deg,transparent 260deg,var(--bc) 330deg,transparent 360deg);
+  filter:blur(1.5px);opacity:0;animation:bfx-vortex .95s ease-out forwards}
+@keyframes bfx-vortex{0%{opacity:0;transform:scale(.2) rotate(0deg)}22%{opacity:.9}
+  100%{opacity:0;transform:scale(4.2) rotate(560deg)}}
+/* 霧はふち側だけ。中央を塗りつぶすと敵もキャラも見えなくなるので、透明な範囲を広く取る */
+.boss-fx[data-k="dark"] .mist{inset:0;background:radial-gradient(ellipse at 50% 45%,transparent 46%,var(--bg2) 100%);
+  opacity:0;animation:bfx-mist .95s ease-out forwards}
+@keyframes bfx-mist{0%{opacity:0}35%{opacity:.5}100%{opacity:0}}
+
+/* 聖: 天から降りる光の柱と広がる後光 */
+.boss-fx[data-k="holy"] .pillar{top:-10%;left:var(--x,50%);width:var(--w,70px);height:130%;
+  margin-left:calc(var(--w,70px) / -2);
+  background:linear-gradient(180deg,rgba(255,255,255,.85),var(--bc) 45%,transparent);
+  filter:blur(1px);opacity:0;transform-origin:50% 0;animation:bfx-pillar .85s ease-out var(--d,0s) forwards}
+@keyframes bfx-pillar{0%{opacity:0;transform:scaleY(0) scaleX(.4)}22%{opacity:.75;transform:scaleY(1) scaleX(1)}
+  100%{opacity:0;transform:scaleY(1) scaleX(1.3)}}
+.boss-fx[data-k="holy"] .halo{left:50%;top:40%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;
+  border:6px solid var(--bc);box-shadow:0 0 40px var(--bg2),inset 0 0 30px var(--bg2);
+  opacity:0;animation:bfx-ring .9s ease-out .1s forwards}
+
+/* 念動: ゆがむ同心円と見開く眼 */
+.boss-fx[data-k="psychic"] .wave{left:50%;top:42%;width:100px;height:100px;margin:-50px 0 0 -50px;border-radius:50%;
+  border:3px solid var(--bc);box-shadow:0 0 26px var(--bg2);opacity:0;
+  animation:bfx-ring 1s cubic-bezier(.2,.7,.3,1) var(--d,0s) forwards}
+.boss-fx[data-k="psychic"] .eye{left:50%;top:42%;width:190px;height:96px;margin:-48px 0 0 -95px;
+  border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+  background:radial-gradient(circle at 50% 50%,#fff 0%,var(--bc) 26%,rgba(0,0,0,.9) 42%,var(--bc) 55%,transparent 72%);
+  box-shadow:0 0 46px var(--bg2);opacity:0;animation:bfx-eye .95s ease-out forwards}
+@keyframes bfx-eye{0%{opacity:0;transform:scaleY(.06)}22%{opacity:1;transform:scaleY(1)}
+  70%{opacity:1;transform:scaleY(1)}100%{opacity:0;transform:scaleY(.06)}}
+
+/* 風: 渦を巻いて吹き抜ける気流 */
+.boss-fx[data-k="wind"] span{left:50%;top:44%;width:var(--w,260px);height:var(--w,260px);
+  margin-top:calc(var(--w,260px) / -2);margin-left:calc(var(--w,260px) / -2);border-radius:50%;
+  border:5px solid transparent;border-top-color:var(--bc);border-right-color:var(--bc);
+  box-shadow:0 0 24px var(--bg2);opacity:0;animation:bfx-wind .85s ease-out var(--d,0s) forwards}
+@keyframes bfx-wind{0%{opacity:0;transform:scale(.25) rotate(0deg)}25%{opacity:1}
+  100%{opacity:0;transform:scale(2.2) rotate(620deg)}}
+
+/* 地響き: 画面に走る亀裂 */
+.boss-fx[data-k="quake"] span{left:var(--x,50%);top:var(--y,50%);width:4px;height:var(--h,220px);
+  background:linear-gradient(180deg,transparent,var(--bc),#fff,var(--bc),transparent);
+  box-shadow:0 0 18px var(--bg2);transform-origin:50% 0;opacity:0;
+  animation:bfx-crack .6s ease-out var(--d,0s) forwards}
+@keyframes bfx-crack{0%{opacity:0;transform:rotate(var(--r,0deg)) scaleY(0)}
+  25%{opacity:1;transform:rotate(var(--r,0deg)) scaleY(1)}100%{opacity:0;transform:rotate(var(--r,0deg)) scaleY(1)}}
+
+/* 連撃: 次々に炸裂する着弾 */
+.boss-fx[data-k="rush"] span{left:var(--x,50%);top:var(--y,45%);width:70px;height:70px;margin:-35px 0 0 -35px;
+  border-radius:50%;background:radial-gradient(circle,#fff 0%,var(--bc) 40%,transparent 72%);
+  box-shadow:0 0 28px var(--bg2);opacity:0;animation:bfx-pop .34s ease-out var(--d,0s) forwards}
+@keyframes bfx-pop{0%{opacity:0;transform:scale(.2)}35%{opacity:1;transform:scale(1.25)}100%{opacity:0;transform:scale(1.6)}}
+
+/* 咆哮: 全身から広がる闘気の輪 */
+.boss-fx[data-k="roar"] span{left:50%;top:44%;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;
+  border:5px solid var(--bc);box-shadow:0 0 34px var(--bg2),inset 0 0 22px var(--bg2);opacity:0;
+  animation:bfx-ring .9s cubic-bezier(.15,.8,.3,1) var(--d,0s) forwards}
+
+/* 通常の大技: 十字の衝撃と広がる波 */
+.boss-fx[data-k="impact"] .cross{left:50%;top:43%;width:340px;height:22px;margin:-11px 0 0 -170px;
+  background:linear-gradient(90deg,transparent,#fff 45%,var(--bc) 55%,transparent);
+  box-shadow:0 0 26px var(--bg2);opacity:0;animation:bfx-cross .48s ease-out var(--d,0s) forwards}
+@keyframes bfx-cross{0%{opacity:0;transform:rotate(var(--r,0deg)) scaleX(0)}
+  30%{opacity:1;transform:rotate(var(--r,0deg)) scaleX(1)}100%{opacity:0;transform:rotate(var(--r,0deg)) scaleX(1.15)}}
+.boss-fx[data-k="impact"] .wave{left:50%;top:43%;width:100px;height:100px;margin:-50px 0 0 -50px;border-radius:50%;
+  border:5px solid var(--bc);box-shadow:0 0 30px var(--bg2);opacity:0;animation:bfx-ring .7s ease-out forwards}
+
+/* 技名の看板。必殺技のときだけ叩きつけるように出す */
+#boss-move-banner{position:fixed;left:0;right:0;top:30%;z-index:141;pointer-events:none;text-align:center;opacity:0}
+#boss-move-banner .tag{display:block;font-size:11px;font-weight:900;letter-spacing:.4em;color:var(--bc);
+  text-shadow:0 0 10px var(--bg2),0 1px 0 #000;margin-bottom:4px}
+#boss-move-banner .plate{display:inline-block;position:relative;overflow:hidden;
+  padding:.3em 1em;font-weight:900;letter-spacing:.06em;font-size:clamp(17px,5.8vw,32px);color:#fff;
+  background:linear-gradient(180deg,rgba(0,0,0,.85),rgba(0,0,0,.55));
+  border-top:3px solid var(--bc);border-bottom:3px solid var(--bc);
+  text-shadow:0 0 14px var(--bg2),0 2px 0 #000;box-shadow:0 0 44px var(--bg2)}
+#boss-move-banner.is-on{animation:bfx-banner 1.45s cubic-bezier(.2,.9,.25,1) forwards}
+@keyframes bfx-banner{0%{opacity:0;transform:scale(2.6) skewX(-16deg)}
+  11%{opacity:1;transform:scale(1) skewX(0deg)}72%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(1.07)}}
+#boss-move-banner.is-on .plate::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 36%,rgba(255,255,255,.8) 50%,transparent 64%);
+  transform:translateX(-130%);animation:bfx-sheen .85s ease-out .16s}
+@keyframes bfx-sheen{to{transform:translateX(130%)}}
+
+/* 必殺技のときだけ画面を揺らす */
+#battle-scene.boss-shake{animation:boss-shake .55s ease-out}
+@keyframes boss-shake{0%,100%{transform:translate(0,0)}12%{transform:translate(-8px,5px)}
+  28%{transform:translate(7px,-6px)}44%{transform:translate(-6px,-3px)}
+  62%{transform:translate(5px,5px)}82%{transform:translate(-3px,2px)}}
+
 @media (prefers-reduced-motion: reduce){
-  .motion-fx,.elem-fx{display:none}
+  .motion-fx,.elem-fx,.boss-fx{display:none}
   #player-visual-wrap[class*="mv-"],#enemy-monster-node[class*="emv-"]{animation:none !important}
+  #battle-scene.boss-shake{animation:none !important}
+  /* 技名は演出ではなく情報なので消さない。動きだけ止めて静かに出す */
+  #boss-move-banner.is-on{animation:bfx-banner-quiet 1.45s ease-out forwards}
+  #boss-move-banner.is-on .plate::after{display:none}
+  @keyframes bfx-banner-quiet{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
 }
 
 /* ==================== オーラ(戦闘中・装備プレビュー共通) ====================
@@ -1284,6 +1445,9 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 </div>
 <div id="impact-flash"></div>
+<!-- ボスの必殺技演出。中身はJSが毎回作って捨てる(playBossMoveFx) -->
+<div id="boss-fx-layer"></div>
+<div id="boss-move-banner"><span class="tag"></span><span class="plate"></span></div>
 <div id="last-update-tag" style="position:fixed;left:6px;bottom:calc(6px + env(safe-area-inset-bottom, 0px));z-index:9999;font-size:10px;color:rgba(212,212,216,0.65);pointer-events:none;user-select:none;"></div>
 <script>
 (function(){
@@ -2918,6 +3082,11 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'ボスに専用の技演出を追加', items:[
+    'ボスが技を出すと、技名から連想できる大きなエフェクトが画面いっぱいに出るようになりました',
+    '斬撃・ビーム・雷・炎・氷・闇・聖光・念動・風・地割れ・連撃・花吹雪など、技ごとに見た目が変わります',
+    '数ターンに一度の大技や追い詰めたときの技は「必殺技」として、技名の表示・画面の揺れ・閃光つきで演出します',
+  ]},
   { date:'2026/08/04', title:'山札と捨て札を見られるように', items:[
     'ガッツの右の「Deck」をタップすると、今の山札に残っているカードを確認できます',
     'ガッツの左の「Grave」をタップすると、使って捨て札になったカードを確認できます',
@@ -4748,11 +4917,11 @@ player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[],
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
 };
-ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn(); stopBattleBGM(); stopVictoryBGM();
+ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn(); stopBattleBGM(); stopVictoryBGM(); clearBossMoveFx();
 }
 
 function initMap() {
-state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM(); stopVictoryBGM();
+state.mapActionTaken=false; ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM(); stopVictoryBGM(); clearBossMoveFx();
 let fs=1000; if(state.floor>=31)fs=5000; else if(state.floor>=16)fs=3000;
 if(state.floor>1) { state.score+=fs; }
 const sp={46:'camp',47:'boss',48:'camp',49:'boss',50:'boss',51:'camp',52:'boss',53:'camp',54:'boss',55:'camp',56:'boss',57:'camp',58:'boss',59:'camp',60:'boss'};
@@ -4798,7 +4967,7 @@ updateUI();
 // 保存済みの選択肢(state.currentMapChoices)からマップnoノードを再描画するだけの関数。
 // 抽選は一切行わない（initMapで既に確定した内容をそのまま表示するための関数）
 function renderMapChoices() {
-ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM(); stopVictoryBGM();
+ui.map.classList.remove('hidden'); ui.battle.classList.add('hidden'); stopBattleBGM(); stopVictoryBGM(); clearBossMoveFx();
 const choices=document.getElementById('map-choices'); choices.innerHTML='';
 (state.currentMapChoices||[]).forEach(type=>choices.appendChild(createMapNode(type)));
 }
@@ -5923,6 +6092,10 @@ const _atkBonus = Math.max(0, (state.enemy.dmg||0) - (state.enemy._baseDmg||stat
 if (!isFrozen && typeof playEnemyMotion === 'function') {
   const isAtk = (i.val||0) > 0;
   playEnemyMotion(isAtk ? 'atk' : (i.block ? 'block' : 'buff'), isAtk ? enemyElementOf(i.desc) : null);
+  // ボスだけは、技名から連想できる大きな演出を画面全体に重ねる
+  if (state.enemy.mode === 'boss' && typeof playBossMoveFx === 'function') {
+    playBossMoveFx(i.desc, state.enemy.trait, isAtk);
+  }
 }
 if (!isFrozen) {
 if(['atk','block_atk','atk_debuff','atk_vuln','atk_debuff_both','atk_weak','atk_debuff_both_3','atk_drain','atk_vuln_drain','atk_debuff_both_drain','atk_weak_drain','atk_debuff_both_3_drain','block_atk_drain','block_atk_vuln'].includes(i.type)) {
@@ -7491,6 +7664,184 @@ function enemyElementOf(desc){
   const n = desc || '';
   for(const [elem, keys] of ENEMY_ELEM_HINTS){ if(keys.some(k=>n.includes(k))) return elem; }
   return null;
+}
+
+// ==================== ボスの必殺技演出 ====================
+// ボス戦のときだけ、技名から連想できる大きなエフェクトを画面いっぱいに出す。
+//
+// 【仕組み】技名を2回スキャンする。
+//   1. BOSS_FX_KINDS で「形」を決める(斬撃・ビーム・雷・炎・闇…)
+//   2. BOSS_FX_TINTS で「色」を決める(炎なら橙、聖なら金…)
+// 形と色が独立しているので、「フレイムキャノン = ビームの形 + 炎の色」、
+// 「神モッチ砲 = ビームの形 + 聖の色」のような組み合わせが勝手にできる。
+// 色が決まらなければボスごとのテーマ色(BOSS_THEME)を使う。
+//
+// 【技を増やすとき】名前に手掛かりの語が入っていれば何もしなくても演出が付く。
+// 新しい語感を足したいときは下のキーワード表に足すだけでよい。
+// **判定は上から順で最初に当たったものが勝つので、より具体的な形を上に置くこと。**
+// (例: 「五月雨斬り」は rush の『五月雨』より slash の『斬』を先に当てたい)
+const BOSS_FX_KINDS = [
+  ['slash',   ['斬','剣','刃','ナイフ','カッター','クロー','ひっかき','牙','セツダン','スラッシュ','切り']],
+  ['beam',    ['砲','ビーム','レーザー','光線','キャノン','ブレス','波動','衝撃波','怪光','ガトリング','バレット','パラボラ']],
+  ['thunder', ['雷','サンダー','ライトニング','電','スパーク','プラズマ','震律','ブリッツ']],
+  ['petal',   ['桜','さくら','花']],
+  ['ice',     ['氷','アイス','フリーズ','ブリザード','冷','雪','ふぶき','アイシクル','白銀']],
+  ['psychic', ['念動','キネシス','テレパシー','眼力','視線','アイズ','眼','サイコ']],
+  ['dark',    ['デス','冥','黄泉','闇','終焉','血','ブラッディ','鮮血','ドレイン','呪','ダーク','滅']],
+  ['flame',   ['炎','火','ファイア','フレイム','マグマ','溶岩','インフェルノ','バーン','灼','ノヴァ','不死鳥']],
+  ['holy',    ['神光','聖','天','慈悲','奇跡','道標','祓','ホーリー','ゴッド','神','光']],
+  ['wind',    ['ウィング','サイクロン','タイフーン','風','翼','ウェーブ','嵐']],
+  ['quake',   ['落とし','おとし','フォール','プレス','クラッシュ','地震','揺','ブレイク','ドライブ','ヒップ','突進','猛進']],
+  ['rush',    ['ラッシュ','連続','乱れ','コンボ','五月雨','∞','3連','ダブル','連射']],
+  ['roar',    ['本気','憤怒','怒','根性','闘魂','貯め','伝説','咆哮','雄叫び','目覚め','力']],
+];
+const BOSS_FX_TINTS = [
+  ['petal', ['桜','さくら','花']],
+  ['ice',   ['氷','アイス','フリーズ','ブリザード','冷','雪','ふぶき','アイシクル','白銀']],
+  ['fire',  ['炎','火','ファイア','フレイム','マグマ','溶岩','インフェルノ','バーン','灼','不死鳥']],
+  ['elec',  ['雷','サンダー','ライトニング','電','スパーク','プラズマ','震律','ブリッツ']],
+  ['holy',  ['神','聖','天','慈悲','奇跡','道標','祓','ホーリー','ゴッド','光']],
+  ['dark',  ['デス','冥','黄泉','闇','終焉','血','ブラッディ','鮮血','ドレイン','呪','ダーク','滅']],
+];
+// 形そのものが属性を表しているものは、色もそれに合わせる(二度手間を避ける)
+const BOSS_KIND_TINT = { flame:'fire', ice:'ice', thunder:'elec', holy:'holy', dark:'dark', petal:'petal' };
+const BOSS_TINT_COLOR = { fire:'#fb923c', ice:'#7dd3fc', elec:'#facc15', holy:'#fde68a', dark:'#a855f7', petal:'#f9a8d4' };
+// 色が決まらなかったときに使う、ボスごとのテーマ色
+const BOSS_THEME_COLOR = {
+  okurei_15:'#c084fc', magmaheart:'#fb7185', carmine:'#f4f4f5', politoka:'#a78bfa',
+  most:'#fbcfe8', ragna:'#fb923c', bloody:'#ef4444', okurei:'#c084fc',
+  s_politoka:'#a78bfa', s_most:'#e0f2fe', king_ragna:'#f97316',
+  phoenix:'#fdba74', zan:'#94a3b8', ark:'#fde68a',
+};
+// 必殺技(1度きり / 数ターンに1度しか撃たない大技)。
+// ここに載っている技だけ、技名の看板・画面の揺れ・全画面フラッシュが付く。
+// setEnemyIntentBase() の中で `!e._xxxUsed` や `turnCount%N===0` で撃たれる技と一致させてある。
+const BOSS_ULTIMATE_MOVES = new Set([
+  'デスファイナル','超本気','デスフォール','マッハパンチ改','怒りの一撃','マグマラッシュ',
+  'アイズオブレジェンド','超熱視線','おもち根性','絶モッチ砲','エンドフォール','終焉の炎',
+  '黄泉の根源に従え','天の慈悲よ示されよ','血祭り','冥王剣','ソニックパンチ','伝説の眼力',
+  '滅熱視線','伝説の力','神モッチ砲','極憤怒','エンドオブハート','ファイアウェーブ',
+  'ダークホウスト','ゴールドラッシュ',
+]);
+function bossFxKindOf(name, isAtk){
+  const n = name || '';
+  for(const [kind, keys] of BOSS_FX_KINDS){ if(keys.some(k=>n.includes(k))) return kind; }
+  return isAtk ? 'impact' : 'roar';   // 手掛かりが無ければ、攻撃は衝撃・それ以外は闘気
+}
+function bossFxColorOf(name, kind, trait){
+  // 名前に属性の言葉があればそれを最優先。これがあるので
+  // 「終焉の炎」は闇の渦が炎の色で出る(闇の形 + 炎の色)といった合わせ技になる。
+  const n = name || '';
+  for(const [tint, keys] of BOSS_FX_TINTS){ if(keys.some(k=>n.includes(k))) return BOSS_TINT_COLOR[tint]; }
+  // 属性語が無くても、形そのものが属性を表しているならその色にする
+  if(BOSS_KIND_TINT[kind]) return BOSS_TINT_COLOR[BOSS_KIND_TINT[kind]];
+  return BOSS_THEME_COLOR[trait] || '#fca5a5';
+}
+// #rrggbb を rgba(...) にする(グロー用の半透明色を作るため)
+function hexToGlow(hex, a){
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if(!m) return 'rgba(255,255,255,'+a+')';
+  const v = parseInt(m[1],16);
+  return `rgba(${(v>>16)&255},${(v>>8)&255},${v&255},${a})`;
+}
+// 形ごとに、どんな部品を何個置くかだけを決める。見た目はCSS側の担当。
+function buildBossFxParts(fx, kind, big){
+  const add = (cls, style) => { const s=document.createElement('span'); if(cls) s.className=cls; if(style) s.style.cssText=style; fx.appendChild(s); };
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  const n = (base) => big ? base + Math.ceil(base*0.6) : base;   // 必殺技は物量を増やす
+  switch(kind){
+    case 'slash':
+      for(let i=0;i<n(3);i++) add('', `--y:${rnd(24,60).toFixed(0)}%;--r:${(i%2?1:-1)*rnd(18,34).toFixed(0)}deg;--h:${rnd(9,18).toFixed(0)}px;--d:${(i*0.09).toFixed(3)}s`);
+      break;
+    case 'beam':
+      add('ring','--d:0s'); if(big) add('ring','--d:.12s'); add('core');
+      break;
+    case 'thunder':
+      for(let i=0;i<n(4);i++) add('', `--x:${rnd(10,86).toFixed(0)}%;--d:${(i*0.08).toFixed(3)}s`);
+      break;
+    case 'ice':
+      for(let i=0;i<n(6);i++) add('', `--a:${(i*(360/n(6))).toFixed(0)}deg;--d:${(i*0.05).toFixed(3)}s`);
+      break;
+    case 'petal':
+      for(let i=0;i<n(10);i++) add('', `--x:${rnd(4,94).toFixed(0)}%;--dx:${rnd(-70,70).toFixed(0)}px;--d:${rnd(0,0.5).toFixed(3)}s`);
+      break;
+    case 'flame':
+      for(let i=0;i<n(6);i++) add('', `--x:${rnd(8,92).toFixed(0)}%;--w:${rnd(34,68).toFixed(0)}px;--d:${(i*0.06).toFixed(3)}s`);
+      break;
+    case 'dark':
+      add('mist'); add('vortex'); break;
+    case 'holy':
+      for(let i=0;i<n(3);i++) add('pillar', `--x:${rnd(16,84).toFixed(0)}%;--w:${rnd(34,72).toFixed(0)}px;--d:${(i*0.1).toFixed(3)}s`);
+      add('halo'); break;
+    case 'psychic':
+      add('eye'); for(let i=0;i<n(3);i++) add('wave', `--d:${(i*0.14).toFixed(3)}s`); break;
+    case 'wind':
+      for(let i=0;i<n(3);i++) add('', `--w:${rnd(180,320).toFixed(0)}px;--d:${(i*0.11).toFixed(3)}s`); break;
+    case 'quake':
+      for(let i=0;i<n(5);i++) add('', `--x:${rnd(8,92).toFixed(0)}%;--y:${rnd(24,58).toFixed(0)}%;--h:${rnd(140,300).toFixed(0)}px;--r:${rnd(-24,24).toFixed(0)}deg;--d:${(i*0.06).toFixed(3)}s`);
+      break;
+    case 'rush':
+      for(let i=0;i<n(6);i++) add('', `--x:${rnd(14,86).toFixed(0)}%;--y:${rnd(26,60).toFixed(0)}%;--d:${(i*0.1).toFixed(3)}s`);
+      break;
+    case 'roar':
+      for(let i=0;i<n(3);i++) add('', `--d:${(i*0.13).toFixed(3)}s`); break;
+    default: // impact
+      add('wave'); add('cross','--r:0deg;--d:0s'); add('cross','--r:90deg;--d:.06s');
+      if(big){ add('cross','--r:45deg;--d:.12s'); add('cross','--r:-45deg;--d:.12s'); }
+  }
+}
+// ボスが技を出したときに呼ぶ。必殺技(BOSS_ULTIMATE_MOVES)なら技名の看板と画面揺れも付く
+function playBossMoveFx(moveName, trait, isAtk){
+  try{
+    const layer = document.getElementById('boss-fx-layer');
+    if(!layer) return;
+    const kind = bossFxKindOf(moveName, isAtk);
+    const color = bossFxColorOf(moveName, kind, trait);
+    const isUlt = BOSS_ULTIMATE_MOVES.has(moveName);
+    layer.innerHTML = '';
+    const fx = document.createElement('div');
+    fx.className = 'boss-fx';
+    fx.dataset.k = kind;
+    fx.style.cssText = `--bc:${color};--bg2:${hexToGlow(color, 0.8)}`;
+    if(isUlt){ const f=document.createElement('span'); f.className='bfx-flash'; fx.appendChild(f); }
+    buildBossFxParts(fx, kind, isUlt);
+    layer.appendChild(fx);
+    setTimeout(()=>{ if(fx.parentNode) fx.remove(); }, 1400);
+
+    if(!isUlt) return;
+    // ここから先は必殺技だけの追加演出
+    const scene = document.getElementById('battle-scene');
+    if(scene){
+      scene.classList.remove('boss-shake');
+      void scene.offsetWidth;
+      scene.classList.add('boss-shake');
+      setTimeout(()=>scene.classList.remove('boss-shake'), 700);
+    }
+    const banner = document.getElementById('boss-move-banner');
+    if(banner && moveName){
+      banner.style.cssText = `--bc:${color};--bg2:${hexToGlow(color, 0.85)}`;
+      banner.querySelector('.tag').textContent = '必 殺 技';
+      banner.querySelector('.plate').textContent = moveName;
+      banner.classList.remove('is-on');
+      void banner.offsetWidth;
+      banner.classList.add('is-on');
+      setTimeout(()=>banner.classList.remove('is-on'), 1600);
+    }
+  }catch(e){ console.warn('ボスの必殺技演出の再生に失敗しました', e); }
+}
+// 戦闘が終わった/画面を離れたときに演出を消す(残ったまま次の画面に持ち越さないため)
+function clearBossMoveFx(){
+  const layer = document.getElementById('boss-fx-layer');
+  if(layer) layer.innerHTML = '';
+  const banner = document.getElementById('boss-move-banner');
+  if(banner){
+    banner.classList.remove('is-on');
+    // 技名を残しておくと、次に看板が出た瞬間に古い名前がちらつくことがあるので消す
+    const plate = banner.querySelector('.plate');
+    if(plate) plate.textContent = '';
+  }
+  const scene = document.getElementById('battle-scene');
+  if(scene) scene.classList.remove('boss-shake');
 }
 // ==================== カード演出モーションここまで ====================
 function cardRoleOf(c){
