@@ -1145,10 +1145,11 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   <div class="flex-grow overflow-y-auto p-3">
     <!-- 種族タブ -->
     <div id="loadout-species-tabs" class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3"></div>
-    <!-- プレビュー。左にアクセサリ4枠、右にオーラ枠を並べて縦の長さを詰めている -->
-    <div class="flex justify-center items-start gap-2 mb-3">
-      <div id="loadout-accessory-slots" class="flex flex-col gap-1.5 w-[52px] shrink-0"></div>
-      <div id="loadout-preview" class="relative w-40 h-40 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700 overflow-hidden shrink-0">
+    <!-- プレビュー。左にアクセサリ4枠(2列×2行)、右にオーラ枠を並べて縦の長さを詰めている。
+         左右の列は同じ幅(flex-1)なのでプレビューが常に画面中央に来る -->
+    <div class="flex justify-center items-center gap-2 mb-3">
+      <div id="loadout-accessory-slots" class="grid grid-cols-2 gap-1.5 flex-1 min-w-0 max-w-[104px]"></div>
+      <div id="loadout-preview" class="relative w-36 h-36 flex items-center justify-center bg-zinc-900/60 rounded-xl border border-zinc-700 overflow-hidden shrink-0">
         <div id="loadout-aura-fx" class="aura-fx"><span class="aura-layer aura-layer-a"></span><span class="aura-layer aura-layer-b"></span><span class="aura-p p1"></span><span class="aura-p p2"></span><span class="aura-p p3"></span><span class="aura-p p4"></span><span class="aura-p p5"></span><span class="aura-p p6"></span></div>
         <img id="loadout-preview-img" class="max-w-[85%] max-h-[85%] object-contain relative z-10" src="">
         <img id="loadout-acc-hat" class="loadout-acc-img" src="">
@@ -1156,8 +1157,9 @@ background: linear-gradient(135deg, #300000, #3f2e00);
         <img id="loadout-acc-other" class="loadout-acc-img" src="">
         <img id="loadout-acc-weapon" class="loadout-acc-img" src="">
       </div>
-      <div class="flex flex-col gap-1.5 w-[52px] shrink-0">
-        <button id="loadout-aura-slot" onclick="openAuraPicker()" class="w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-800"></button>
+      <!-- 右の列は左のアクセ枠と同じ幅。オーラ枠は列の中央に置き、大きさはアクセ枠1マスと揃える -->
+      <div class="flex-1 min-w-0 max-w-[104px] flex items-center justify-center">
+        <button id="loadout-aura-slot" onclick="openAuraPicker()" class="w-[calc(50%_-_3px)] aspect-square rounded-lg border-2 flex flex-col items-center justify-center border-zinc-700 bg-zinc-800"></button>
       </div>
     </div>
     <p class="text-zinc-500 text-[9px] text-center mb-4 leading-relaxed">左＝アクセサリ（モンスターごとに保存）／ 右＝オーラ</p>
@@ -2455,7 +2457,7 @@ function listDiaPlayMilestones(current){
 const CHANGELOG = [
   { date:'2026/08/03', title:'カスタム装備画面の整理', items:[
     'カスタム装備画面が縦に長すぎたので短くしました',
-    'アクセサリ枠をプレビューの左、オーラ枠を右に並べました',
+    'アクセサリ枠をプレビューの左に2列×2行、オーラ枠を右に並べました',
     'オーラは枠をタップして一覧から選ぶ方式に変更しました',
   ]},
   { date:'2026/08/03', title:'大型アップデート記念', items:[
@@ -3206,7 +3208,8 @@ function renderLoadoutAuraSlot(){
   if(!el) return;
   const c = loadCosmetics();
   const aura = c.equippedAura ? AURAS.find(a=>a.id===c.equippedAura) : null;
-  el.className = 'w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center ' +
+  // 幅はアクセサリ枠(2列グリッドの1マス)と同じ。HTML側の class と必ず揃えること
+  el.className = 'w-[calc(50%_-_3px)] aspect-square rounded-lg border-2 flex flex-col items-center justify-center ' +
     (aura ? 'border-fuchsia-400 bg-fuchsia-900/20' : 'border-zinc-700 bg-zinc-800');
   el.innerHTML = aura
     ? `<span class="text-base leading-none">✨</span><span class="text-[7px] leading-none text-fuchsia-200 mt-0.5 truncate w-full text-center px-0.5">${aura.name}</span>`
