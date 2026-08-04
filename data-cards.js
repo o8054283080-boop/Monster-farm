@@ -219,7 +219,7 @@ c_ssr3:{name:'爆裂掌',cost:46,val:13,hits:4,crit:'C',rarity:'SSR',desc:'攻13
 c_ssr4:{name:'緊急回避',cost:20,block:100,remove:true,rarity:'SSR',desc:'防100 消滅'},
 c_ssr5:{name:'極ガード',cost:21,block:45,nextTurnEnergy:25,rarity:'SSR',desc:'防45 次ガッツ25'},
 c_ssr6:{name:'弱体の壺',cost:0,weak:3,vuln:3,remove:true,rarity:'SSR',desc:'3T攻弱守弱 消滅'},
-c_ssr7:{name:'ホリィの教え',cost:20,currentTurnDouble:true,rarity:'SSR',desc:'今与ダメ2倍'},
+c_ssr7:{name:'ホリィの教え',cost:65,currentTurnDouble:true,rarity:'SSR',desc:'今与ダメ2倍'},
 c_ssr8:{name:'コルトの教え',cost:10,currentTurnBlockDouble:true,rarity:'SSR',desc:'今ブロック2倍'},
 c_mr1:{name:'ホリィの極意',cost:10,atkBattle:10,regenEnergy:5,remove:true,rarity:'MR',desc:'力10 毎G5 消滅'},
 c_mr2:{name:'コルトの極意',cost:10,blockBattle:10,regenBlock:5,remove:true,rarity:'MR',desc:'丈10 枚毎防5 消滅'},
@@ -286,7 +286,7 @@ g_sr7:{mid:'golem',name:'ダンベルラッシュ',cost:26,val:17,crit:'C',hits:
 g_sr8:{mid:'golem',name:'ロックラリアット',cost:38,val:51,crit:'B',executeBelow:0.5,executeMult:2,rarity:'SR',desc:'攻51 会心B 敵ライフ50%以下でダメージ2倍'},
 g_ssr5:{mid:'golem',name:'力の誓い',cost:60,regenAtk:5,remove:true,rarity:'SSR',desc:'毎ターン力+5 消滅'},
 g_ssr6:{mid:'golem',name:'握りつぶす',cost:41,val:49,crit:'B',weak:3,vuln:3,enemyAtkDown:5,rarity:'SSR',desc:'攻49 会心B 攻弱守弱3 相手力-5'},
-g_mr5:{mid:'golem',name:'一撃入魂',cost:55,val:0,ikkiIssin:true,remove:true,rarity:'MR',desc:'この戦闘中、連撃のないカードのダメージ3倍 消滅'},
+g_mr5:{mid:'golem',name:'一撃入魂',cost:90,val:0,ikkiIssin:true,remove:true,rarity:'MR',desc:'この戦闘中、連撃のないカードのダメージ3倍 消滅'},
 // モノリス
 mo_n6:{mid:'monolith',name:'壁ブーメラン',cost:9,val:18,crit:'E',block:10,rarity:'N',desc:'攻18 会心E 防10'},
 mo_r6:{mid:'monolith',name:'2連たおれこみ',cost:15,val:8,crit:'D',hits:2,rarity:'R',desc:'攻8 会心D 連撃2'},

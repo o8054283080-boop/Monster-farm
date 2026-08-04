@@ -86,6 +86,21 @@
   `onclick`の中で個別に`playSfx('select')`も呼んでいる箇所は2回鳴ってしまう。
   `SFX_DEDUPE_MS`で`select`だけ60ms以内の重複を1回にまとめて対処している
   (戦闘SEは連打・多段ヒットで連続して鳴るのが正しいので対象外)
+- **裏に回っている間はSEを鳴らさない**(`playSfx`/`playGachaSfx`の先頭で`document.hidden`を見る)。
+  タブが裏だと`ctx.currentTime`が進まないので、その間に予約した音は全部「同じ時刻」に積み上がり、
+  戻った瞬間にまとめて鳴る。タイマーも裏では間引かれるので溜まった処理が一気に走り、同じことが起きる。
+  「戻ると変な音が繰り返し鳴る」と報告された症状の原因
+- **`healStuckBgm()`**: 戻ってきたとき、BGMが`paused===false`なのに`currentTime`が進まない
+  (＝音が詰まっている)ことがある。450ms後に進んでいるか実測し、止まっていたら
+  同じ位置から鳴らし直す。**`paused`だけを見ても検出できない**のがポイント
+- **`playBgmElement()`を通すこと。** `play()`は非同期なので、生の`el.play()`を連続で呼ぶと
+  再生開始が重なって音が壊れる。`__bgmPlayPending`で1回にまとめている
+- **`wakeAudio()`は200msで間引いている。** 復帰時は`visibilitychange`/`focus`/`pointerdown`/`click`が
+  続けて飛んでくるため。ミュート解除(`resumeCurrentBGM`)は`wakeAudio`を通さず
+  `playBgmElement`を直接呼ぶこと。通すと同じタップの間引きに巻き込まれて鳴らなくなる
+- **AudioContextは`state !== 'running'`で必ずresumeする。** iOSは中断時に非標準の
+  `'interrupted'`になるので、`'suspended'`だけを見ていると復帰できない。
+  併せて`statechange`でも起こし直している
 
 ### 最近の修正(このセッションで対応済み)
 
@@ -904,12 +919,20 @@ const GACHA_STORAGE_KEY = 'mf_gacha_progress';
 1. **⑤ ガチャ演出の実装** — ✅ 実装済み(このセッションで対応)
    - `#gacha-overlay`(index.html、`<main>`内・modal-overlayの直後)を新設。CSSは`<style>`内「ガチャ演出」セクション(`.gacha-*`クラス群)、JSは「ガチャ演出」セクション(`playGachaAnimation`が入口)
    - 待機画面: 二重の魔法陣リング(`.gacha-ring-outer`/`-inner`)が常時ゆっくり反対回転
-   - 抽選演出: 加速回転(`is-charging`)→卵が震えて光漏れ(`is-shaking`)→パーティクル爆発+中身公開(`is-bursting`→`.gacha-reveal`)。タイムラインは`runSingleGachaReveal()`
-   - レア度別の色/パーティクル量/画面フラッシュ有無/卵の見た目は`GACHA_ANIM_THEME`テーブルで管理(ハズレ〜オーラの6段階。SRは控えめフラッシュ、SSR/オーラは強いフラッシュ)
-   - **卵の見た目もレア度で変わる**: SR=金の卵(`egg-gold`、光沢が回転) / SSR=虹の卵(`egg-rainbow`、色相が回転) / オーラ=虹+白く速く輝く(`egg-prism`)。中身が出る前から期待感が出るようにしたもので、10連のミニ卵にも同じクラスが付く。テーブルの`egg`フィールドを変えるだけで差し替え可能
+   - 抽選演出: 加速回転(`is-charging`)→カプセルが震えて光漏れ(`is-shaking`)→**上下の殻がパカッと開く**+パーティクル爆発+中身公開(`is-bursting`→`.gacha-reveal`)。タイムラインは`runSingleGachaReveal()`
+   - レア度別の色/パーティクル量/画面フラッシュ有無/カプセルの見た目は`GACHA_ANIM_THEME`テーブルで管理(ハズレ〜オーラの6段階。SRは控えめフラッシュ、SSR/オーラは強いフラッシュ)
+   - **カプセルの見た目もレア度で変わる**: SR=金(`cap-gold`、光沢が回転) / SSR=虹(`cap-rainbow`、色相が回転) / オーラ=虹+白く速く輝く(`cap-prism`)。中身が出る前から期待感が出るようにしたもので、10連のミニカプセルにも同じクラスが付く。テーブルの`cap`フィールドを変えるだけで差し替え可能
+   - **カプセルは「揺れ」と「開閉」で担当を分けている**: 揺れ・拡大は`.gacha-capsule`、上下の殻が飛ぶ動きは`.cap-half`。1つの要素に両方のアニメーションを載せると`transform`が打ち消し合うので、分けたまま触ること
    - **背景は専用の不透明背景**(`#gacha-overlay`のCSS)。深い紫のグラデーション+星屑で「召喚の間」風。ここを半透明にするとタイトル画面が透けて演出が締まらないので、不透明のままにすること
    - オーラ枠のみ全画面リング拡散演出あり(`.gacha-ring-burst`、CSS maskで円形に、`border-image`はborder-radiusを無視して四角くなるため不採用)
-   - 10連は`runTenPullGachaSequence()`が10個のミニ卵を`.gacha-egg-grid`で順番に弾き、最後に今回最高レアだけ`runSingleGachaReveal()`を「★ トリ確定演出 ★」付きで再生
+   - 10連は`runTenPullGachaSequence()`が10個のミニカプセルを`.gacha-cap-grid`で順番に開き、最後に今回最高レアだけ`runSingleGachaReveal()`を「★ トリ確定演出 ★」付きで再生
+   - **10連の演出は`bgm-gacha.mp3`と尺を合わせてある。** 曲の最後の「テン！」が鳴る位置を`GACHA_BGM_HIT_MS`(実測9280ms)に置き、
+     トリ確定カプセルが**ちょうどそこで開く**ように各段階の長さを`runTenPullGachaSequence()`が逆算している。
+     **曲を差し替えたら`GACHA_BGM_HIT_MS`を測り直すこと**(波形のピーク位置。PyAVでデコードしてRMSを見るのが早い)。
+     段階の配分を変えたいときは`stagger`と`timing`の比率をいじれば、開封の位置は自動で合ったままになる
+   - **ガチャBGMは画面BGMではない。** ガチャ画面にいる間はタイトルのBGMのままで、10連を引いた瞬間だけ
+     `playGachaPullBGM()`が頭から流す(ループしない)。終了/スキップで`stopGachaPullBGM()`→`playMenuBGM()`。
+     単発は尺が短いのでBGMを切り替えない。`wakeAudio`/`healStuckBgm`は演出と同期した一発物なので`__bgmGacha`には手を出さない
    - 演出中は`#gacha-overlay`タップで`window.game._gachaSkip()`が呼ばれ即座に結果画面へ
    - 結果画面(`showGachaResults`)に天井カウント(次のSR/SSR・オーラ確定まであと◯連)を表示済み
    - アクセサリ/スキンは`item.img`があるので画像表示、オーラは`img`フィールドが存在しないため✨アイコンにフォールバック(3箇所: 結果一覧・単発演出の公開カード・10連ミニ卵の中身表示)

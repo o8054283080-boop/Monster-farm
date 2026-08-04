@@ -619,65 +619,93 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 .gacha-stage-inner.is-shaking .gacha-ring-inner { animation-duration: 0.25s; }
 .gacha-stage-inner.is-bursting .gacha-ring { animation-play-state: paused; opacity: 0; transition: opacity 0.3s ease-out; }
 
-.gacha-egg {
-  position: absolute; left: 50%; top: 50%; width: 62px; height: 78px; margin: -39px 0 0 -31px;
-  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
-  background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.9), rgba(60,60,72,0.95) 70%);
-  box-shadow: 0 0 18px var(--gc-glow, rgba(168,85,247,0.7));
+/* ==== ガチャのカプセル ====
+   卵ではなくガチャガチャのカプセル。上下2つの殻に分かれていて、
+   最後に上下へパカッと開く(「開封」の見た目を出すためにこの形にしている)。
+   .gacha-capsule 自体は「揺れ・拡大」の担当で、殻の開閉は .cap-half 側に持たせている。
+   1つの要素に両方のアニメーションを載せるとtransformが打ち消し合うので分けること。 */
+.gacha-capsule {
+  position: absolute; left: 50%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px;
   transform: scale(1); opacity: 1;
-  overflow: hidden; /* 内側の光沢レイヤー(擬似要素)を卵のシルエットで切り抜く */
 }
-/* レア度が高いほど卵そのものを豪華にして、中身が出る前から期待感を煽る。
-   SR=金の卵 / SSR=虹の卵 / オーラ=虹+白く速く輝くプリズム(SSRより格上と分かるように) */
-.gacha-egg.egg-gold {
-  background: radial-gradient(circle at 35% 28%, #fffdf0 0%, #fde68a 30%, #f0a413 62%, #8a4b06 100%);
+.gacha-capsule .cap-half {
+  position: absolute; left: 0; width: 100%; height: 50%; overflow: hidden;
+  background: radial-gradient(circle at 34% 26%, rgba(255,255,255,0.95), rgba(96,96,112,0.98) 72%);
+  box-shadow: 0 0 18px var(--gc-glow, rgba(168,85,247,0.7));
 }
-.gacha-egg.egg-gold::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
+.gacha-capsule .cap-top    { top: 0;    border-radius: 42px 42px 3px 3px; }
+.gacha-capsule .cap-bottom { bottom: 0; border-radius: 3px 3px 42px 42px; background: radial-gradient(circle at 34% 90%, rgba(255,255,255,0.5), rgba(48,48,60,0.98) 70%); }
+/* 継ぎ目のリング。ここが割れ目に見えることで「開く」動きが伝わる */
+.gacha-capsule .cap-seam {
+  position: absolute; left: -3px; right: -3px; top: 50%; height: 7px; margin-top: -3.5px;
+  border-radius: 4px; background: linear-gradient(180deg, #fef9c3, #a16207);
+  box-shadow: 0 0 10px var(--gc-glow, rgba(168,85,247,0.8));
+}
+/* レア度が高いほどカプセルそのものを豪華にして、中身が出る前から期待感を煽る。
+   SR=金 / SSR=虹 / オーラ=虹+白く速く輝くプリズム(SSRより格上と分かるように) */
+.gacha-capsule.cap-gold .cap-half {
+  background: radial-gradient(circle at 34% 26%, #fffdf0 0%, #fde68a 30%, #f0a413 62%, #8a4b06 100%);
+}
+.gacha-capsule.cap-gold .cap-half::after {
+  content: ''; position: absolute; inset: -50%;
   background: conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.65) 24deg, transparent 58deg, transparent 360deg);
-  animation: gacha-egg-sheen 2.4s linear infinite;
+  animation: gacha-cap-sheen 2.4s linear infinite;
 }
-@keyframes gacha-egg-sheen { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes gacha-cap-sheen { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-.gacha-egg.egg-rainbow { background: #241436; }
-.gacha-egg.egg-rainbow::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 0;
+.gacha-capsule.cap-rainbow .cap-half { background: #241436; }
+.gacha-capsule.cap-rainbow .cap-half::after {
+  content: ''; position: absolute; inset: 0; z-index: 0;
   background: conic-gradient(from 0deg, #ff5f6d, #ffc371, #f7ff00, #4ade80, #22d3ee, #818cf8, #e879f9, #ff5f6d);
-  animation: gacha-egg-hue 2.6s linear infinite;
+  animation: gacha-cap-hue 2.6s linear infinite;
 }
-.gacha-egg.egg-rainbow::before {
-  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 1;
+.gacha-capsule.cap-rainbow .cap-half::before {
+  content: ''; position: absolute; inset: 0; z-index: 1;
   background: radial-gradient(circle at 35% 26%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.3) 20%, transparent 52%);
 }
-@keyframes gacha-egg-hue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
-.gacha-egg.egg-prism::after { animation-duration: 1.1s; }
-.gacha-egg.egg-prism { box-shadow: 0 0 26px rgba(255,255,255,0.9), 0 0 62px var(--gc-glow, rgba(255,255,255,0.6)); }
-.gacha-stage-inner.is-appearing .gacha-egg { animation: gacha-egg-in 0.5s cubic-bezier(.25,1.6,.4,1) forwards; }
-@keyframes gacha-egg-in { 0% { transform: scale(0); opacity: 0; } 55% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes gacha-cap-hue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+.gacha-capsule.cap-prism .cap-half::after { animation-duration: 1.1s; }
+.gacha-capsule.cap-prism .cap-half { box-shadow: 0 0 26px rgba(255,255,255,0.9), 0 0 62px var(--gc-glow, rgba(255,255,255,0.6)); }
 
-.gacha-stage-inner.is-charging .gacha-egg,
-.gacha-stage-inner.is-shaking .gacha-egg {
-  animation: gacha-egg-glow-pulse 0.4s ease-in-out infinite alternate;
+.gacha-stage-inner.is-appearing .gacha-capsule { animation: gacha-cap-in 0.5s cubic-bezier(.25,1.6,.4,1) forwards; }
+@keyframes gacha-cap-in { 0% { transform: scale(0) rotate(-25deg); opacity: 0; } 55% { transform: scale(1.18) rotate(6deg); opacity: 1; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+
+.gacha-stage-inner.is-charging .gacha-capsule .cap-half,
+.gacha-stage-inner.is-shaking .gacha-capsule .cap-half {
+  animation: gacha-cap-glow-pulse 0.4s ease-in-out infinite alternate;
 }
-.gacha-stage-inner.is-shaking .gacha-egg {
-  animation: gacha-egg-glow-pulse 0.35s ease-in-out infinite alternate, gacha-egg-shake 0.13s linear infinite;
-}
-@keyframes gacha-egg-glow-pulse {
+.gacha-stage-inner.is-shaking .gacha-capsule { animation: gacha-cap-shake 0.13s linear infinite; }
+.gacha-stage-inner.is-shaking .gacha-capsule .cap-half { animation: gacha-cap-glow-pulse 0.35s ease-in-out infinite alternate; }
+@keyframes gacha-cap-glow-pulse {
   from { box-shadow: 0 0 18px var(--gc-glow, rgba(168,85,247,0.7)); }
   to   { box-shadow: 0 0 50px var(--gc-glow, rgba(168,85,247,0.9)), 0 0 85px var(--gc-glow, rgba(168,85,247,0.5)); }
 }
-@keyframes gacha-egg-shake {
+@keyframes gacha-cap-shake {
   0%, 100% { transform: translate(0,0) rotate(0deg); }
   25% { transform: translate(-4px,2px) rotate(-4deg); }
   50% { transform: translate(3px,-3px) rotate(4deg); }
   75% { transform: translate(-3px,-1px) rotate(-3deg); }
 }
 
-.gacha-stage-inner.is-bursting .gacha-egg { animation: gacha-egg-burst 0.32s ease-in forwards; }
-@keyframes gacha-egg-burst {
-  0% { transform: scale(1); opacity: 1; }
-  35% { transform: scale(1.35); opacity: 1; }
-  100% { transform: scale(0.15); opacity: 0; }
+/* 開封。上下の殻がそれぞれ弾けて飛び、継ぎ目は光って消える */
+.gacha-stage-inner.is-bursting .gacha-capsule { animation: none; }
+.gacha-stage-inner.is-bursting .gacha-capsule .cap-top    { animation: gacha-cap-open-top 0.42s cubic-bezier(.3,-0.4,.6,1) forwards; }
+.gacha-stage-inner.is-bursting .gacha-capsule .cap-bottom { animation: gacha-cap-open-bottom 0.42s cubic-bezier(.3,-0.4,.6,1) forwards; }
+.gacha-stage-inner.is-bursting .gacha-capsule .cap-seam   { animation: gacha-cap-seam-flash 0.3s ease-out forwards; }
+@keyframes gacha-cap-open-top {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  22%  { transform: translateY(6px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-96px) rotate(-34deg); opacity: 0; }
+}
+@keyframes gacha-cap-open-bottom {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  22%  { transform: translateY(-6px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(88px) rotate(28deg); opacity: 0; }
+}
+@keyframes gacha-cap-seam-flash {
+  0%   { transform: scaleX(1); opacity: 1; }
+  40%  { transform: scaleX(1.7); opacity: 1; filter: brightness(2.4); }
+  100% { transform: scaleX(2.4); opacity: 0; }
 }
 
 .gacha-particle {
@@ -717,27 +745,35 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 .gacha-reveal .gacha-reveal-name { font-size: 13px; color: #fef3c7; font-weight: 900; }
 .gacha-reveal .gacha-reveal-sub { font-size: 10px; color: #a1a1aa; }
 
-.gacha-egg-grid {
+.gacha-cap-grid {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;
 }
-.gacha-egg-mini { position: relative; width: 40px; height: 48px; }
-.gacha-egg-mini .gacha-egg {
-  position: absolute; inset: 0; margin: 0; width: 40px; height: 48px; transform: scale(0); opacity: 0;
+.gacha-cap-mini { position: relative; width: 42px; height: 42px; }
+.gacha-cap-mini .gacha-capsule {
+  position: absolute; inset: 0; margin: 0; width: 42px; height: 42px; transform: scale(0); opacity: 0;
 }
-.gacha-egg-mini.is-appearing .gacha-egg { animation: gacha-egg-mini-in 0.22s ease-out forwards; }
-@keyframes gacha-egg-mini-in { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-.gacha-egg-mini.is-bursting .gacha-egg { animation: gacha-egg-mini-burst 0.22s ease-in forwards; }
-@keyframes gacha-egg-mini-burst { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 1; } 100% { transform: scale(0.2); opacity: 0; } }
-.gacha-egg-mini-result {
+.gacha-cap-mini .gacha-capsule .cap-top    { border-radius: 21px 21px 2px 2px; }
+.gacha-cap-mini .gacha-capsule .cap-bottom { border-radius: 2px 2px 21px 21px; }
+.gacha-cap-mini .gacha-capsule .cap-seam   { height: 4px; margin-top: -2px; }
+.gacha-cap-mini.is-appearing .gacha-capsule { animation: gacha-cap-mini-in 0.22s ease-out forwards; }
+@keyframes gacha-cap-mini-in { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+/* 小さいカプセルも上下に割れる。ただし小さいので飛距離は控えめ */
+.gacha-cap-mini.is-bursting .gacha-capsule { opacity: 1; transform: scale(1); }
+.gacha-cap-mini.is-bursting .cap-top    { animation: gacha-cap-mini-top 0.24s ease-in forwards; }
+.gacha-cap-mini.is-bursting .cap-bottom { animation: gacha-cap-mini-bottom 0.24s ease-in forwards; }
+.gacha-cap-mini.is-bursting .cap-seam   { animation: gacha-cap-seam-flash 0.24s ease-out forwards; }
+@keyframes gacha-cap-mini-top    { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-26px) rotate(-30deg); opacity: 0; } }
+@keyframes gacha-cap-mini-bottom { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(24px) rotate(24deg); opacity: 0; } }
+.gacha-cap-mini-result {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   opacity: 0; transform: scale(0.4); border-radius: 8px;
   background: radial-gradient(circle, var(--gc-glow, rgba(168,85,247,0.35)), transparent 75%);
 }
-.gacha-egg-mini-result.is-shown { animation: gacha-mini-result-in 0.3s ease-out forwards; }
+.gacha-cap-mini-result.is-shown { animation: gacha-mini-result-in 0.3s ease-out forwards; }
 @keyframes gacha-mini-result-in { 0% { opacity: 0; transform: scale(0.4); } 100% { opacity: 1; transform: scale(1); } }
-.gacha-egg-mini-result img { width: 32px; height: 32px; object-fit: contain; }
-.gacha-egg-mini-result .gacha-mini-icon { font-size: 20px; }
+.gacha-cap-mini-result img { width: 32px; height: 32px; object-fit: contain; }
+.gacha-cap-mini-result .gacha-mini-icon { font-size: 20px; }
 
 /* ==================== 新登場ピックアップ ====================
    ガチャの単発/10連を選ぶ画面の一番上に出す「新しく追加されたラインナップ」の告知枠。
@@ -1670,7 +1706,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <audio id="bgm-victory" src="bgm-victory.mp3" loop preload="auto" onerror="console.error('BGM読み込み失敗: bgm-victory.mp3 が見つからないか壊れています', this.error)"></audio>
 <!-- タイトル配下の各画面用BGM。他のBGMと同じmp3に揃えてある(m4a/AACは再生できない環境がある) -->
 <audio id="bgm-select" src="bgm-select.mp3" loop preload="none" onerror="console.error('BGM読み込み失敗: bgm-select.mp3 が見つからないか壊れています', this.error)"></audio>
-<audio id="bgm-gacha" src="bgm-gacha.mp3" loop preload="none" onerror="console.error('BGM読み込み失敗: bgm-gacha.mp3 が見つからないか壊れています', this.error)"></audio>
+<audio id="bgm-gacha" src="bgm-gacha.mp3" preload="auto" onerror="console.error('BGM読み込み失敗: bgm-gacha.mp3 が見つからないか壊れています', this.error)"></audio>
 <audio id="bgm-shop" src="bgm-shop.mp3" loop preload="none" onerror="console.error('BGM読み込み失敗: bgm-shop.mp3 が見つからないか壊れています', this.error)"></audio>
 
 <script src="data-species.js"></script>
@@ -1812,8 +1848,16 @@ function stopAllSe() {
 }
 function ensureAudioCtx() {
   try {
-    if (!__audioCtx) __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (__audioCtx.state === 'suspended') __audioCtx.resume();
+    if (!__audioCtx) {
+      __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // iOSは着信や他アプリの音で勝手に止められる。止まったら即座に起こし直す
+      __audioCtx.addEventListener('statechange', () => {
+        if (__audioCtx && __audioCtx.state !== 'running' && soundEnabled) { try { __audioCtx.resume(); } catch(e) {} }
+      });
+    }
+    // 'suspended' だけを見てはいけない。iOSは中断時に非標準の 'interrupted' になり、
+    // その場合にresumeしないと「戻ってきても音が出ない/音が詰まる」状態のままになる
+    if (__audioCtx.state !== 'running') __audioCtx.resume();
     if (!__seGain) { __seGain = __audioCtx.createGain(); __seGain.gain.value = seVolume; __seGain.connect(__audioCtx.destination); }
     if (!__bgmGain) { __bgmGain = __audioCtx.createGain(); __bgmGain.gain.value = bgmVolume; __bgmGain.connect(__audioCtx.destination); }
     loadSeBuffer('select', 'se-select.wav');
@@ -1834,6 +1878,12 @@ const __sfxLastAt = {};
 const SFX_DEDUPE_MS = { select: 60 };
 function playSfx(type) {
   if (!soundEnabled) return;
+  // 【重要】画面が裏に回っている間は鳴らさない。
+  // タブが裏だとAudioContextが止められて currentTime が進まなくなるので、その間に
+  // 予約した音は全部「同じ時刻」に積み上がり、戻ってきた瞬間にまとめて鳴る。
+  // これが「戻ると変な音が繰り返し鳴る」の原因になる。タイマーも裏では間引かれるため、
+  // 溜まっていた処理が一気に走って同じことが起きる。
+  if (typeof document !== 'undefined' && document.hidden) return;
   const dw = SFX_DEDUPE_MS[type];
   if (dw) {
     const t = (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -1904,6 +1954,7 @@ function playSfx(type) {
 // ガチャ演出専用の効果音(魔法陣の出現・加速・弾ける音をレア度別に用意)
 function playGachaSfx(kind) {
   if (!soundEnabled) return;
+  if (typeof document !== 'undefined' && document.hidden) return;  // 理由は playSfx のコメント参照
   const ctx = ensureAudioCtx();
   if (!ctx || !__seGain) return;
   const now = ctx.currentTime;
@@ -2015,10 +2066,7 @@ function playMenuBGM() {
   if (!__bgmMenu || !soundEnabled) return;
   stopBattleBGM(); stopVictoryBGM(); stopSceneBGM();
   __currentBgm = __bgmMenu;
-  if (!__bgmMenu.paused) return;
-  ensureAudioCtx();
-  connectBgmElement(__bgmMenu);
-  __bgmMenu.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）: menu', err && err.name); });
+  playBgmElement(__bgmMenu);
 }
 function stopMenuBGM() {
   if (!__bgmMenu) return;
@@ -2098,10 +2146,35 @@ function playSceneBGM(el) {
   stopMenuBGM(); stopBattleBGM(); stopVictoryBGM();
   __sceneBgms.forEach(x => { if (x !== el) x.pause(); });
   __currentBgm = el;
-  if (!el.paused) return;   // 同じ曲が既に鳴っていれば頭出しし直さない
+  playBgmElement(el);   // 同じ曲が既に鳴っていれば頭出しし直さない
+}
+// ==== ガチャ演出のBGM ====
+// ガチャ画面にいる間ずっと流すのではなく、10連を引いた瞬間から演出の間だけ流す(ループしない)。
+// GACHA_BGM_HIT_MS は bgm-gacha.mp3 の最後の「テン！」が鳴る位置(波形のピークを実測した値)。
+// 演出側(runTenPullGachaSequence)は、ここでカプセルが開くように長さを逆算している。
+const GACHA_BGM_HIT_MS = 9280;
+function playGachaPullBGM() {
+  if (!__bgmGacha || !soundEnabled) return;
+  stopMenuBGM(); stopBattleBGM(); stopVictoryBGM();
+  __sceneBgms.forEach(x => { if (x !== __bgmGacha) x.pause(); });
+  __currentBgm = __bgmGacha;
   ensureAudioCtx();
-  connectBgmElement(el);
-  el.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）:', el.id, err && err.name); });
+  connectBgmElement(__bgmGacha);
+  try { __bgmGacha.currentTime = 0; } catch(e) {}   // 毎回頭から鳴らす(演出と同期させるため)
+  __bgmPlayPending = false;
+  __bgmGacha.play().catch((err)=>{ console.warn('ガチャBGMの再生に失敗:', err && err.name); });
+}
+function stopGachaPullBGM() {
+  if (!__bgmGacha) return;
+  __bgmGacha.pause();
+  try { __bgmGacha.currentTime = 0; } catch(e) {}
+  if (__currentBgm === __bgmGacha) __currentBgm = null;
+}
+// 10連の演出が終わったら、演出前に鳴っていた曲へ戻す(たいていはタイトルのBGM)
+function restoreBgmAfterGachaPull(prev) {
+  stopGachaPullBGM();
+  if (prev && prev !== __bgmGacha && __sceneBgms.includes(prev)) { playSceneBGM(prev); return; }
+  playMenuBGM();
 }
 // 画面用BGMをやめてタイトルのBGMに戻す
 function backToMenuBGM() {
@@ -2113,23 +2186,65 @@ function backToMenuBGM() {
 // そうなると<audio>は paused===false のまま音だけ出なくなる。各play関数は
 // 「もう鳴っているなら何もしない」で早期リターンするので、放っておくと永久に無音のまま。
 // ユーザー操作のたび／画面に戻ってきたたびに、必ずここを通す。
+// play()は非同期なので、連続で呼ぶと「再生開始の途中でまた再生開始」が重なって
+// 音が途切れたり詰まったりする。復帰処理は復帰1回につき1度だけ走らせる。
+let __bgmPlayPending = false;
+function playBgmElement(el) {
+  if (!el || !soundEnabled) return;
+  ensureAudioCtx();
+  connectBgmElement(el);
+  if (!el.paused || __bgmPlayPending) return;
+  __bgmPlayPending = true;
+  const pr = el.play();
+  if (pr && pr.then) pr.then(()=>{ __bgmPlayPending = false; }).catch(()=>{ __bgmPlayPending = false; });
+  else __bgmPlayPending = false;
+  setTimeout(()=>{ __bgmPlayPending = false; }, 3000);  // 万一promiseが解決しない環境でも詰まらせない
+}
+let __lastWakeAt = 0;
 function wakeAudio() {
+  // 復帰時は visibilitychange・focus・pointerdown・click が続けて飛んでくる。
+  // 全部で鳴らし直そうとすると再生開始が重なって音が壊れるので、まとめて1回にする
+  const t = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  if (t - __lastWakeAt < 200) return;
+  __lastWakeAt = t;
   ensureAudioCtx();
   if (!soundEnabled) return;
-  const el = __currentBgm;
+  // ガチャ演出のBGMは演出と同期した一発物なので、途中で鳴らし直しても意味がない
+  if (__currentBgm === __bgmGacha) return;
   // OS側で<audio>ごと止められていた場合は、頭出しせずに続きから鳴らし直す
-  if (el && el.paused) {
-    connectBgmElement(el);
-    el.play().catch(()=>{});
-  }
+  if (__currentBgm && __currentBgm.paused) playBgmElement(__currentBgm);
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wakeAudio(); });
+// 裏に回っていた間にAudioContextを止められると、戻ってきたときにBGMが
+// 「再生中(paused===false)なのに音が進まない/短い音を繰り返す」状態で固まることがある。
+// 進んでいるかを実際に測って、止まっていたら同じ位置から鳴らし直して詰まりを解消する。
+function healStuckBgm() {
+  const el = __currentBgm;
+  if (!el || !soundEnabled || el.paused) return;
+  if (el === __bgmGacha) return;   // 演出と同期した一発物なので触らない
+  const before = el.currentTime;
+  setTimeout(() => {
+    if (__currentBgm !== el || el.paused || !soundEnabled) return;
+    if (Math.abs(el.currentTime - before) >= 0.08) return;   // ちゃんと進んでいる
+    const pos = el.currentTime;
+    el.pause();
+    try { el.currentTime = pos; } catch(e) {}
+    __bgmPlayPending = false;
+    playBgmElement(el);
+  }, 450);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  wakeAudio();
+  healStuckBgm();
+});
 window.addEventListener('focus', wakeAudio);
 window.addEventListener('pageshow', wakeAudio);
 function resumeCurrentBGM() {
   if (!soundEnabled) return;
-  // 今の画面のBGMが分かっているなら、それをそのまま鳴らし直す(頭出ししない)
-  if (__currentBgm) { wakeAudio(); return; }
+  // 今の画面のBGMが分かっているなら、それをそのまま鳴らし直す(頭出ししない)。
+  // wakeAudio()を通さないこと。あちらは「復帰1回につき1度」に間引くので、
+  // ミュート解除のタップと同じ操作で潰し合ってしまう
+  if (__currentBgm) { playBgmElement(__currentBgm); return; }
   const shown = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
   const modalTitle = document.getElementById('modal-title');
   const modalText = (shown('modal-overlay') && modalTitle) ? modalTitle.innerText : '';
@@ -2139,8 +2254,6 @@ function resumeCurrentBGM() {
     playSceneBGM(__bgmShop);
   } else if (modalText.includes('継承ショップ')) {
     playSceneBGM(__bgmShop);
-  } else if (modalText.includes('ガチャ') || shown('gacha-overlay')) {
-    playSceneBGM(__bgmGacha);
   } else if (ui.select && !ui.select.classList.contains('hidden')) {
     playSceneBGM(__bgmSelect);
   } else if (ui.nameScene && !ui.nameScene.classList.contains('hidden')) {
@@ -2790,6 +2903,20 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'ガチャの演出を一新', items:[
+    '卵をやめて、上下にパカッと開くカプセルになりました',
+    '10連を引いている間だけ専用のBGMが流れ、曲の締めに合わせて最後のカプセルが開きます',
+    'レアなほどカプセル自体が豪華になるのは今まで通りです',
+  ]},
+  { date:'2026/08/04', title:'カードの調整', items:[
+    '「一撃入魂」のガッツを90に引き上げました',
+    '「ホリィの教え」のガッツを65に引き上げました',
+    'レジェンドボスラッシュの「大ケガ」は、使わずにターンを終えた場合も消滅するようになりました',
+  ]},
+  { date:'2026/08/04', title:'音の不具合をさらに修正', items:[
+    '他のタブやアプリから戻ったときに、音が途切れて短い音を繰り返す不具合を修正しました',
+    '画面が裏に回っている間は効果音を鳴らさないようにして、戻った瞬間に音がまとめて鳴るのを防ぎました',
+  ]},
   { date:'2026/08/04', title:'復帰でキャラが消える不具合を修正', items:[
     'マップやイベント、報酬選択の途中でアプリを終了して再開すると、自分のモンスターが表示されないまま戦闘が始まる不具合を修正しました',
     'スキン・アクセサリ・オーラも復帰後にきちんと元通りになります',
@@ -3980,7 +4107,7 @@ function buildGachaPickupBanner(){
 window.game.showGacha = function(){
   showModal('💎 ガチャ', '');
   renderGachaScreen();
-  playSceneBGM(__bgmGacha);
+  // ガチャBGMは10連の演出中だけ流すので、ここでは切り替えない(タイトルのBGMのまま)
 };
 function renderGachaScreen(){
   const dia = getDiaBalance();
@@ -4158,9 +4285,9 @@ const GACHA_ANIM_THEME = {
   hazure:    { color:'#d4d4d8', glow:'rgba(212,212,216,0.55)', particles:6,  flash:false, ring:false, sfx:'burst_low' },
   dia150:    { color:'#e4e4e7', glow:'rgba(228,228,231,0.65)', particles:8,  flash:false, ring:false, sfx:'burst_low' },
   accessory: { color:'#38bdf8', glow:'rgba(56,189,248,0.75)',  particles:16, flash:false, ring:false, sfx:'burst_mid' },
-  srSkin:    { color:'#fbbf24', glow:'rgba(251,191,36,0.85)',  particles:26, flash:true, soft:true, flashColor:'rgba(251,191,36,0.5)', ring:false, sfx:'burst_high', egg:'egg-gold' },
-  ssrSkin:   { color:'#f472b6', glow:'rgba(244,114,182,0.9)',  particles:42, flash:true, flashColor:'rgba(255,255,255,0.6)', ring:false, sfx:'burst_top', egg:'egg-rainbow' },
-  aura:      { color:'#e879f9', glow:'rgba(255,255,255,0.95)', particles:56, flash:true, flashColor:'rgba(255,255,255,0.75)', ring:true, rainbow:true, sfx:'burst_top', egg:'egg-rainbow egg-prism' },
+  srSkin:    { color:'#fbbf24', glow:'rgba(251,191,36,0.85)',  particles:26, flash:true, soft:true, flashColor:'rgba(251,191,36,0.5)', ring:false, sfx:'burst_high', cap:'cap-gold' },
+  ssrSkin:   { color:'#f472b6', glow:'rgba(244,114,182,0.9)',  particles:42, flash:true, flashColor:'rgba(255,255,255,0.6)', ring:false, sfx:'burst_top', cap:'cap-rainbow' },
+  aura:      { color:'#e879f9', glow:'rgba(255,255,255,0.95)', particles:56, flash:true, flashColor:'rgba(255,255,255,0.75)', ring:true, rainbow:true, sfx:'burst_top', cap:'cap-rainbow cap-prism' },
 };
 const GACHA_RARITY_RANK = { hazure:0, dia150:0, accessory:1, srSkin:2, ssrSkin:3, aura:4 };
 function gachaThemeOf(tier){ return GACHA_ANIM_THEME[tier] || GACHA_ANIM_THEME.hazure; }
@@ -4190,16 +4317,23 @@ function triggerGachaFlash(flashEl, theme){
   flashEl.classList.toggle('is-soft', !!theme.soft);
   flashEl.classList.add('gacha-flash-pulse');
 }
+// ガチャのカプセル(上下2つの殻+継ぎ目)。開封の動きは .cap-half 側のCSSが持っている
+function gachaCapsuleHTML(theme){
+  return `<div class="gacha-capsule ${theme.cap||''}"><span class="cap-half cap-top"></span><span class="cap-half cap-bottom"></span><span class="cap-seam"></span></div>`;
+}
 function buildGachaStageInner(theme){
   const inner = document.createElement('div');
   inner.className = 'gacha-stage-inner is-appearing';
   inner.style.setProperty('--gc-color', theme.color);
   inner.style.setProperty('--gc-glow', theme.glow);
-  inner.innerHTML = `<div class="gacha-ring gacha-ring-outer"></div><div class="gacha-ring gacha-ring-inner"></div><div class="gacha-egg ${theme.egg||''}"></div><div class="gacha-reveal"></div>`;
+  inner.innerHTML = `<div class="gacha-ring gacha-ring-outer"></div><div class="gacha-ring gacha-ring-inner"></div>${gachaCapsuleHTML(theme)}<div class="gacha-reveal"></div>`;
   return inner;
 }
-// 1件分の「待機→加速→震え→光漏れ→破裂→中身公開」演出。10連のトリ確定演出にも流用する
-function runSingleGachaReveal(stage, flashEl, setT, result, captionText, onDone){
+// 演出の各段階の長さ(ミリ秒)。単発はテンポ重視でこの既定値、
+// 10連のトリ確定演出は曲に合わせて呼び出し側から差し替える
+const GACHA_TIMING_DEFAULT = { charge:480, shake:620, burst:520, reveal:340, hold:1250 };
+// 1件分の「待機→加速→震え→光漏れ→開封→中身公開」演出。10連のトリ確定演出にも流用する
+function runSingleGachaReveal(stage, flashEl, setT, result, captionText, onDone, timing){
   const theme = gachaThemeOf(result.tier);
   stage.innerHTML = '';
   if(captionText){
@@ -4212,7 +4346,8 @@ function runSingleGachaReveal(stage, flashEl, setT, result, captionText, onDone)
   stage.appendChild(inner);
   playGachaSfx('appear');
 
-  const T_CHARGE = 480, T_SHAKE = 620, T_BURST = 520, T_REVEAL = 340, T_HOLD = 1250;
+  const T = timing || GACHA_TIMING_DEFAULT;
+  const T_CHARGE = T.charge, T_SHAKE = T.shake, T_BURST = T.burst, T_REVEAL = T.reveal, T_HOLD = T.hold;
   setT(()=>{ inner.classList.remove('is-appearing'); inner.classList.add('is-charging'); playGachaSfx('charge'); }, T_CHARGE);
   setT(()=>{ inner.classList.remove('is-charging'); inner.classList.add('is-shaking'); }, T_CHARGE+T_SHAKE);
   setT(()=>{
@@ -4241,7 +4376,10 @@ function runSingleGachaReveal(stage, flashEl, setT, result, captionText, onDone)
   }, T_CHARGE+T_SHAKE+T_BURST+T_REVEAL);
   setT(onDone, T_CHARGE+T_SHAKE+T_BURST+T_REVEAL+T_HOLD);
 }
-// 10連: 10個のミニ卵が順番に弾け、最後に今回最高レアだけをもう一度大きく単独演出(トリ確定演出)
+// 10連: 10個のミニカプセルが順番に開き、最後に今回最高レアだけをもう一度大きく単独演出(トリ確定演出)。
+// 【重要】演出全体の長さは bgm-gacha.mp3 に合わせてある。曲の最後の「テン！」の位置(GACHA_BGM_HIT_MS)で
+// トリ確定カプセルが開くように、各段階の長さをそこから逆算している。
+// **曲を差し替えたら GACHA_BGM_HIT_MS を測り直すこと**(波形のピーク位置)。
 function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
   stage.innerHTML = '';
   const cap = document.createElement('div');
@@ -4257,21 +4395,21 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
   stage.appendChild(bgRing);
 
   const grid = document.createElement('div');
-  grid.className = 'gacha-egg-grid';
+  grid.className = 'gacha-cap-grid';
   stage.appendChild(grid);
 
   const cells = results.map(r=>{
     const theme = gachaThemeOf(r.tier);
     const cell = document.createElement('div');
-    cell.className = 'gacha-egg-mini';
+    cell.className = 'gacha-cap-mini';
     cell.style.setProperty('--gc-color', theme.color);
     cell.style.setProperty('--gc-glow', theme.glow);
-    cell.innerHTML = `<div class="gacha-egg ${theme.egg||''}"></div><div class="gacha-egg-mini-result"></div>`;
+    cell.innerHTML = gachaCapsuleHTML(theme) + '<div class="gacha-cap-mini-result"></div>';
     grid.appendChild(cell);
     return { cell, theme, r };
   });
 
-  const stagger = 170;
+  const stagger = 380;
   cells.forEach(({cell}, i)=> setT(()=> cell.classList.add('is-appearing'), i*stagger));
   cells.forEach(({cell, theme, r}, i)=>{
     const tBurst = i*stagger + 260;
@@ -4281,7 +4419,7 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
       if(theme.flash && !theme.soft) triggerGachaFlash(flashEl, theme);
     }, tBurst);
     setT(()=>{
-      const resEl = cell.querySelector('.gacha-egg-mini-result');
+      const resEl = cell.querySelector('.gacha-cap-mini-result');
       resEl.style.setProperty('--gc-glow', theme.glow);
       resEl.innerHTML = (r.rewardType==='point')
         ? `<div class="gacha-mini-icon">${r.tier==='hazure'?'💠':'💰'}</div>`
@@ -4290,10 +4428,21 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
     }, tBurst+180);
   });
 
-  const afterGrid = cells.length*stagger + 260 + 180 + 500;
+  // 最後のマスの結果が出てから少し置いて、トリ確定演出へ
+  const afterGrid = (cells.length-1)*stagger + 260 + 180 + 600;
+  // 曲の「テン！」でカプセルが開くように、溜めの時間を逆算して配分する。
+  // 開封は charge+shake+burst 経過時なので、その合計が (テンの位置 - 開始時刻) になればよい。
+  const toBurst = Math.max(1200, GACHA_BGM_HIT_MS - afterGrid);
+  const timing = {
+    charge: Math.round(toBurst * 0.19),   // 出現 → 光り始める
+    shake:  Math.round(toBurst * 0.40),   // リングが加速する溜め
+    burst:  toBurst - Math.round(toBurst * 0.19) - Math.round(toBurst * 0.40), // 激しく震える(ここで曲も盛り上がる)
+    reveal: 300,
+    hold:   1500,
+  };
   setT(()=>{
     const best = highestRarityResult(results);
-    runSingleGachaReveal(stage, flashEl, setT, best, '★ トリ確定演出 ★', onDone);
+    runSingleGachaReveal(stage, flashEl, setT, best, '★ トリ確定演出 ★', onDone, timing);
   }, afterGrid);
 }
 // ガチャ演出のエントリーポイント。演出中は画面タップでいつでもスキップして結果一覧へ進める
@@ -4306,6 +4455,12 @@ function playGachaAnimation(results, onComplete){
   overlay.classList.remove('hidden'); overlay.classList.add('flex');
 
   let finished = false;
+  // 10連のときだけBGMを奪うので、そのとき「直前に鳴っていた曲」を覚えておいて後で戻す。
+  // 【重要】BGMを奪っていない単発では絶対に戻す処理をしないこと。
+  // 無条件に playMenuBGM() すると、単発を引いただけでその画面のBGMが
+  // タイトルの曲にすり替わってしまう(実際にやらかした)。
+  let bgmTakenOver = false;
+  let bgmBeforePull = null;
   const timers = [];
   const setT = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
   function finish(){
@@ -4316,13 +4471,19 @@ function playGachaAnimation(results, onComplete){
     stage.innerHTML = '';
     flashEl.className = ''; flashEl.style.background = '';
     window.game._gachaSkip = null;
+    // スキップでも最後まで見ても、ここで元の曲に戻す
+    if(bgmTakenOver) restoreBgmAfterGachaPull(bgmBeforePull);
     onComplete();
   }
   window.game._gachaSkip = finish;
 
   if(results.length <= 1){
+    // 単発はテンポ重視の短い演出。曲を流すには短すぎるのでBGMは切り替えない
     runSingleGachaReveal(stage, flashEl, setT, results[0], '', finish);
   } else {
+    bgmBeforePull = __currentBgm;
+    bgmTakenOver = true;
+    playGachaPullBGM();   // 演出の開始と曲の頭を合わせる
     runTenPullGachaSequence(stage, flashEl, setT, results, finish);
   }
 }
@@ -5264,7 +5425,10 @@ if((state.player.nextTurnHandReduce||0)>0){
 const INJURY_CARD = {id:'injury',name:'ケガ',cost:10,val:0,rarity:'N',desc:'ガッツ10 ダメージ0 消滅',isInjury:true,remove:true,instanceId:0};
 // レジェンド難易度のレジェンドボスラッシュ(61階以降)では、必殺技のケガがこの大ケガになる。
 // 使うには重く、抱えたままターンを終えると自分にダメージが返ってくる。
-const BIG_INJURY_CARD = {id:'big_injury',name:'大ケガ',cost:30,val:0,rarity:'N',desc:'ガッツ30 ダメージ0 消滅\nターン終了時に手札に残っていると自身に10ダメージ',isInjury:true,remove:true,handEndSelfDmg:10,instanceId:0};
+// exhaustOnDiscard: 使わずにターンを終えた場合も、捨て札に戻さずそのまま消滅させる。
+// これが無いと、重すぎて使えない大ケガが毎ターン手札に戻ってきて10ダメージを取り続け、
+// 事実上「消滅」が機能しないまま延々と居座る(強すぎるという指摘を受けて追加)。
+const BIG_INJURY_CARD = {id:'big_injury',name:'大ケガ',cost:30,val:0,rarity:'N',desc:'ガッツ30 ダメージ0 消滅\nターン終了時に手札に残っていると自身に10ダメージ\n(使わずにターンを終えても消滅)',isInjury:true,remove:true,handEndSelfDmg:10,exhaustOnDiscard:true,instanceId:0};
 // レジェンド難易度で初期デッキに1枚だけ入る呪い。
 // カード削除・落とし穴・合成のいずれでも取り除けない(noRemoveで守っている)。
 const CURSE_CARD = {id:'curse',name:'呪い',cost:0,val:0,rarity:'N',desc:'何も起こらない\nデッキから取り除けない',isInjury:true,noRemove:true};
@@ -5659,7 +5823,9 @@ try {
     if(state.battleEnded) return;
   }
 }
-state.discardPile.push(...state.hand); state.hand=[]; renderHand(); await new Promise(r=>setTimeout(r,600));
+// exhaustOnDiscard のカード(大ケガ)は捨て札に戻さず、ここで消滅させる
+state.hand.forEach(c => { if(c.exhaustOnDiscard) state.exhaustPile.push(c); else state.discardPile.push(c); });
+state.hand=[]; renderHand(); await new Promise(r=>setTimeout(r,600));
 // Status Effects Before Enemy Attack
 if (state.enemy.burn > 0) {
 let burnDmg = Math.max(1, Math.floor(state.enemy.maxHp * 0.05));
