@@ -1762,8 +1762,14 @@ let __bgmGain = null;
 const __bgmConnected = new WeakSet();
 let soundEnabled = true;
 let seVolume = 1.0;
+// 【重要】bgmVolume と __currentBgm は、これより下の ensureAudioCtx()/wakeAudio() が参照する。
+// この2つは「読み込み中に画面をタップされた」だけで呼ばれうるので、宣言をBGMの節まで
+// 下げてはいけない(letのTDZに当たって ReferenceError になり、音が出なくなる)。
+let bgmVolume = 0.35;
+let __currentBgm = null;
 try { soundEnabled = localStorage.getItem('mf_sound_enabled') !== '0'; } catch(e) {}
 try { const _sv = localStorage.getItem('mf_se_volume'); if (_sv !== null) seVolume = parseFloat(_sv); } catch(e) {}
+try { const _bv = localStorage.getItem('mf_bgm_volume'); if (_bv !== null) bgmVolume = parseFloat(_bv); } catch(e) {}
 try { const _sb = document.getElementById('sound-toggle-btn'); if(_sb) _sb.textContent = soundEnabled ? '🔊' : '🔇'; } catch(e) {}
 // 実音声ファイルのSE（選択音・ダメージ音など）はHTMLMediaElement.play()だと再生開始までの
 // わずかな遅延が体感できてしまうため、Web Audio APIで事前デコードしたバッファを都度即時再生する。
@@ -1815,11 +1821,25 @@ function ensureAudioCtx() {
   } catch(e) { return null; }
   return __audioCtx;
 }
-// 最初のユーザー操作でAudioContextを起動しておく（ブラウザの自動再生制限対策）
-['pointerdown','touchstart','click'].forEach(ev => document.addEventListener(ev, () => ensureAudioCtx(), { once:true, passive:true }));
+// ユーザー操作のたびにAudioContextを起こし直す（ブラウザの自動再生制限対策 兼 復帰処理）。
+// 【重要】once:true にしてはいけない。他アプリへの切り替え・画面ロック・着信などで
+// AudioContextはいつでも止められる（suspended）が、止まったままだと<audio>は「再生中」の
+// 顔をしたまま音だけ出なくなる。1回きりのリスナーだと二度と起こし直せず、永久に無音になる。
+['pointerdown','touchstart','click'].forEach(ev => document.addEventListener(ev, () => wakeAudio(), { passive:true }));
 
+// 同じ効果音が同じ操作で二重に鳴るのを防ぐ。ボタンには共通のクリック音を鳴らす仕組み
+// （下の document.addEventListener('click', ...)）があるので、onclickの中で個別に
+// playSfx('select') も呼んでいる箇所は2回鳴ってしまい、音が濁って聞こえる。
+const __sfxLastAt = {};
+const SFX_DEDUPE_MS = { select: 60 };
 function playSfx(type) {
   if (!soundEnabled) return;
+  const dw = SFX_DEDUPE_MS[type];
+  if (dw) {
+    const t = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (__sfxLastAt[type] !== undefined && t - __sfxLastAt[type] < dw) return;
+    __sfxLastAt[type] = t;
+  }
   const ctx = ensureAudioCtx();
   if (!ctx) return;
   const now = ctx.currentTime;
@@ -1917,7 +1937,15 @@ window.game.toggleSound = function() {
   const panelBtn = document.getElementById('volume-panel-master-toggle');
   if (panelBtn) panelBtn.textContent = soundEnabled ? '🔊' : '🔇';
   if (soundEnabled) playSfx('select');
-  if (soundEnabled) { resumeCurrentBGM(); } else { stopMenuBGM(); stopBattleBGM(); stopVictoryBGM(); }
+  if (soundEnabled) {
+    resumeCurrentBGM();
+  } else {
+    // 消すときは鳴りかけのSEも含めて全部止める。__currentBgm(今の画面のBGM)は
+    // 覚えたままにしておき、音を戻したときに同じ曲へ復帰できるようにする。
+    const keep = __currentBgm;
+    stopMenuBGM(); stopBattleBGM(); stopVictoryBGM(); stopSceneBGM(); stopAllSe();
+    __currentBgm = keep;
+  }
 };
 window.game.toggleVolumePanel = function() {
   const p = document.getElementById('volume-panel');
@@ -1930,18 +1958,22 @@ function showGlobalVolumeBtn() { const b = document.getElementById('global-volum
 
 // ==== BGM（メニュー画面） ====
 const __bgmMenu = document.getElementById('bgm-menu');
-let bgmVolume = 0.35;
-try { const _v = localStorage.getItem('mf_bgm_volume'); if (_v !== null) bgmVolume = parseFloat(_v); } catch(e) {}
+// bgmVolume と __currentBgm(今の画面で鳴っているべきBGM)は、TDZ回避のため上のサウンド節で宣言済み。
+// __currentBgm を覚えておくことで、バックグラウンド復帰やミュート解除のときに画面から
+// 推測し直さずに済み、曲が頭出しされたりボスラッシュの曲が抽選し直されたりしない。
 // iOSのSafariは<audio>の.volumeプロパティを無視する仕様のため、
 // Web Audio APIのGainNodeを経由させて音量調整する（connectBgmElementで配線）。
 function connectBgmElement(el) {
-  if (!el || !__audioCtx || !__bgmGain) return;
+  if (!el) return;
+  // GainNodeに繋げられない環境では、素の<audio>の音量で代用する。
+  // 繋がっている要素にこれをやると音量が二重にかかるので、繋がっていない時だけ。
+  if (!__audioCtx || !__bgmGain) { try { el.volume = bgmVolume; } catch(e) {} return; }
   if (__bgmConnected.has(el)) return;
   try {
     const src = __audioCtx.createMediaElementSource(el);
     src.connect(__bgmGain);
     __bgmConnected.add(el);
-  } catch(e) { /* 既に接続済み、または未対応環境。無視して通常再生に任せる */ }
+  } catch(e) { try { el.volume = bgmVolume; } catch(_) {} }
 }
 // SE用の音声ファイル（合成音ではなく実際の音声ファイルを使うSE）をSE音量に連動させる
 function connectSeElement(el) {
@@ -1961,6 +1993,7 @@ if (__bgmVolumeSlider) {
   __bgmVolumeSlider.addEventListener('input', () => {
     bgmVolume = Number(__bgmVolumeSlider.value) / 100;
     if (__bgmGain) __bgmGain.gain.value = bgmVolume;
+    applyBgmVolumeFallback();
     if (__bgmVolumeLabel) __bgmVolumeLabel.textContent = Math.round(bgmVolume * 100) + '%';
     try { localStorage.setItem('mf_bgm_volume', String(bgmVolume)); } catch(e) {}
   });
@@ -1980,6 +2013,8 @@ if (__seVolumeSlider) {
 }
 function playMenuBGM() {
   if (!__bgmMenu || !soundEnabled) return;
+  stopBattleBGM(); stopVictoryBGM(); stopSceneBGM();
+  __currentBgm = __bgmMenu;
   if (!__bgmMenu.paused) return;
   ensureAudioCtx();
   connectBgmElement(__bgmMenu);
@@ -1988,6 +2023,7 @@ function playMenuBGM() {
 function stopMenuBGM() {
   if (!__bgmMenu) return;
   __bgmMenu.pause();
+  if (__currentBgm === __bgmMenu) __currentBgm = null;
 }
 // ==== BGM（バトル：通常敵／強敵／ボス） ====
 const __bgmBattleNormal = document.getElementById('bgm-battle-normal');
@@ -1999,16 +2035,16 @@ const __bgmBossRush = [
   document.getElementById('bgm-boss-rush-2'),
   document.getElementById('bgm-boss-rush-3')
 ].filter(Boolean);
+const __battleBgms = [__bgmBattleNormal, __bgmBattleElite, __bgmBattleElite2, __bgmBossMid, ...__bgmBossRush].filter(Boolean);
 function stopBattleBGM() {
-  if (__bgmBattleNormal) __bgmBattleNormal.pause();
-  if (__bgmBattleElite) __bgmBattleElite.pause();
-  if (__bgmBattleElite2) __bgmBattleElite2.pause();
-  if (__bgmBossMid) __bgmBossMid.pause();
-  __bgmBossRush.forEach(el => el.pause());
+  __battleBgms.forEach(el => el.pause());
+  if (__battleBgms.includes(__currentBgm)) __currentBgm = null;
 }
 function playBattleBGM(mode, floor) {
   stopMenuBGM();
   stopBattleBGM();
+  stopVictoryBGM();
+  stopSceneBGM();
   if (!soundEnabled) return;
   let el = null;
   if (mode === 'normal') el = __bgmBattleNormal;
@@ -2018,6 +2054,7 @@ function playBattleBGM(mode, floor) {
     else if (floor >= 46 && __bgmBossRush.length > 0) el = __bgmBossRush[Math.floor(Math.random() * __bgmBossRush.length)];
   }
   if (!el) return;
+  __currentBgm = el;
   ensureAudioCtx();
   connectBgmElement(el);
   try { el.currentTime = 0; } catch(e) {}
@@ -2029,25 +2066,38 @@ function playVictoryBGM() {
   if (!__bgmVictory || !soundEnabled) return;
   stopMenuBGM();
   stopBattleBGM();
+  stopSceneBGM();
+  __currentBgm = __bgmVictory;
   ensureAudioCtx();
   connectBgmElement(__bgmVictory);
   try { __bgmVictory.currentTime = 0; } catch(e) {}
   __bgmVictory.play().catch((err)=>{ console.warn('BGM再生に失敗（自動再生制限の可能性）: victory', err && err.name); });
 }
 function stopVictoryBGM() {
-  if (__bgmVictory) __bgmVictory.pause();
+  if (!__bgmVictory) return;
+  __bgmVictory.pause();
+  if (__currentBgm === __bgmVictory) __currentBgm = null;
 }
 // ==== BGM（タイトル配下の各画面：モンスター選択／ガチャ／継承ショップ・カスタム装備） ====
 const __bgmSelect = document.getElementById('bgm-select');
 const __bgmGacha  = document.getElementById('bgm-gacha');
 const __bgmShop   = document.getElementById('bgm-shop');
 const __sceneBgms = [__bgmSelect, __bgmGacha, __bgmShop].filter(Boolean);
-function stopSceneBGM() { __sceneBgms.forEach(el => el.pause()); }
+// 全BGM要素。GainNodeに繋げられなかった環境の音量フォールバックに使う
+const __allBgmEls = [__bgmMenu, ...__battleBgms, __bgmVictory, ...__sceneBgms].filter(Boolean);
+function applyBgmVolumeFallback() {
+  __allBgmEls.forEach(el => { if (!__bgmConnected.has(el)) { try { el.volume = bgmVolume; } catch(e) {} } });
+}
+function stopSceneBGM() {
+  __sceneBgms.forEach(el => el.pause());
+  if (__sceneBgms.includes(__currentBgm)) __currentBgm = null;
+}
 // 画面用BGMを1つだけ鳴らす。他のBGMは全部止める
 function playSceneBGM(el) {
   if (!el || !soundEnabled) return;
   stopMenuBGM(); stopBattleBGM(); stopVictoryBGM();
   __sceneBgms.forEach(x => { if (x !== el) x.pause(); });
+  __currentBgm = el;
   if (!el.paused) return;   // 同じ曲が既に鳴っていれば頭出しし直さない
   ensureAudioCtx();
   connectBgmElement(el);
@@ -2058,8 +2108,28 @@ function backToMenuBGM() {
   stopSceneBGM();
   playMenuBGM();
 }
+// 音が「止められた状態」から復帰させる。
+// 他アプリへの切り替え・画面ロック・着信・タブ非表示などでAudioContextはsuspendされ、
+// そうなると<audio>は paused===false のまま音だけ出なくなる。各play関数は
+// 「もう鳴っているなら何もしない」で早期リターンするので、放っておくと永久に無音のまま。
+// ユーザー操作のたび／画面に戻ってきたたびに、必ずここを通す。
+function wakeAudio() {
+  ensureAudioCtx();
+  if (!soundEnabled) return;
+  const el = __currentBgm;
+  // OS側で<audio>ごと止められていた場合は、頭出しせずに続きから鳴らし直す
+  if (el && el.paused) {
+    connectBgmElement(el);
+    el.play().catch(()=>{});
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wakeAudio(); });
+window.addEventListener('focus', wakeAudio);
+window.addEventListener('pageshow', wakeAudio);
 function resumeCurrentBGM() {
   if (!soundEnabled) return;
+  // 今の画面のBGMが分かっているなら、それをそのまま鳴らし直す(頭出ししない)
+  if (__currentBgm) { wakeAudio(); return; }
   const shown = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
   const modalTitle = document.getElementById('modal-title');
   const modalText = (shown('modal-overlay') && modalTitle) ? modalTitle.innerText : '';
@@ -2709,6 +2779,12 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'音まわりの不具合を修正', items:[
+    '他のアプリに切り替えたり画面を消したりして戻ると、音が出なくなったままになる不具合を修正しました',
+    '音を消したとき、モンスター選択・ガチャ・継承ショップ・カスタム装備のBGMだけ止まらなかった不具合を修正しました',
+    '音を消してもう一度つけたとき、同じ曲の続きから戻るようにしました',
+    '一部のボタンで選択音が二重に鳴って音が濁っていたのを直しました',
+  ]},
   { date:'2026/08/04', title:'BGMを追加', items:[
     'モンスター選択画面に専用のBGMが流れるようになりました',
     'ガチャに専用のBGMが流れるようになりました',
