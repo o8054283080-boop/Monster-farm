@@ -4915,6 +4915,7 @@ if(state.player.critDmgBoostTurns>0) state.player.critDmgBoostTurns--;
 if(state.player.drainReduceTurns>0){ state.player.drainReduceTurns--; if(state.player.drainReduceTurns<=0) state.player.drainReduceAmt=0; }
 if(state.player.costUpTurns>0){ state.player.costUpTurns--; if(state.player.costUpTurns<=0)state.player.costUpPct=0; }
 if(state.player.bleed>0){ const bleedDmg=state.player.bleed*2; state.player.hp=Math.max(0,state.player.hp-bleedDmg); showFloatingText(bleedDmg,'dmg',ui.playerNode); state.player.bleed=Math.max(0,state.player.bleed-2); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } checkHpThresholdRelics(); }
+state.drawsThisTurn = 0;
 drawCards(5); setEnemyIntent(); updateUI(); renderHand();
 // 手札-N（ドロー後に処理）
 if((state.player.nextTurnHandReduce||0)>0){
@@ -6740,7 +6741,33 @@ function renderHand(){
   state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true)));
 }
 function shuffle(a){let r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
-function drawCards(n){ for(let i=0;i<n;i++){ if(state.drawPile.length===0){if(state.discardPile.length===0)break;state.drawPile=shuffle(state.discardPile);state.discardPile=[];} state.hand.push(state.drawPile.pop()); } }
+// 手札の上限。これを超えるドローは捨てられる(引かなかったことになる)。
+// 上限が無いと、コスト0のドローカードで手札が際限なく増え、
+// 画面に収まらなくなるうえに無限ループの温床になるため設けている。
+const HAND_LIMIT = 10;
+// 1ターンに引ける枚数の上限。無限ループへの保険。
+// 「1枚使って1枚引く」カード(コスト0・ドロー1・消滅なし)は手札が減らないため、
+// デッキがそのカードだけになると永久に回り続けてしまう。手札上限では止まらない
+// (手札が増えないループのため)ので、ドロー回数そのものに天井を設けている。
+// 普通に遊んでいて1ターンに40枚引くことはないので、実戦では発動しない。
+const DRAW_LIMIT_PER_TURN = 40;
+function drawCards(n){
+  let stopped = null;
+  for(let i=0;i<n;i++){
+    if(state.hand.length >= HAND_LIMIT){ stopped = `手札上限 ${HAND_LIMIT}`; break; }
+    if((state.drawsThisTurn||0) >= DRAW_LIMIT_PER_TURN){ stopped = 'このターンはもう引けない'; break; }
+    if(state.drawPile.length===0){
+      if(state.discardPile.length===0) break;
+      state.drawPile=shuffle(state.discardPile); state.discardPile=[];
+    }
+    state.hand.push(state.drawPile.pop());
+    state.drawsThisTurn = (state.drawsThisTurn||0) + 1;
+  }
+  // 上限で引けなかったことを黙って握りつぶすと不親切なので知らせる
+  if(stopped && typeof showFloatingText === 'function' && ui.playerNode){
+    showFloatingText(stopped, 'drain', ui.playerNode);
+  }
+}
 function showCritEffect(){
   // CRITICAL!! テキスト
   const c=document.createElement('div');

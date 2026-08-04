@@ -197,7 +197,9 @@ c_n1:{name:'ガード',cost:8,block:10,nextTurnEnergy:7,rarity:'N',desc:'防10 �
 c_n2:{name:'緊急回復',cost:20,discardTwo:true,heal:5,nextTurnEnergy:10,rarity:'N',desc:'2枚捨 回5 次ガッツ10'},
 c_n3:{name:'いじわる',cost:22,val:15,combo:true,rarity:'N',desc:'攻15 守弱時ガッツ10回'},
 c_n4:{name:'ふきとばし',cost:10,val:15,block:15,rarity:'N',desc:'攻15 防15'},
-c_n5:{name:'ドロー！！',cost:0,draw:1,rarity:'N',desc:'ドロー1'},
+// コスト0でドロー1・消滅なしだったため、使っても手札が減らず無限にデッキを掘れてしまっていた。
+// 「消滅」を付けてループを断ち、その代わりドローを2枚に増やしている。
+c_n5:{name:'ドロー！！',cost:0,draw:2,remove:true,rarity:'N',desc:'ドロー2 消滅'},
 c_r1:{name:'一閃',cost:15,val:20,crit:'C',rarity:'R',desc:'攻20'},
 c_r2:{name:'振りかぶり',cost:16,nextAtkBonusMult:2,rarity:'R',desc:'次与ダメ2倍'},
 c_r3:{name:'わるぐち',cost:12,weak:2,vuln:2,rarity:'R',desc:'2T攻弱守弱'},
