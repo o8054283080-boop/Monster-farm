@@ -2455,6 +2455,11 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'SSRスキン2体を追加', items:[
+    'モノリスのSSRスキン「魔王の魔典」を追加。専用技は「魔王の雄叫び」(コスト20 攻35 氷結1 感電1)',
+    'ゴーレムのSSRスキン「スピリットゴーレム」を追加。専用技は「スピリットパンチ」(コスト12 攻28 攻弱2)',
+    'ガチャのSSR枠と200連の確定枠から入手できます',
+  ]},
   { date:'2026/08/03', title:'カスタム装備画面の整理', items:[
     'カスタム装備画面が縦に長すぎたので短くしました',
     'アクセサリ枠をプレビューの左に2列×2行、オーラ枠を右に並べました',
@@ -3430,11 +3435,15 @@ function renderGachaScreen(){
 function showGachaRates(){
   const total = Object.values(GACHA_RATES).reduce((a,b)=>a+b,0);
   const pct = v => (v/total*100).toFixed(2).replace(/\.?0+$/,'') + '%';
+  // 種類数はデータから数える。スキンやアクセを増やしても表示が勝手に追従する
+  const nSSR = allSkinsOfRarity('SSR').length;
+  const nSR  = allSkinsOfRarity('SR').length;
+  const nMotion = (typeof CARD_MOTIONS !== 'undefined') ? CARD_MOTIONS.length : 0;
   const rows = [
-    { key:'aura',      label:'オーラ',           detail:'全5種からランダム',                  color:'text-fuchsia-300' },
-    { key:'ssrSkin',   label:'SSRスキン',        detail:'全7種からランダム',                  color:'text-amber-300' },
-    { key:'srSkin',    label:'SRスキン / モーション', detail:'半々。SRスキン21種・モーション15種', color:'text-purple-300' },
-    { key:'accessory', label:'アクセサリ',       detail:'全14種からランダム',                 color:'text-sky-300' },
+    { key:'aura',      label:'オーラ',           detail:`全${AURAS.length}種からランダム`,        color:'text-fuchsia-300' },
+    { key:'ssrSkin',   label:'SSRスキン',        detail:`全${nSSR}種からランダム`,                color:'text-amber-300' },
+    { key:'srSkin',    label:'SRスキン / モーション', detail:`半々。SRスキン${nSR}種・モーション${nMotion}種`, color:'text-purple-300' },
+    { key:'accessory', label:'アクセサリ',       detail:`全${ACCESSORIES.length}種からランダム`,  color:'text-sky-300' },
     { key:'dia150',    label:'継承ポイント150',  detail:'',                                   color:'text-emerald-300' },
     { key:'hazure',    label:'継承ポイント20',   detail:'',                                   color:'text-zinc-400' },
   ];

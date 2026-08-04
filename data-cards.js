@@ -35,7 +35,9 @@ zan_b3:{mid:'zan',id:'zan_b3',name:'血踊',cost:10,selfBleedOnHit:1,remove:true
 // カード報酬・ショップ・イベントの抽選対象になり、スキン未所持でも入手できてしまう。
 motchi_b3_skin:{mid:'motchi',id:'motchi_b3_skin',name:'天使の舞',cost:13,val:10,vuln:2,heal:2,crit:'D',rarity:'SR',desc:'攻10 守弱2 回2',isStarter:true,skinCardOf:'motchi_ssr_01',replaces:'motchi_b3'},
 golem_b3_skin:{mid:'golem',id:'golem_b3_skin',name:'氷晶の鉄拳',cost:16,val:21,freeze:1,crit:'E',rarity:'SR',desc:'攻21 氷結1',isStarter:true,skinCardOf:'golem_ssr_01',replaces:'golem_b3'},
+golem_b3_skin2:{mid:'golem',id:'golem_b3_skin2',name:'スピリットパンチ',cost:12,val:28,weak:2,crit:'C',rarity:'SR',desc:'攻28 攻弱2',isStarter:true,skinCardOf:'golem_ssr_02',replaces:'golem_b3'},
 mono_b3_skin:{mid:'monolith',id:'mono_b3_skin',name:'翠玉の頁',cost:12,val:11,weak:2,nextTurnEnergy:5,crit:'F',rarity:'SR',desc:'攻11 攻弱2 次ガッツ5',isStarter:true,skinCardOf:'monolith_ssr_01',replaces:'mono_b3'},
+mono_b3_skin2:{mid:'monolith',id:'mono_b3_skin2',name:'魔王の雄叫び',cost:20,val:35,freeze:1,shock:1,crit:'E',rarity:'SR',desc:'攻35 氷結1 感電1',isStarter:true,skinCardOf:'monolith_ssr_02',replaces:'mono_b3'},
 k_b3_skin:{mid:'kawazumo',id:'k_b3_skin',name:'がっぷりよつ蒼',cost:15,val:17,vuln:2,block:8,crit:'C',rarity:'SR',desc:'攻17 守弱2 防8',isStarter:true,skinCardOf:'kawazumo_ssr_01',replaces:'k_b3'},
 ga_b3_skin:{mid:'gali',id:'ga_b3_skin',name:'深淵の焔',cost:22,val:12,weak:2,vuln:2,burn:2,crit:'F',rarity:'SR',desc:'攻12 攻弱守弱2 炎上2',isStarter:true,skinCardOf:'gali_ssr_01',replaces:'ga_b3'},
 hinotori_b3_skin:{mid:'hinotori',id:'hinotori_b3_skin',name:'黄金雷撃',cost:27,val:32,shock:2,crit:'B',rarity:'SR',desc:'攻32 感電2',isStarter:true,skinCardOf:'hinotori_ssr_01',replaces:'hinotori_b3'},
