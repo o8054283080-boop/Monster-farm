@@ -674,6 +674,41 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 .gacha-egg-mini-result img { width: 32px; height: 32px; object-fit: contain; }
 .gacha-egg-mini-result .gacha-mini-icon { font-size: 20px; }
 
+/* ==================== 新登場ピックアップ ====================
+   ガチャの単発/10連を選ぶ画面の一番上に出す「新しく追加されたラインナップ」の告知枠。
+   中身は GACHA_PICKUP のidを見て組み立てるので、次に何か追加したらidを足すだけでよい。
+   確率アップではなく「新しく引けるようになった」お知らせなので、排出率には一切触れていない。 */
+@keyframes pickup-hue { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@keyframes pickup-glow { 0%, 100% { box-shadow: 0 0 9px rgba(251,191,36,0.30); } 50% { box-shadow: 0 0 20px rgba(251,191,36,0.65); } }
+@keyframes pickup-sheen { 0% { transform: translateX(-130%) skewX(-18deg); } 55%, 100% { transform: translateX(260%) skewX(-18deg); } }
+@keyframes pickup-badge { 0%, 100% { transform: scale(1) rotate(-8deg); } 50% { transform: scale(1.12) rotate(-8deg); } }
+.pickup-banner {
+  position: relative; border-radius: 12px; padding: 2px;
+  background: linear-gradient(120deg, #f59e0b, #f472b6, #818cf8, #22d3ee, #f59e0b);
+  background-size: 300% 100%;
+  animation: pickup-hue 7s linear infinite, pickup-glow 2.8s ease-in-out infinite;
+}
+.pickup-inner { position: relative; border-radius: 10px; background: #131316; padding: 8px 8px 7px; overflow: hidden; }
+.pickup-inner::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 45%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.20), transparent);
+  animation: pickup-sheen 3.6s ease-in-out infinite;
+}
+.pickup-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 9px; font-weight: 900;
+  letter-spacing: .06em; color: #431407; background: linear-gradient(180deg, #fde68a, #f59e0b);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5); animation: pickup-badge 1.6s ease-in-out infinite;
+}
+.pickup-skin { position: relative; border-radius: 9px; padding: 4px 3px 3px; background: linear-gradient(180deg, rgba(244,114,182,0.16), rgba(24,24,27,0.9)); border: 1px solid rgba(244,114,182,0.55); }
+.pickup-skin img { width: 100%; height: 72px; object-fit: contain; }
+.pickup-acc { position: relative; width: 38px; height: 38px; flex: none; border-radius: 8px; background: rgba(39,39,42,0.9); border: 1px solid rgba(113,113,122,0.7); display: flex; align-items: center; justify-content: center; }
+.pickup-acc img { width: 30px; height: 30px; object-fit: contain; }
+.pickup-acc.is-owned { opacity: .42; }
+.pickup-acc .pickup-check { position: absolute; right: -3px; bottom: -3px; font-size: 9px; line-height: 1; color: #34d399; text-shadow: 0 0 3px #000; }
+.pickup-row { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 2px; }
+.pickup-row::-webkit-scrollbar { height: 3px; }
+.pickup-row::-webkit-scrollbar-thumb { background: #52525b; border-radius: 3px; }
+
 /* ==================== カード演出モーション ====================
    カードを使った時の演出。5場面(攻撃/防御/強化/弱体/回復)×3種。
    画像素材は使わず、対象に .motion-fx を差し込んでCSSアニメで見せる。
@@ -2455,10 +2490,12 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
-  { date:'2026/08/04', title:'SSRスキン2体を追加', items:[
+  { date:'2026/08/04', title:'新ラインナップ追加', items:[
     'モノリスのSSRスキン「魔王の魔典」を追加。専用技は「魔王の雄叫び」(コスト20 攻35 氷結1 感電1)',
     'ゴーレムのSSRスキン「スピリットゴーレム」を追加。専用技は「スピリットパンチ」(コスト12 攻28 攻弱2)',
-    'ガチャのSSR枠と200連の確定枠から入手できます',
+    'アクセサリを9種追加(帽子3・その他3・武器小物3)。合計23種になりました',
+    'ガチャ画面に「新登場ラインナップ」の枠を追加。未入手があと何種か分かります',
+    'いずれもガチャの通常の枠から入手できます(確率の変更はありません)',
   ]},
   { date:'2026/08/03', title:'カスタム装備画面の整理', items:[
     'カスタム装備画面が縦に長すぎたので短くしました',
@@ -3374,6 +3411,96 @@ function doTenPull(){
 }
 const GACHA_TIER_LABEL = { hazure:'ハズレ', dia150:'大量継承pt', accessory:'アクセサリ', srSkin:'SRスキン', ssrSkin:'SSRスキン', aura:'オーラ' };
 // ---- ガチャ画面(演出は後日実装、まずは機能のみ) ----
+// ==== 新登場ピックアップ ====
+// ガチャ画面の一番上に出す「新しく引けるようになったラインナップ」の告知。
+// 次に何か追加したら、ここにidを足すだけで表示に載る(確率は変えていない)。
+const GACHA_PICKUP = {
+  date: '2026/08/04',
+  skins: ['monolith_ssr_02', 'golem_ssr_02'],
+  accessories: ['acc_hat_kanzashi','acc_hat_horns','acc_hat_flamehorn',
+                'acc_other_rose','acc_other_scarab','acc_other_sapphire',
+                'acc_weapon_rapier','acc_weapon_dagger','acc_weapon_katana'],
+};
+// 未所持のものだけ数える。全部そろっていたら「コンプリート」と出す
+function pickupUnownedCount(){
+  const c = loadCosmetics();
+  const skins = GACHA_PICKUP.skins.filter(id => !c.ownedSkins.includes(id)).length;
+  const accs = GACHA_PICKUP.accessories.filter(id => !c.ownedAccessories[id]).length;
+  return { skins, accs, total: skins + accs };
+}
+function buildGachaPickupBanner(){
+  const skins = GACHA_PICKUP.skins.map(findSkinById).filter(Boolean);
+  const accs = GACHA_PICKUP.accessories
+    .map(id => (typeof ACCESSORIES !== 'undefined') ? ACCESSORIES.find(a => a.id === id) : null).filter(Boolean);
+  if(!skins.length && !accs.length) return null;
+  const c = loadCosmetics();
+  const left = pickupUnownedCount();
+
+  const banner = document.createElement('div');
+  banner.className = 'pickup-banner';
+  const inner = document.createElement('div');
+  inner.className = 'pickup-inner';
+
+  const head = document.createElement('div');
+  head.className = 'flex items-center justify-between mb-1.5 relative z-10';
+  head.innerHTML =
+    `<div class="flex items-center gap-1.5">
+       <span class="pickup-badge">NEW</span>
+       <span class="text-[11px] font-black text-amber-200">新登場ラインナップ</span>
+     </div>
+     <span class="text-[9px] text-zinc-500">${GACHA_PICKUP.date}</span>`;
+  inner.appendChild(head);
+
+  if(skins.length){
+    const row = document.createElement('div');
+    row.className = `grid gap-2 mb-2 relative z-10`;
+    row.style.gridTemplateColumns = `repeat(${Math.min(skins.length, 3)}, minmax(0, 1fr))`;
+    skins.forEach(s => {
+      const owned = c.ownedSkins.includes(s.id);
+      const cell = document.createElement('div');
+      cell.className = 'pickup-skin';
+      cell.innerHTML =
+        `<div class="absolute top-1 left-1 text-[8px] font-black px-1 rounded bg-fuchsia-600 text-white z-10">SSR</div>
+         ${owned ? '<div class="absolute top-1 right-1 text-[9px] text-emerald-300 z-10">所持済</div>' : ''}
+         <img src="${s.img}" style="${owned ? 'opacity:.45' : ''}">
+         <div class="text-[9px] font-bold text-center truncate ${owned ? 'text-zinc-500' : 'text-fuchsia-100'}">${s.name}</div>`;
+      row.appendChild(cell);
+    });
+    inner.appendChild(row);
+  }
+
+  if(accs.length){
+    const label = document.createElement('div');
+    label.className = 'text-[9px] text-zinc-400 mb-1 relative z-10';
+    label.innerText = `新アクセサリ ${accs.length}種`;
+    inner.appendChild(label);
+    const row = document.createElement('div');
+    row.className = 'pickup-row relative z-10';
+    accs.forEach(a => {
+      const owned = !!c.ownedAccessories[a.id];
+      const cell = document.createElement('div');
+      cell.className = 'pickup-acc' + (owned ? ' is-owned' : '');
+      cell.title = a.name;
+      cell.innerHTML = `<img src="${a.img}">${owned ? '<span class="pickup-check">✔</span>' : ''}`;
+      row.appendChild(cell);
+    });
+    inner.appendChild(row);
+  }
+
+  const foot = document.createElement('div');
+  foot.className = 'text-[9px] text-center mt-1.5 relative z-10 font-bold';
+  if(left.total === 0){
+    foot.className += ' text-emerald-300';
+    foot.innerText = '🎊 新ラインナップをコンプリートしました！';
+  }else{
+    foot.className += ' text-amber-200';
+    foot.innerText = `未入手 あと${left.total}種 — 引いて集めよう！`;
+  }
+  inner.appendChild(foot);
+
+  banner.appendChild(inner);
+  return banner;
+}
 window.game.showGacha = function(){
   showModal('💎 ガチャ', '');
   renderGachaScreen();
@@ -3386,6 +3513,9 @@ function renderGachaScreen(){
   ui.rewardList.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'flex flex-col gap-3 w-full';
+
+  const pickup = buildGachaPickupBanner();
+  if(pickup) wrap.appendChild(pickup);
 
   const info = document.createElement('div');
   info.className = 'text-[10px] text-zinc-400 text-center leading-relaxed';
