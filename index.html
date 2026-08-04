@@ -1628,7 +1628,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <!-- Controls -->
 <div class="bg-gradient-to-t from-black via-zinc-900/95 to-transparent pt-2 pb-4 shrink-0 z-10 px-1" id="control-area">
 <div class="flex items-center justify-center space-x-6 mb-1.5">
-<div class="text-[10px] text-zinc-500 font-bold text-center pixel-font">Grave<br><span id="discard-count" class="text-white text-lg">0</span></div>
+<div onclick="window.game.showDiscardPile()" title="捨て札を見る" class="text-[10px] text-zinc-500 font-bold text-center pixel-font cursor-pointer select-none px-1.5 py-0.5 rounded-md hover:bg-white/10 hover:text-zinc-300 active:scale-95 transition">Grave<br><span id="discard-count" class="text-white text-lg">0</span></div>
 <div class="relative group flex flex-col items-center">
 <div id="energy-circle" class="w-14 h-14 rounded-full bg-amber-600 border-4 border-amber-800 flex flex-col items-center justify-center shadow-[0_0_20px_rgba(217,119,6,0.6)] z-10 relative">
 <span class="text-lg font-black text-white leading-none mt-1" id="energy-val">0</span>
@@ -1636,7 +1636,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 </div>
 <div class="absolute -bottom-2 -right-2 bg-blue-600 text-[10px] px-1.5 rounded-full border border-white/20 font-bold shadow-md z-20"> <span id="energy-regen">0</span></div>
 </div>
-<div class="text-[10px] text-zinc-500 font-bold text-center pixel-font">Deck<br><span id="draw-count" class="text-white text-lg">0</span></div>
+<div onclick="window.game.showDrawPile()" title="山札を見る" class="text-[10px] text-zinc-500 font-bold text-center pixel-font cursor-pointer select-none px-1.5 py-0.5 rounded-md hover:bg-white/10 hover:text-zinc-300 active:scale-95 transition">Deck<br><span id="draw-count" class="text-white text-lg">0</span></div>
 </div>
 <!-- カードエリア：スクロール対応 -->
 <div id="player-hand" class="flex justify-center items-end h-[152px] w-full mb-1.5 gap-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
@@ -1846,8 +1846,23 @@ function stopAllSe() {
     try { src.stop(0); } catch(e) {}
   }
 }
+// iOSは、Web Audio API経由で鳴らした音を「マナーモード(消音スイッチ)」に関係なく鳴らしてしまう。
+// このゲームはSEも<audio>のBGMもAudioContext経由なので、放っておくと全部マナーモードを貫通する。
+// Audio Session API(Safari 16.4以降)で 'ambient' を指定すると、
+//   ・消音スイッチがONなら鳴らない(マナーモードに従う)
+//   ・他アプリの音楽を止めない(ミックスされる)
+// という、ゲームとして正しい挙動になる。既定の 'auto' はWeb Audioを使うと
+// 'playback'(=消音スイッチを無視する動画・音楽アプリ向け)扱いになるので、必ず明示すること。
+function applyAmbientAudioSession() {
+  try {
+    if (navigator.audioSession && navigator.audioSession.type !== 'ambient') {
+      navigator.audioSession.type = 'ambient';
+    }
+  } catch(e) { /* 非対応環境。ブラウザ既定の挙動に任せる */ }
+}
 function ensureAudioCtx() {
   try {
+    applyAmbientAudioSession();   // AudioContextを作る前に指定しておく
     if (!__audioCtx) {
       __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       // iOSは着信や他アプリの音で勝手に止められる。止まったら即座に起こし直す
@@ -2903,6 +2918,15 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'山札と捨て札を見られるように', items:[
+    'ガッツの右の「Deck」をタップすると、今の山札に残っているカードを確認できます',
+    'ガッツの左の「Grave」をタップすると、使って捨て札になったカードを確認できます',
+    '山札は並べ替えて表示するので、次に引くカードの順番までは分かりません',
+  ]},
+  { date:'2026/08/04', title:'マナーモードに従うように', items:[
+    'マナーモード(消音スイッチ)にしていても音が鳴ってしまう問題を修正しました',
+    'あわせて、他のアプリで音楽を聴きながらでも遊べるようになりました',
+  ]},
   { date:'2026/08/04', title:'ガチャの演出を一新', items:[
     '卵をやめて、上下にパカッと開くカプセルになりました',
     '10連を引いている間だけ専用のBGMが流れ、曲の締めに合わせて最後のカプセルが開きます',
@@ -4686,6 +4710,28 @@ const grid = document.createElement('div'); grid.className = "grid grid-cols-4 g
 state.deck.forEach(c => { grid.appendChild(createCardUI(c, -1, true, true)); });
 ui.rewardList.appendChild(grid); ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="閉じる"; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');
 };
+// 山札・捨て札の中身を一覧表示する(ガッツの左右の Deck / Grave をタップして開く)。
+// 【重要】山札は必ず並べ替えて出すこと。state.drawPileの順番のまま並べると
+// 「次に何を引くか」が丸見えになり、引きの駆け引きが成立しなくなる。
+// 捨て札は既に使ったカードなので、新しい順に見せて構わない。
+function showPileList(title, cards, hideOrder) {
+  const list = hideOrder
+    ? [...cards].sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'ja'))
+    : [...cards].reverse();
+  showModal(title, list.length ? `${list.length} 枚` : 'カードはありません');
+  if(list.length){
+    const grid = document.createElement('div');
+    grid.className = "grid grid-cols-4 gap-2 w-full overflow-y-auto no-scrollbar py-1";
+    list.forEach(c => grid.appendChild(createCardUI(c, -1, true, true)));
+    ui.rewardList.appendChild(grid);
+  }
+  ui.modalBtn.classList.add('hidden');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = "閉じる";
+  ui.modalConfirm.onclick = () => ui.modal.classList.add('hidden');
+}
+window.game.showDrawPile = function() { showPileList('山札', state.drawPile || [], true); };
+window.game.showDiscardPile = function() { showPileList('捨て札', state.discardPile || [], false); };
 window.game.showStatInfo = function(type) {
 showModal(type==='atk'?"力 (ATK)":"丈夫さ (DEF)", type==='atk'?"カードの攻撃ダメージに加算されます。":"敵から受けるダメージを固定値で軽減します。");
 ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText="閉じる"; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');

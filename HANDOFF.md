@@ -101,6 +101,13 @@
 - **AudioContextは`state !== 'running'`で必ずresumeする。** iOSは中断時に非標準の
   `'interrupted'`になるので、`'suspended'`だけを見ていると復帰できない。
   併せて`statechange`でも起こし直している
+- **マナーモード(消音スイッチ)対応**: iOSはWeb Audio API経由の音を消音スイッチに関係なく鳴らす。
+  このゲームはSEも`<audio>`のBGMもAudioContext経由なので、放っておくと全部貫通する。
+  `applyAmbientAudioSession()`が`navigator.audioSession.type = 'ambient'`を指定して回避している
+  (Audio Session API / Safari 16.4以降。非対応環境ではtry-catchで無視)。
+  **既定の`'auto'`はWeb Audioを使うと`'playback'`扱いになって消音スイッチを無視するので、必ず明示すること。**
+  `'ambient'`は他アプリの音楽を止めない(ミックスされる)副次効果もあり、ゲームとしてはこちらが正しい。
+  `ensureAudioCtx()`の先頭で毎回呼んでいる(AudioContextを作る前に指定する必要があるため)
 
 ### 最近の修正(このセッションで対応済み)
 
@@ -320,6 +327,16 @@ else tryResumeRun();
 保存のタイミングによっては`state.enemy.intent`が無いまま復帰することがある。
 `updateUI()`は`intent.type`を読むので、以前はここで例外が出てUI更新が止まっていた。
 今は`updateUI()`側でフォールバックし、`tryResumeRun()`でも`setEnemyIntent()`を呼び直している。
+
+### 山札・捨て札の一覧(`showPileList()`)
+
+バトル画面のガッツの左右にある `Deck` / `Grave` をタップすると中身を見られる
+(`window.game.showDrawPile()` / `showDiscardPile()`)。
+
+- **山札は必ず名前順に並べ替えて出すこと**(`showPileList`の第3引数`hideOrder`)。
+  `state.drawPile`の順番のまま並べると「次に何を引くか」が丸見えになり、
+  引きの駆け引きが成立しなくなる。捨て札は既に使ったカードなので新しい順でよい
+- 消滅したカードは`state.exhaustPile`に入るのでどちらにも出ない(仕様)
 
 ### **キャラの絵は「描き直す場所」を増やしてはいけない — `renderPlayerSprite()` に集約**
 
