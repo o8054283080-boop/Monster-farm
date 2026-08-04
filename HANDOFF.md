@@ -1089,6 +1089,10 @@ const GACHA_STORAGE_KEY = 'mf_gacha_progress';
    - **背景は専用の不透明背景**(`#gacha-overlay`のCSS)。深い紫のグラデーション+星屑で「召喚の間」風。ここを半透明にするとタイトル画面が透けて演出が締まらないので、不透明のままにすること
    - オーラ枠のみ全画面リング拡散演出あり(`.gacha-ring-burst`、CSS maskで円形に、`border-image`はborder-radiusを無視して四角くなるため不採用)
    - 10連は`runTenPullGachaSequence()`が10個のミニカプセルを`.gacha-cap-grid`で順番に開き、最後に今回最高レアだけ`runSingleGachaReveal()`を「★ トリ確定演出 ★」付きで再生
+   - **最高レアの1個はグリッドでは開けずに取っておく**(`heldIdx`)。10個全部の中身が先に見えていると、
+     最後に何が出るか分かってしまって盛り上がらないため。取っておくマスは`.is-held`が付いて
+     カプセルのまま光り続け(`gacha-held-bob`/`gacha-held-glow`)、トリ確定演出でようやく開く。
+     マスは10個のままなので**曲との同期(`afterGrid`の計算)は変わらない**
    - **10連の演出は`bgm-gacha.mp3`と尺を合わせてある。** 曲の最後の「テン！」が鳴る位置を`GACHA_BGM_HIT_MS`(実測9280ms)に置き、
      トリ確定カプセルが**ちょうどそこで開く**ように各段階の長さを`runTenPullGachaSequence()`が逆算している。
      **曲を差し替えたら`GACHA_BGM_HIT_MS`を測り直すこと**(波形のピーク位置。PyAVでデコードしてRMSを見るのが早い)。

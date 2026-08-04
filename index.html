@@ -765,6 +765,14 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 .gacha-cap-mini.is-bursting .cap-seam   { animation: gacha-cap-seam-flash 0.24s ease-out forwards; }
 @keyframes gacha-cap-mini-top    { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-26px) rotate(-30deg); opacity: 0; } }
 @keyframes gacha-cap-mini-bottom { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(24px) rotate(24deg); opacity: 0; } }
+/* 最後まで取っておくマス。開かずに、期待させるように光り続ける */
+.gacha-cap-mini.is-held .gacha-capsule { opacity:1; transform:scale(1); animation:gacha-held-bob 1.05s ease-in-out infinite alternate; }
+.gacha-cap-mini.is-held .cap-half { animation:gacha-held-glow .85s ease-in-out infinite alternate; }
+@keyframes gacha-held-bob { from { transform:scale(1) translateY(0) } to { transform:scale(1.09) translateY(-3px) } }
+@keyframes gacha-held-glow {
+  from { box-shadow:0 0 10px var(--gc-glow, rgba(255,255,255,.6)) }
+  to   { box-shadow:0 0 26px var(--gc-glow, rgba(255,255,255,.95)), 0 0 44px var(--gc-glow, rgba(255,255,255,.6)) }
+}
 .gacha-cap-mini-result {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   opacity: 0; transform: scale(0.4); border-radius: 8px;
@@ -3096,6 +3104,11 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/05', title:'10連ガチャの演出を改善', items:[
+    '10個すべての中身が先に見えてしまい、最後の演出が盛り上がらなかったのを直しました',
+    '一番良かった1個は開けずに取っておき、最後の演出でようやく開くようになりました',
+    '取っておいたカプセルは光ったまま残るので、どれが残っているか分かります',
+  ]},
   { date:'2026/08/05', title:'ガチャ確率アップ＆新SSRスキン', items:[
     'SSRスキンの確率を5%、オーラを5%、SRスキン/モーションを12%に引き上げました',
     'ヒノトリの新SSRスキン「冥炎の守護鳥」を追加しました。専用技は「ハデスフレア」です',
@@ -4639,6 +4652,12 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
   grid.className = 'gacha-cap-grid';
   stage.appendChild(grid);
 
+  // 最後の「トリ確定演出」で出す1個は、ここでは開けずに取っておく。
+  // 10個全部の中身が先に見えていると、最後の1個が何か分かってしまって盛り上がらないため。
+  // 取っておくマスはカプセルのまま光って残り、最後の演出でようやく開く。
+  const best = highestRarityResult(results);
+  const heldIdx = results.indexOf(best);
+
   const cells = results.map(r=>{
     const theme = gachaThemeOf(r.tier);
     const cell = document.createElement('div');
@@ -4654,6 +4673,15 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
   cells.forEach(({cell}, i)=> setT(()=> cell.classList.add('is-appearing'), i*stagger));
   cells.forEach(({cell, theme, r}, i)=>{
     const tBurst = i*stagger + 260;
+    // 取っておくマスは開けない。代わりに「まだ開いていない」と分かるよう光らせ続ける
+    if(i === heldIdx){
+      setT(()=>{
+        cell.classList.remove('is-appearing');
+        cell.classList.add('is-held');
+        playGachaSfx('appear');
+      }, tBurst);
+      return;
+    }
     setT(()=>{
       cell.classList.remove('is-appearing'); cell.classList.add('is-bursting');
       playGachaSfx(theme.sfx);
@@ -4682,7 +4710,6 @@ function runTenPullGachaSequence(stage, flashEl, setT, results, onDone){
     hold:   1500,
   };
   setT(()=>{
-    const best = highestRarityResult(results);
     runSingleGachaReveal(stage, flashEl, setT, best, '★ トリ確定演出 ★', onDone, timing);
   }, afterGrid);
 }
