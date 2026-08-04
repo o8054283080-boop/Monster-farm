@@ -366,6 +366,28 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 #player-hand[data-density="sm"] .card.small .card-val { font-size: 1.05rem !important; }
 #player-hand[data-density="sm"] .card.small .card-emblem { font-size: 27px !important; }
 #player-hand[data-density="sm"] .card.small .card-ft { font-size: 5px !important; padding: 0 3px 3px !important; }
+/* 2行表示のときの大きさ。1行に10枚押し込むより1枚あたりが大きくなる(46px→62px) */
+#player-hand[data-density="md"] .card.small { width: 62px !important; height: 88px !important; border-width: 2px !important; }
+#player-hand[data-density="md"] .card.small .card-hd { padding: 2px 3px 0 !important; }
+#player-hand[data-density="md"] .card.small .card-cost { width: 15px !important; height: 15px !important; font-size: 7px !important; }
+#player-hand[data-density="md"] .card.small .card-rank { font-size: 5px !important; padding: 0 1.5px !important; }
+#player-hand[data-density="md"] .card.small .card-name { font-size: 6px !important; min-height: 11px !important; margin: 1px 2px 0 !important; }
+#player-hand[data-density="md"] .card.small .card-val { font-size: 1.1rem !important; }
+#player-hand[data-density="md"] .card.small .card-emblem { font-size: 29px !important; }
+#player-hand[data-density="md"] .card.small .card-ft { font-size: 5px !important; padding: 0 3px 3px !important; }
+/* 6枚以上は5列×2行のグリッドに切り替える。横スクロールが不要になり、全部が一度に見える */
+#player-hand[data-rows="2"]{
+  display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  justify-items: center !important; align-items: end !important;
+  height: auto !important; overflow-x: hidden !important; overflow-y: visible !important;
+  padding-bottom: 4px !important;
+}
+/* 画面が低い端末では2行だと圧迫するので少し小さくする(基本ルールより後ろに置いて勝たせる) */
+@media (max-height: 700px){
+  #player-hand[data-density="md"] .card.small { width: 52px !important; height: 74px !important; }
+  #player-hand[data-density="md"] .card.small .card-emblem { font-size: 24px !important; }
+  #player-hand[data-density="md"] .card.small .card-val { font-size: .95rem !important; }
+}
 #player-hand[data-density="xs"] .card.small { width: 46px !important; height: 66px !important; border-width: 1px !important; }
 #player-hand[data-density="xs"] .card.small .card-hd { padding: 2px 3px 0 !important; }
 #player-hand[data-density="xs"] .card.small .card-cost { width: 12px !important; height: 12px !important; font-size: 6px !important; }
@@ -2614,6 +2636,11 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'見やすさの改善', items:[
+    '手札が6枚以上のとき、5枚×2行で表示するようにしました',
+    'これまで横スクロールで隠れていたカードが全部見えるようになり、1枚あたりも大きくなりました',
+    'カード報酬で、長押ししなくてもカードの下に効果が表示されるようになりました',
+  ]},
   { date:'2026/08/04', title:'演出とイベントの追加', items:[
     '敵の攻撃と強化にも動きとエフェクトが付きました',
     '炎上は炎、氷結は氷、感電は電気のエフェクトが自動で出ます',
@@ -6016,14 +6043,14 @@ if(!(state.enemy.isRareElite) && state.enemy.mode!=='boss'){
     r.N -= takeFromN; r.R -= takeFromR; r.SSR += addSsr; r.MR += addMr;
   }
 }
-const cr=document.createElement('div'); cr.className="flex space-x-2 py-2 overflow-x-auto w-full no-scrollbar justify-center";
+const cr=document.createElement('div'); cr.className="flex gap-1.5 py-2 w-full justify-center items-start";
 const pool=Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id)&&!c.isStarter);
 for(let i=0;i<3;i++){
 const rn=Math.random(); let tr='N'; if(rn<r.MR)tr='MR'; else if(rn<r.MR+r.SSR)tr='SSR'; else if(rn<r.MR+r.SSR+r.SR)tr='SR'; else if(rn<r.MR+r.SSR+r.SR+r.R)tr='R';
 let fp=pool.filter(c=>c.rarity===tr); if(fp.length===0)fp=pool.filter(c=>c.rarity==='N');
-const pk={...shuffle(fp)[0],instanceId:Math.random()}; const el=createCardUI(pk,i,true,true);
-el.onclick=()=>{ state.deck.push(pk); nextFloor(); }; cr.appendChild(el);
-if(pk.rarity==='MR') setTimeout(()=>applyMRCardEffect(el), 50);
+const pk={...shuffle(fp)[0],instanceId:Math.random()};
+const choice=createCardChoice(pk,i,()=>{ state.deck.push(pk); nextFloor(); }); cr.appendChild(choice.wrap);
+if(pk.rarity==='MR') setTimeout(()=>applyMRCardEffect(choice.el), 50);
 }
 const skipBtn = document.createElement('button');
 skipBtn.className = "px-4 py-2 mt-2 bg-zinc-800 border border-zinc-600 rounded text-xs text-zinc-400 hover:bg-zinc-700 w-full";
@@ -7103,6 +7130,22 @@ window.game.hideCardInfo = function(){
   if(!ov) return;
   ov.classList.add('hidden'); ov.classList.remove('flex');
 };
+// カード報酬の選択肢。長押ししなくても効果が読めるよう、カードの下に説明を置く。
+// カード自体は狭くて説明が入らないので、外側に縦並びの枠を用意している。
+function createCardChoice(card, idx, onPick){
+  const wrap = document.createElement('div');
+  // 幅は固定せず3等分にする。固定幅だと狭い画面で3枚目がモーダルからはみ出すため
+  wrap.className = 'flex flex-col items-center gap-1 flex-1 min-w-0 max-w-[104px] cursor-pointer';
+  const el = createCardUI(card, idx, true, true);
+  wrap.appendChild(el);
+  const d = document.createElement('div');
+  d.className = 'w-full text-[9px] leading-snug text-zinc-200 bg-zinc-900/80 border border-zinc-700 rounded-md px-1 py-1 text-center';
+  d.style.minHeight = '38px';
+  d.innerText = card.desc || '(効果なし)';
+  wrap.appendChild(d);
+  wrap.onclick = onPick;
+  return { wrap, el };
+}
 function createCardUI(c,idx,isR=false,isSmall=false) {
 const d=document.createElement('div');
 const realCost = isR ? (c.cost||0) : getCardCost(c);
@@ -7127,13 +7170,20 @@ if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; 
 if(!isR) d.dataset.noSelectSe = '1';
 return d;
 }
+// 手札の並べ方。
+// 6枚以上は1行に押し込むとカードが小さくなりすぎて読めないので、2行に折り返す。
+// 手札上限が10枚なので「5枚×2行」で必ず全部が画面に収まり、横スクロールが不要になる。
+// 縦スクロールで2行目を出す案は採らなかった。カードは「上にドラッグして敵へ」出す操作なので、
+// 縦スクロールを入れるとその操作と競合してしまうため。
 function renderHand(){
   ui.hand.innerHTML='';
   const n = state.hand.length;
+  const twoRows = n >= 6;
   let density = 'normal', gap = 8;
-  if(n >= 7){ density='xs'; gap=3; }
+  if(twoRows){ density='md'; gap=5; }
   else if(n >= 5){ density='sm'; gap=5; }
   ui.hand.dataset.density = density;
+  ui.hand.dataset.rows = twoRows ? '2' : '1';
   ui.hand.style.gap = gap+'px';
   state.hand.forEach((c,i)=>ui.hand.appendChild(createCardUI(c,i,false,true)));
 }
