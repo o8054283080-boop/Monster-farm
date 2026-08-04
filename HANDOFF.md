@@ -306,6 +306,26 @@ else tryResumeRun();
 `updateUI()`は`intent.type`を読むので、以前はここで例外が出てUI更新が止まっていた。
 今は`updateUI()`側でフォールバックし、`tryResumeRun()`でも`setEnemyIntent()`を呼び直している。
 
+### **キャラの絵は「描き直す場所」を増やしてはいけない — `renderPlayerSprite()` に集約**
+
+自キャラの絵・種族名・アクセサリ・オーラは`renderPlayerSprite()`が一手に描く。
+呼ぶのは3か所:
+
+1. `selectMonster()` — 冒険の開始時
+2. `startBattle()` — 戦闘に入るたび
+3. `tryResumeRun()` — 復帰したとき(**中断した場面に関係なく必ず**)
+
+**`startBattle()`は敵の絵しか描かない**、というのが罠だった。
+普通に遊ぶ分にはキャラの絵は開始時に1度描けばDOMに残り続けるので問題にならないが、
+途中でタスクキルするとDOMは真っ新から始まる。
+以前は復帰処理が`payload.scene === 'battle' && !state.battleEnded`のときしか
+`renderBattleSprites()`を呼んでいなかったため、
+**マップ・イベント・ショップ・報酬選択の途中で中断した場合はキャラが一度も描かれず、
+種族名が「---」のまま、キャラが見えない状態で次の戦闘が始まっていた**(実際に報告された)。
+
+新しく「キャラを表示する画面」を足すときは、自前で`playerVisual.innerHTML`を書かず
+`renderPlayerSprite()`を呼ぶこと。描画箇所が増えるとまた同じ穴が空く。
+
 ---
 
 ## 6.55 更新履歴の運用ルール(必ず守ること)

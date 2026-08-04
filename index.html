@@ -2230,17 +2230,24 @@ function relinkEnemyImg(enemy) {
   if (__enemyImgLookup[enemy.trait]) enemy.img = __enemyImgLookup[enemy.trait];
 }
 // プレイヤー・敵のスプライト画像を現在のstateから再描画する（通常は選択時/戦闘開始時のみ描画されるため、復帰時にも呼び出して見た目を復元する）
+// プレイヤーのキャラ絵・種族名・アクセサリ・オーラを描く。
+// 【重要】startBattle()は敵の絵しか描かないので、戦闘に入るときは必ずこれも呼ぶこと。
+// キャラの絵は「一度描いたらDOMに残り続ける」ので普段は冒険の開始時(selectMonster)の
+// 1回で足りているが、途中でタスクキルして復帰した場合はDOMが真っ新な状態から始まる。
+// 復帰処理でここを通らないと、キャラが消えたまま(種族名が「---」のまま)戦闘が始まる。
+function renderPlayerSprite() {
+  if(!(state.player && state.player.species)) return;
+  const spec = state.player.species;
+  ui.playerSpeciesName.innerText = spec.name;
+  const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
+  const displayImg = skinImg || spec.img;
+  if(displayImg){ ui.playerVisual.innerHTML = `<img src="${displayImg}" class="player-sprite-img">`; }
+  else { ui.playerVisual.innerHTML = spec.icon||''; }
+  if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
+  if(typeof renderAura==='function') renderAura(document.getElementById('battle-aura-fx'), document.getElementById('player-visual-wrap'));
+}
 function renderBattleSprites() {
-  if(state.player && state.player.species){
-    const spec = state.player.species;
-    ui.playerSpeciesName.innerText = spec.name;
-    const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
-    const displayImg = skinImg || spec.img;
-    if(displayImg){ ui.playerVisual.innerHTML = `<img src="${displayImg}" class="player-sprite-img">`; }
-    else { ui.playerVisual.innerHTML = spec.icon||''; }
-    if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
-    if(typeof renderAura==='function') renderAura(document.getElementById('battle-aura-fx'), document.getElementById('player-visual-wrap'));
-  }
+  renderPlayerSprite();
   if(state.enemy && state.enemy.hp !== undefined){
     const t = state.enemy;
     if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
@@ -2270,6 +2277,10 @@ function tryResumeRun(){
     // 種族データを最新のSPECIES定義に再リンク（画像やパラメータを最新化するため）
     const spId = state.player.species.id;
     if (spId && typeof SPECIES !== 'undefined' && SPECIES[spId]) state.player.species = SPECIES[spId];
+    // どのタイミングで中断していても必ずキャラを描き直す。
+    // 戦闘中の復帰だけで描いていると、マップ/イベント/報酬選択の途中で中断した場合に
+    // キャラが出ないまま次の戦闘に入ってしまう
+    renderPlayerSprite();
     // 敵データの画像も、trait名から最新のデータに再リンクする
     if (state.enemy) relinkEnemyImg(state.enemy);
     ui.nameScene.classList.add('hidden');
@@ -2779,6 +2790,10 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'復帰でキャラが消える不具合を修正', items:[
+    'マップやイベント、報酬選択の途中でアプリを終了して再開すると、自分のモンスターが表示されないまま戦闘が始まる不具合を修正しました',
+    'スキン・アクセサリ・オーラも復帰後にきちんと元通りになります',
+  ]},
   { date:'2026/08/04', title:'音まわりの不具合を修正', items:[
     '他のアプリに切り替えたり画面を消したりして戻ると、音が出なくなったままになる不具合を修正しました',
     '音を消したとき、モンスター選択・ガチャ・継承ショップ・カスタム装備のBGMだけ止まらなかった不具合を修正しました',
@@ -4331,20 +4346,8 @@ state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()})
 applyStarterCardChoice(spec.id); // スキン専用の初期技を選んでいれば看板技を差し替える
 // レジェンド難易度は初期デッキに「呪い」を1枚背負って始める
 if(state.difficulty==='legend') state.deck.push({...CURSE_CARD, instanceId:Math.random()});
-ui.playerSpeciesName.innerText=spec.name;
-{
-  const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
-  const displayImg = skinImg || spec.img;
-  if(displayImg){
-    ui.playerVisual.innerHTML=`<img src="${displayImg}" class="player-sprite-img">`;
-  } else {
-    ui.playerVisual.innerText=spec.icon||'';
-  }
-  if(typeof renderBattleAccessories==='function') renderBattleAccessories(spec.id);
-  // オーラもここで反映する。これが無いと、冒険を再開した時(renderBattleSprites経由)しか
-  // オーラが出ず、普通に始めた冒険では最後まで表示されない
-  if(typeof renderAura==='function') renderAura(document.getElementById('battle-aura-fx'), document.getElementById('player-visual-wrap'));
-}
+// キャラ絵・種族名・アクセ・オーラをまとめて描く(中身は renderPlayerSprite を参照)
+renderPlayerSprite();
 
 // デバッグ用: URLに ?floor=61 のように付けると、その階層から開始できる（動作確認用）
 // 例: index.html?floor=61&boost=1  ※boost=1でライフ・力・丈夫さ・ガッツ上限を底上げ
@@ -5143,6 +5146,9 @@ if(t.img){
 } else {
   ui.enemyVisual.innerHTML=`<span class="enemy-sprite-icon">${t.icon||''}</span>`;
 }
+// 敵だけでなく自キャラも毎戦闘描き直す。これが無いと、途中でタスクキルして
+// 復帰したときにキャラが表示されないまま戦闘が始まる
+renderPlayerSprite();
 // 継承ショップの「ガッツ回復量アップ」は、戦闘開始時のリセットでregenEnergyが0に
 // 戻されるため、遺物と同じくここで毎戦闘再付与する必要がある（これが無いと購入しても効かない）
 state.player.regenEnergy += (state.player.metaRegenEnergy||0);
