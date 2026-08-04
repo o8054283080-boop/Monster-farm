@@ -359,15 +359,22 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 /* 手札の枚数に応じてカードサイズを自動的に詰めて、横スクロールなしで全部見えるようにする */
 /* 手札が増えたらカードを詰める。狭くなるほど、まず会心/役割の行を落として
    「コスト・名前・数値」だけは必ず読めるようにしている */
-#player-hand[data-density="sm"] .card.small { width: 56px !important; height: 80px !important; border-width: 2px !important; }
+#player-hand[data-density="sm"] .card.small { border-width: 2px !important; }
 #player-hand[data-density="sm"] .card.small .card-cost { width: 14px !important; height: 14px !important; font-size: 7px !important; }
 #player-hand[data-density="sm"] .card.small .card-rank { font-size: 5px !important; padding: 0 1.5px !important; }
 #player-hand[data-density="sm"] .card.small .card-name { font-size: 6px !important; min-height: 11px !important; margin: 1px 2px 0 !important; }
 #player-hand[data-density="sm"] .card.small .card-val { font-size: 1.05rem !important; }
 #player-hand[data-density="sm"] .card.small .card-emblem { font-size: 27px !important; }
 #player-hand[data-density="sm"] .card.small .card-ft { font-size: 5px !important; padding: 0 3px 3px !important; }
-/* 2行表示のときの大きさ。1行に10枚押し込むより1枚あたりが大きくなる(46px→62px) */
-#player-hand[data-density="md"] .card.small { width: 62px !important; height: 88px !important; border-width: 2px !important; }
+/* 1行のときに使う中間サイズの文字。実際の幅・高さは renderHand が測って渡す */
+#player-hand[data-density="lg"] .card.small { border-width: 2px !important; }
+#player-hand[data-density="lg"] .card.small .card-cost { width: 16px !important; height: 16px !important; font-size: 8px !important; }
+#player-hand[data-density="lg"] .card.small .card-name { font-size: 7px !important; min-height: 13px !important; }
+#player-hand[data-density="lg"] .card.small .card-val { font-size: 1.3rem !important; }
+#player-hand[data-density="lg"] .card.small .card-emblem { font-size: 33px !important; }
+#player-hand[data-density="lg"] .card.small .card-ft { font-size: 6px !important; }
+/* 2行表示のときの文字の大きさ。実際の幅・高さは renderHand が測って渡す */
+#player-hand[data-density="md"] .card.small { border-width: 2px !important; }
 #player-hand[data-density="md"] .card.small .card-hd { padding: 2px 3px 0 !important; }
 #player-hand[data-density="md"] .card.small .card-cost { width: 15px !important; height: 15px !important; font-size: 7px !important; }
 #player-hand[data-density="md"] .card.small .card-rank { font-size: 5px !important; padding: 0 1.5px !important; }
@@ -386,13 +393,18 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   height: auto !important; overflow-x: hidden !important; overflow-y: visible !important;
   padding-bottom: 4px !important;
 }
+/* 実際の大きさは renderHand が測って --hand-card-w/h で渡す。
+   density(文字の大きさ)より後ろに置いて、幅・高さだけこちらを勝たせる */
+#player-hand .card.small{
+  width: var(--hand-card-w, 70px) !important;
+  height: var(--hand-card-h, 100px) !important;
+}
 /* 画面が低い端末では2行だと圧迫するので少し小さくする(基本ルールより後ろに置いて勝たせる) */
 @media (max-height: 700px){
-  #player-hand[data-density="md"] .card.small { width: 52px !important; height: 74px !important; }
   #player-hand[data-density="md"] .card.small .card-emblem { font-size: 24px !important; }
   #player-hand[data-density="md"] .card.small .card-val { font-size: .95rem !important; }
 }
-#player-hand[data-density="xs"] .card.small { width: 46px !important; height: 66px !important; border-width: 1px !important; }
+#player-hand[data-density="xs"] .card.small { border-width: 1px !important; }
 #player-hand[data-density="xs"] .card.small .card-hd { padding: 2px 3px 0 !important; }
 #player-hand[data-density="xs"] .card.small .card-cost { width: 12px !important; height: 12px !important; font-size: 6px !important; }
 #player-hand[data-density="xs"] .card.small .card-rank { display: none !important; }
@@ -2659,6 +2671,10 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'手札のカードを大きく', items:[
+    '手札が5枚のときのカードが小さすぎたので、画面に入る限り大きく表示するようにしました',
+    '6枚以上のときの大きさは変えていません',
+  ]},
   { date:'2026/08/04', title:'復帰の不具合を修正', items:[
     'アプリを一度終了して再開すると、モンスターと敵の絵が表示されなくなる不具合を修正しました',
     '復帰したときに敵の次の行動が表示されないことがある問題も直しました',
@@ -7210,15 +7226,46 @@ return d;
 // 手札上限が10枚なので「5枚×2行」で必ず全部が画面に収まり、横スクロールが不要になる。
 // 縦スクロールで2行目を出す案は採らなかった。カードは「上にドラッグして敵へ」出す操作なので、
 // 縦スクロールを入れるとその操作と競合してしまうため。
+// 手札のカードの大きさは「入る幅ぴったり」に合わせる。
+// 段階サイズだけだと端数で1つ下に落ちてしまい、5枚のときに必要以上に小さくなっていた。
+// 文字の大きさだけは段階(density)で切り替える。
+// カードの縦横比は約1:1.43(70x100など)なので、高さは幅から求める。
+const HAND_CARD_RATIO = 1.43;
+function handDensityFor(w){
+  return w >= 72 ? 'normal' : w >= 64 ? 'lg' : w >= 58 ? 'md' : w >= 50 ? 'sm' : 'xs';
+}
 function renderHand(){
   ui.hand.innerHTML='';
   const n = state.hand.length;
   const twoRows = n >= 6;
-  let density = 'normal', gap = 8;
-  if(twoRows){ density='md'; gap=5; }
-  else if(n >= 5){ density='sm'; gap=5; }
+  let density = 'normal', gap = 8, targetW = 0;
+  if(n > 0){
+    const cs = getComputedStyle(ui.hand);
+    const inner = ui.hand.clientWidth - (parseFloat(cs.paddingLeft)||0) - (parseFloat(cs.paddingRight)||0);
+    const fitW = (count, g) => (inner - (count-1)*g) / count;
+    const isShort = (typeof window!=='undefined' && window.matchMedia) ? window.matchMedia('(max-height: 700px)').matches : false;
+    // 780ではなく700。CSS側の `@media (min-height:700px)` で .card.small が80pxになるのに合わせている
+    const isTall  = (typeof window!=='undefined' && window.matchMedia) ? window.matchMedia('(min-height: 700px)').matches : false;
+    const normalW = isTall ? 80 : 70;
+    // 「5枚を1行に並べたときの大きさ」が上限。6枚以上でこれより大きくはしない
+    const cap5 = Math.min(normalW, Math.floor(fitW(5, 4)));
+    if(twoRows){
+      gap = 5;
+      const cols = Math.ceil(n/2);
+      // 2行は画面の高さを食うので、1行のときより控えめな上限にしておく
+      targetW = Math.min(cap5, isShort ? 54 : 62, Math.floor(fitW(cols, gap)));
+    } else {
+      gap = 4;
+      targetW = Math.min(normalW, Math.floor(fitW(n, gap)));
+    }
+    density = handDensityFor(targetW);
+  }
   ui.hand.dataset.density = density;
   ui.hand.dataset.rows = twoRows ? '2' : '1';
+  if(targetW > 0){
+    ui.hand.style.setProperty('--hand-card-w', targetW + 'px');
+    ui.hand.style.setProperty('--hand-card-h', Math.round(targetW * HAND_CARD_RATIO) + 'px');
+  }
   // 2行のときは左右が均等になる列数にする(6枚→3+3、7枚→4+3、10枚→5+5)
   ui.hand.style.setProperty('--hand-cols', twoRows ? String(Math.ceil(n/2)) : '');
   ui.hand.style.gap = gap+'px';
