@@ -248,6 +248,37 @@ localStorageキー `mf_gacha_progress`。タイトル画面「💎 ガチャ」�
 
 ---
 
+## 6.54 冒険の自動復帰(タスクキル対策)
+
+`mf_active_run` に `state` ごと保存し、起動時に `tryResumeRun()` で戻す。
+画像(`img`)はlocalStorageの容量を食うので保存せず、復帰時に
+`SPECIES[id]` と `relinkEnemyImg()` で貼り直す。
+
+### **`tryResumeRun()` はスクリプト全体の評価後に呼ぶこと**
+
+```js
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryResumeRun);
+else tryResumeRun();
+```
+
+以前はこの関数がファイル中ほど(2100行目付近)で**即時実行**されていた。
+`renderBattleSprites()` → `getEquippedSkinImg()` → `loadCosmetics()` の順に呼ばれ、
+その中で `ACC_SLOT_KEYS`(2900行目)や `CARD_MOTIONS`(6900行目)といった
+**まだ評価されていない`const`**に触るため、TDZの`ReferenceError`になっていた。
+例外は`catch`に飲まれるので画面にエラーは出ず、
+**復帰処理だけが途中で止まってキャラも敵も表示されない**という形で現れた。
+
+**`typeof X === 'undefined'` のガードはTDZのconstには効かない**(それ自体が投げる)ので、
+「安全のためtypeofで囲む」は対策にならない。実行順を直すのが正解。
+
+### 敵の行動(intent)が無い状態での復帰
+
+保存のタイミングによっては`state.enemy.intent`が無いまま復帰することがある。
+`updateUI()`は`intent.type`を読むので、以前はここで例外が出てUI更新が止まっていた。
+今は`updateUI()`側でフォールバックし、`tryResumeRun()`でも`setEnemyIntent()`を呼び直している。
+
+---
+
 ## 6.55 更新履歴の運用ルール(必ず守ること)
 
 **ゲームに手を入れたら、毎回 `CHANGELOG` に1件足す。** バグ修正でも追加でも同じ。

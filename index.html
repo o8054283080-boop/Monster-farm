@@ -2134,8 +2134,14 @@ function renderBattleSprites() {
 window.addEventListener('beforeunload', doAutosave);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') doAutosave(); });
 
-// ページ読み込み時、進行中の冒険があれば自動で復帰する
-(function tryResumeRun(){
+// ページ読み込み時、進行中の冒険があれば自動で復帰する。
+// 【重要】この関数は必ずスクリプト全体の評価が終わってから呼ぶこと(下の DOMContentLoaded 参照)。
+// renderBattleSprites() → getEquippedSkinImg() → loadCosmetics() の順に呼ばれ、その中で
+// ACC_SLOT_KEYS(この下)や CARD_MOTIONS(さらに下)といった const を参照する。
+// 途中で実行するとTDZの ReferenceError になり、catchに飲まれて復帰処理が丸ごと中断する
+// (キャラも敵も表示されないまま戦闘画面になる、という不具合を実際に出した)。
+// `typeof CARD_MOTIONS === 'undefined'` のようなガードも、TDZのconstには効かないので当てにしないこと。
+function tryResumeRun(){
   try {
     const raw = localStorage.getItem('mf_active_run');
     if (!raw) { resumeCurrentBGM(); return; }
@@ -2166,6 +2172,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
           // 手札があればそのままプレイヤーターンとして復旧し、手札が無ければターン開始処理をやり直す
           if(state.hand && state.hand.length>0){
             state.isPlayerTurn = true;
+            // 敵の行動が決まっていない状態(保存のタイミング次第で起こる)なら決め直す
+            if(!state.enemy.intent) setEnemyIntent();
           } else {
             startPlayerTurn();
           }
@@ -2180,7 +2188,11 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
     }
     resumeCurrentBGM();
   } catch(e) { console.warn('セーブデータの復帰に失敗しました。最初から始めます。', e); resumeCurrentBGM(); }
-})();
+}
+// スクリプトの評価が全部終わってから復帰させる(上のコメント参照)。
+// このスクリプトは<body>の途中にあるので、評価中は必ず readyState==='loading'。
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryResumeRun);
+else tryResumeRun();
 
 // 汎用トースト通知(ログインボーナスなど、画面を邪魔せず一時的に知らせたい時に使う)
 function showDiaToast(html){
@@ -2647,6 +2659,10 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'復帰の不具合を修正', items:[
+    'アプリを一度終了して再開すると、モンスターと敵の絵が表示されなくなる不具合を修正しました',
+    '復帰したときに敵の次の行動が表示されないことがある問題も直しました',
+  ]},
   { date:'2026/08/04', title:'手札の並びを中央に', items:[
     '手札が左に寄っていて右側だけ空いていたのを、中央にそろえました',
     '2行のときも上下の枚数が均等になるようにしました',
@@ -7318,8 +7334,12 @@ if(state.enemy.isRareElite){
   ui.enemyName.innerText=state.enemy.name;
 }
 if(!state.enemy.img) ui.enemyVisual.innerHTML=state.enemy.icon||'';
-const i=state.enemy.intent, im={'atk':'⚔️','weak':'💢','vuln':'⚠️','block':'🛡️','block_atk':'🛡️⚔️','atk_debuff':'☠️','atk_vuln':'☣️','atk_debuff_both':'💀','atk_weak':'📉','atk_debuff_both_3':'☠️','buff':'💪'};
-let intentKey = i.type.replace('_drain', '');
+// 復帰直後など、まだ行動が決まっていない状態で呼ばれてもここで落ちないようにする
+// (以前はintentが無いとUI更新が例外で止まり、画面が中途半端なまま固まっていた)
+if(!state.enemy.intent){ if(typeof setEnemyIntent === 'function') setEnemyIntent(); }
+const i=state.enemy.intent || {type:'atk', val:0, desc:''};
+const im={'atk':'⚔️','weak':'💢','vuln':'⚠️','block':'🛡️','block_atk':'🛡️⚔️','atk_debuff':'☠️','atk_vuln':'☣️','atk_debuff_both':'💀','atk_weak':'📉','atk_debuff_both_3':'☠️','buff':'💪'};
+let intentKey = (i.type||'atk').replace('_drain', '');
 ui.intentIcon.innerText=im[intentKey]||'？';
 let dmgVal = i.val;
 const _previewAtkBonus = Math.max(0, (state.enemy.dmg||0) - (state.enemy._baseDmg||state.enemy.dmg||0));
