@@ -328,15 +328,17 @@ else tryResumeRun();
 `updateUI()`は`intent.type`を読むので、以前はここで例外が出てUI更新が止まっていた。
 今は`updateUI()`側でフォールバックし、`tryResumeRun()`でも`setEnemyIntent()`を呼び直している。
 
-### 山札・捨て札の一覧(`showPileList()`)
+### 山札・捨て札・消滅の一覧(`showPileModal()`)
 
 バトル画面のガッツの左右にある `Deck` / `Grave` をタップすると中身を見られる
 (`window.game.showDrawPile()` / `showDiscardPile()`)。
 
-- **山札は必ず名前順に並べ替えて出すこと**(`showPileList`の第3引数`hideOrder`)。
+- 3つ(山札 / 捨て札 / 消滅)をタブで切り替える1つの画面(`showPileModal`/`PILE_TABS`)。
+  バトル画面にボタンを増やすと狭くなるのと、「捨て札のついでに消滅も見たい」が1タップで済むため
+- **山札は必ず名前順に並べ替えて出すこと**(`PILE_TABS`の`hideOrder`)。
   `state.drawPile`の順番のまま並べると「次に何を引くか」が丸見えになり、
   引きの駆け引きが成立しなくなる。捨て札は既に使ったカードなので新しい順でよい
-- 消滅したカードは`state.exhaustPile`に入るのでどちらにも出ない(仕様)
+- 消滅したカードは`state.exhaustPile`。「消滅」タブで見られる
 
 ### **キャラの絵は「描き直す場所」を増やしてはいけない — `renderPlayerSprite()` に集約**
 
@@ -460,10 +462,19 @@ else tryResumeRun();
 
 ---
 
-## 6.75 ボスの必殺技演出
+## 6.75 必殺技演出(ボス・プレイヤー共通)
 
-ボス戦(`state.enemy.mode === 'boss'`)のときだけ、敵の行動に合わせて画面いっぱいの演出を出す。
-入口は `playBossMoveFx(技名, trait, 攻撃か)`(敵の行動処理から呼ばれる)。
+画面いっぱいの大きな演出。**ボスの技とプレイヤーのMRカードの両方**が同じ仕組みを使う。
+
+- 本体: `playSpecialMoveFx(技名, 色, 攻撃か, grand, ラベル)`
+- ボス: `playBossMoveFx(技名, trait, 攻撃か)` … ボス戦(`state.enemy.mode === 'boss'`)の敵の行動から呼ばれる
+- プレイヤー: `playPlayerUltimateFx(カード)` … `playCard()`から呼ばれる。
+  **MRかつコスト`PLAYER_ULT_MIN_COST`(30)以上**のカードだけが対象。
+  MR全部にすると「極ガッツヒール」「ゴッドフォース」のようなコスト0の常用カードで
+  毎ターン看板が出てしまい、かえって安っぽくなる
+
+DOMは`#special-fx-layer`(エフェクト)と`#special-move-banner`(技名の看板)の2つだけ。
+**名前に`boss`が付いていないのは、プレイヤー側でも使うため。**
 
 ### 仕組み: 「形」と「色」を別々に決める
 
@@ -494,8 +505,11 @@ else tryResumeRun();
   役割を分けている。数を変えたいだけならJS、見た目ならCSSだけ触ればよい
 - **画面を塗りつぶさないこと。** 闇の霧と炎の火柱は当初いっぱいに広がって敵もキャラも見えなくなったので、
   霧は中央を透明に、火柱は細く数を増やす形に直した。派手さと視認性のバランスを崩さないこと
-- 戦闘を離れるときは`clearBossMoveFx()`を呼ぶ(`initMap`/`renderMapChoices`/`resetGameState`で呼んでいる)。
+- 戦闘を離れるときは`clearSpecialFx()`を呼ぶ(`initMap`/`renderMapChoices`/`resetGameState`で呼んでいる)。
   忘れると演出が次の画面に残る
+- **後片付けのタイマーは`__specialFxTimers`に持っておき、次の演出を始める前に必ず`clearTimeout`すること。**
+  取り消さないと、続けて必殺技を撃ったときに「前の技の後片付け」が後から発火して、
+  出たばかりの画面揺れや看板を消してしまう(実際にこの不具合を出した)
 - `prefers-reduced-motion`では動きを止めるが、**技名の看板だけは消さない**(演出ではなく情報のため)
 
 ---
