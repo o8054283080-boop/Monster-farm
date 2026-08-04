@@ -2614,6 +2614,19 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'演出とイベントの追加', items:[
+    '敵の攻撃と強化にも動きとエフェクトが付きました',
+    '炎上は炎、氷結は氷、感電は電気のエフェクトが自動で出ます',
+    '「〜砲」「〜ビーム」など技名からビームのエフェクトが出ます',
+    'ガチャを引いていなくても演出が出るよう、標準モーションを全員に配布しました',
+    'イベントを14種追加しました(全22種→36種)',
+    '一撃入魂・絶対防御体制に「消滅」を追加しました',
+  ]},
+  { date:'2026/08/04', title:'手札の無限ループを修正', items:[
+    'コスト0のドローカードでデッキを無限に掘れてしまう問題を修正しました',
+    '「ドロー！！」をドロー2・消滅に変更しました',
+    '手札の上限を10枚にしました',
+  ]},
   { date:'2026/08/04', title:'難易度バランスの修正', items:[
     '難易度を上げても通常敵と強敵の攻撃力が上がっていなかった不具合を修正しました',
     'とくにハードは、通常敵・強敵がノーマルと全く同じ強さになっていました',
@@ -6510,6 +6523,108 @@ function showEvent() {
         { label:'カードを恵んであげる (デッキから1枚削除)', fn:()=>{ showCardRemoval(); return 'skip'; }},
         { label:'なにもしない', result:'通り過ぎた。とくになし。', fn:()=>{} }
       ]},
+    // ==== ここから2026/08/04追加分 ====
+    // 荒れた祠
+    { t:'⛩️ 荒れた祠', d:'供え物をするか、供え物を頂くか', rare:false,
+      choices:[
+        { label:'ゴールドを供える (−150)', fn:()=>{
+          if((state.gold||0)>=150){
+            state.gold-=150; state.player.atkBase+=4; state.player.blockBase+=4;
+            state.player.hp=Math.min(state.player.maxHp,state.player.hp+20);
+            showResult('祠が淡く光った。⛩️<br>ゴールド <b>−150</b><br>力 <b>+4</b>、丈夫さ <b>+4</b>、ライフ <b>+20</b>');
+          } else showResult('ゴールドが足りなかった…<br>手を合わせるだけにした。');
+          return 'skip';
+        }},
+        { label:'供え物を頂く', fn:()=>{
+          gainGold(250); state.player.hp=Math.max(0,state.player.hp-15); updateUI();
+          if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
+          showResult('バチが当たった気がする…😰<br>ゴールド <b>+250</b>、ライフ <b>−15</b>');
+          return 'skip';
+        }},
+        { label:'そっとしておく', result:'静かに通り過ぎた。', fn:()=>{} }
+      ]},
+    // 湧き水
+    { t:'💧 湧き水', d:'澄んだ水が湧いている', rare:false,
+      choices:[
+        { label:'たっぷり飲む', result:'生き返る心地だ！<br>ライフ <b>+40</b>', 
+          fn:()=>{ state.player.hp=Math.min(state.player.maxHp,state.player.hp+40); } },
+        { label:'水筒に汲む', result:'次の戦いに備えた。<br>最大ライフ <b>+15</b>',
+          fn:()=>{ state.player.maxHp+=15; state.player.hp=Math.min(state.player.maxHp,state.player.hp+15); } }
+      ]},
+    // 険しい崖
+    { t:'🧗 険しい崖', d:'登れば近道になりそうだ', rare:false,
+      choices:[
+        { label:'登る', fn:()=>{
+          if(Math.random()<0.6){ gainGold(300); state.player.blockBase+=4; showResult('見晴らしのいい場所に宝があった！🎒<br>ゴールド <b>+300</b>、丈夫さ <b>+4</b>'); }
+          else { state.player.hp=Math.max(0,state.player.hp-30); updateUI(); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
+                 showResult('足を滑らせた…😖<br>ライフ <b>−30</b>'); }
+          return 'skip';
+        }},
+        { label:'迂回する', result:'安全に進んだ。とくになし。', fn:()=>{} }
+      ]},
+    // 旅の商人の荷車
+    { t:'🛒 荷車が壊れている', d:'旅の商人が困っている', rare:false,
+      choices:[
+        { label:'手伝う (ライフ−15)', fn:()=>{
+          state.player.hp=Math.max(0,state.player.hp-15); updateUI();
+          if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
+          gainGold(400); state.player.maxHp+=15; state.player.hp=Math.min(state.player.maxHp,state.player.hp+15);
+          showResult('お礼をたくさんもらえた！🎁<br>ライフ <b>−15</b>、ゴールド <b>+400</b>、最大ライフ <b>+15</b>');
+          return 'skip';
+        }},
+        { label:'見なかったことにする', result:'先を急いだ。とくになし。', fn:()=>{} }
+      ]},
+    // 古びた武具
+    { t:'⚔️ 古びた武具が落ちている', d:'錆びついているが、まだ使えそうだ', rare:false,
+      choices:[
+        { label:'研いで使う', result:'切れ味が戻った！<br>力 <b>+6</b>、丈夫さ <b>−2</b>',
+          fn:()=>{ state.player.atkBase+=6; state.player.blockBase=Math.max(0,state.player.blockBase-2); } },
+        { label:'盾に作り直す', result:'頑丈な盾になった！<br>丈夫さ <b>+6</b>、力 <b>−2</b>',
+          fn:()=>{ state.player.blockBase+=6; state.player.atkBase=Math.max(0,state.player.atkBase-2); } },
+        { label:'売り払う', result:'そこそこの値が付いた。<br>ゴールド <b>+200</b>', fn:()=>{ gainGold(200); } }
+      ]},
+    // 賭け事
+    { t:'🎲 サイコロ賭博', d:'路上の男が勝負を持ちかけてきた', rare:false,
+      choices:[
+        { label:'賭ける (ゴールド−200)', fn:()=>{
+          if((state.gold||0)<200){ showResult('ゴールドが足りなかった…<br>相手にされなかった。'); return 'skip'; }
+          state.gold-=200;
+          const r2=Math.random();
+          if(r2<0.35){ gainGold(700); showResult('大当たり！🎉<br>ゴールド <b>+700</b>（差し引き +500）'); }
+          else if(r2<0.6){ gainGold(200); showResult('引き分けだ。<br>賭け金がそのまま返ってきた。'); }
+          else showResult('負けた…😭<br>ゴールド <b>−200</b>');
+          return 'skip';
+        }},
+        { label:'やめておく', result:'関わらないのが一番だ。', fn:()=>{} }
+      ]},
+    // 眠っているモンスター
+    { t:'😪 モンスターが眠っている', d:'気づかれていないようだ', rare:false,
+      choices:[
+        { label:'不意打ちする', fn:()=>{
+          state.player.atkBase+=5; gainGold(150);
+          showResult('先手を取って追い払った！<br>力 <b>+5</b>、ゴールド <b>+150</b>');
+          return 'skip';
+        }},
+        { label:'静かに通り過ぎる', result:'起こさずに済んだ。<br>ライフ <b>+10</b>',
+          fn:()=>{ state.player.hp=Math.min(state.player.maxHp,state.player.hp+10); } }
+      ]},
+    // 鍛冶場跡
+    { t:'🔥 鍛冶場の跡', d:'まだ火が残っている', rare:false,
+      result:'装備を打ち直した！<br>力 <b>+2</b>、丈夫さ <b>+2</b>、最大ライフ <b>+10</b>',
+      a:()=>{ state.player.atkBase+=2; state.player.blockBase+=2; state.player.maxHp+=10; state.player.hp=Math.min(state.player.maxHp,state.player.hp+10); } },
+    // 迷子の子モンスター
+    { t:'🐣 迷子の子モンスター', d:'親とはぐれたらしい', rare:false,
+      choices:[
+        { label:'親を探してあげる', fn:()=>{
+          state.player.hp=Math.max(0,state.player.hp-10); updateUI();
+          if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
+          const p=Object.values(CARDS).filter(c=>c.rarity==='R'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id));
+          if(p.length) state.deck.push({...shuffle(p)[0],instanceId:Math.random()});
+          showResult('親が見つかり、お礼をもらった！🎁<br>ライフ <b>−10</b>、<b>Rカードを1枚</b>入手');
+          return 'skip';
+        }},
+        { label:'放っておく', result:'少し心が痛んだ。', fn:()=>{} }
+      ]},
     // 変なツボ
     { t:'🏺 変なツボがある', d:'どうする？', rare:false,
       choices:[
@@ -6576,6 +6691,60 @@ function showEvent() {
       choices:[
         { label:'💪 力+5・丈夫さ+5', result:'力が <b>+5</b>、丈夫さが <b>+5</b> 上がった！', fn:()=>{ state.player.atkBase+=5; state.player.blockBase+=5; }},
         { label:'🗑️ カード1枚消去', fn:()=>{ showCardRemoval(); return 'skip'; }}
+      ]},
+    // ==== ここから2026/08/04追加分 ====
+    // 古代の修練場
+    { t:'🏛️ 古代の修練場', d:'3つの試練から1つを選べる', rare:true,
+      choices:[
+        { label:'⚔️ 攻の試練 (力+12)', result:'力が <b>+12</b> 上がった！', fn:()=>{ state.player.atkBase+=12; }},
+        { label:'🛡️ 守の試練 (丈夫さ+12)', result:'丈夫さが <b>+12</b> 上がった！', fn:()=>{ state.player.blockBase+=12; }},
+        { label:'❤️ 命の試練 (最大ライフ+60)', result:'最大ライフが <b>+60</b> 増えた！',
+          fn:()=>{ state.player.maxHp+=60; state.player.hp=Math.min(state.player.maxHp,state.player.hp+60); }}
+      ]},
+    // 賢者の泉(ランダムに2枚強化。選んで強化する「カード強化」とは別物)
+    { t:'⛲ 賢者の泉', d:'デッキのカードがランダムに2枚強化される', rare:true,
+      a:()=>{
+        const names=[];
+        for(let k=0;k<2;k++){
+          const cand=state.deck.map((c,i)=>({c,i})).filter(x=>!x.c.upgraded&&!x.c.noRemove);
+          if(!cand.length) break;
+          const pick=cand[Math.floor(Math.random()*cand.length)];
+          upgradeCard(state.deck[pick.i]); names.push(state.deck[pick.i].name);
+        }
+        showResult(names.length ? `泉の水がカードに染み込んだ！💧<br>「<b>${names.join('</b>」「<b>')}</b>」が強化された！`
+                                : '強化できるカードがもう無かった…');
+        return 'skip';
+      }},
+    // 錬金釜
+    { t:'⚗️ 錬金釜', d:'カード1枚を捧げて、より強いカードを得る', rare:true,
+      choices:[
+        { label:'SSRカードと引き換えにカードを1枚失う', fn:()=>{
+          const removable=state.deck.map((c,i)=>({c,i})).filter(x=>!x.c.noRemove);
+          let lost='（なし）';
+          if(removable.length>0){ const pick=removable[Math.floor(Math.random()*removable.length)]; lost=pick.c.name; state.deck.splice(pick.i,1); }
+          const p=Object.values(CARDS).filter(c=>c.rarity==='SSR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id));
+          if(p.length) state.deck.push({...shuffle(p)[0],instanceId:Math.random()});
+          showResult(`釜が眩く光った！✨<br>「<b>${lost}</b>」が溶けて、<b>SSRカード</b>になった！`);
+          return 'skip';
+        }},
+        { label:'やめておく', result:'釜の火を落として立ち去った。', fn:()=>{} }
+      ]},
+    // 女神像
+    { t:'🗽 女神像', d:'祈りを捧げると全てが満ちる', rare:true,
+      result:'女神の加護を受けた！✨<br>ライフ全回復、力 <b>+5</b>、丈夫さ <b>+5</b>、ゴールド <b>+300</b>',
+      a:()=>{ state.player.hp=state.player.maxHp; state.player.atkBase+=5; state.player.blockBase+=5; gainGold(300); } },
+    // 悪魔の契約
+    { t:'😈 悪魔の契約', d:'力を貸す代わりに、代償をもらおう', rare:true,
+      choices:[
+        { label:'契約する (最大ライフ半減・力+30)', fn:()=>{
+          state.player.maxHp=Math.max(1,Math.floor(state.player.maxHp*0.5));
+          state.player.hp=Math.min(state.player.hp,state.player.maxHp);
+          state.player.atkBase+=30; updateUI();
+          if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
+          showResult('体が焼けるように熱い…🔥<br>最大ライフ <b>半減</b>、力 <b>+30</b>');
+          return 'skip';
+        }},
+        { label:'断る', result:'悪魔は舌打ちして消えた。', fn:()=>{} }
       ]},
   ];
 
