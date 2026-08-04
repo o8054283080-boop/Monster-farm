@@ -2949,6 +2949,13 @@ function renderLoadoutSpeciesTabs(){
     el.appendChild(btn);
   });
 }
+// アクセサリのプレビュー枠のサイズ。装備画面のプレビュー(#loadout-preview)も
+// アクセ選択モーダルのプレビュー(#acc-picker-preview)も同じ w-36(144px)。
+// キャラ画像は max-w-[85%] なので、位置と大きさの基準サイズは 144*0.85 = 122 になる。
+// **枠のCSSを変えたらこの定数も必ず変えること。** ここがズレると
+// アクセの位置と大きさが両方狂い、装備画面とアクセ選択画面で見た目が食い違う。
+const ACC_PREVIEW_BOX = 144;
+const ACC_PREVIEW_REF = Math.round(ACC_PREVIEW_BOX * 0.85);
 function renderLoadoutPreview(){
   const c = loadCosmetics();
   const sp = SPECIES[loadoutSelectedSpecies];
@@ -2956,8 +2963,7 @@ function renderLoadoutPreview(){
   const skin = skinId ? findSkinById(skinId) : null;
   document.getElementById('loadout-preview-img').src = skin ? skin.img : sp.img;
   renderAura(document.getElementById('loadout-aura-fx'), document.getElementById('loadout-preview'));
-  // プレビュー枠(160px)の中でキャラは最大85%(136px)まで表示される想定を基準サイズとして使う
-  const refSize = 136;
+  const refSize = ACC_PREVIEW_REF;
   ['hat','mask','other','weapon'].forEach(cat=>{
     const img = document.getElementById('loadout-acc-'+cat);
     const accId = accSlots(c, loadoutSelectedSpecies)[cat];
@@ -2969,9 +2975,9 @@ function renderLoadoutPreview(){
     img.style.display = 'block';
     img.style.width = v.w+'px';
     img.style.height = v.h+'px';
-    // プレビュー枠(160px = w-40)の中心を基準に配置
-    img.style.left = (80 + v.left) + 'px';
-    img.style.top = (80 + v.top) + 'px';
+    // プレビュー枠の中心を基準に配置
+    img.style.left = (ACC_PREVIEW_BOX/2 + v.left) + 'px';
+    img.style.top = (ACC_PREVIEW_BOX/2 + v.top) + 'px';
     img.style.transform = `rotate(${v.rotate}deg)`;
     img.style.filter = `hue-rotate(${v.hue}deg)`;
   });
@@ -3167,7 +3173,7 @@ function selectAccInPicker(accId){
   renderLoadoutPreview();
 }
 // ピッカーのミニプレビュー枠は144px、キャラは最大85%(約122px)まで表示される想定
-const ACC_PICKER_PREVIEW_REF = 122;
+const ACC_PICKER_PREVIEW_REF = ACC_PREVIEW_REF;
 function renderAccPickerPreview(accId){
   const c = loadCosmetics();
   const sp = SPECIES[loadoutSelectedSpecies];
@@ -3181,9 +3187,9 @@ function renderAccPickerPreview(accId){
   img.src = acc.img;
   img.style.width = v.w+'px';
   img.style.height = v.h+'px';
-  // プレビュー枠(144px = w-36)の中心を基準に配置
-  img.style.left = (72 + v.left) + 'px';
-  img.style.top = (72 + v.top) + 'px';
+  // プレビュー枠の中心を基準に配置
+  img.style.left = (ACC_PREVIEW_BOX/2 + v.left) + 'px';
+  img.style.top = (ACC_PREVIEW_BOX/2 + v.top) + 'px';
   img.style.transform = `rotate(${v.rotate}deg)`;
   img.style.filter = `hue-rotate(${v.hue}deg)`;
 }
