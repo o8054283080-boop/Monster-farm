@@ -1178,10 +1178,10 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <input type="text" id="player-name-input" placeholder="名無し" maxlength="8" class="ornate-panel w-full p-3 text-center text-amber-100 text-lg focus:outline-none focus:border-amber-400 transition-colors rounded-sm">
 <select id="difficulty-input" class="ornate-panel w-full p-3 text-center text-zinc-300 text-sm focus:outline-none focus:border-amber-400 transition-colors mb-2 rounded-sm">
 <option value="normal">難易度：ノーマル</option>
-<option value="hard">難易度：ハード (敵攻撃力 1.2倍 / 最終スコア 1.2倍)</option>
-<option value="expert">難易度：エキスパート (敵ステ 1.25倍 / 最終スコア 1.5倍)</option>
-<option value="veryhard">難易度：ベリーハード (敵ステ 1.3倍 / 最終スコア 1.75倍 / レジェンドボスラッシュ解放)</option>
-<option value="legend">難易度：レジェンド (敵ステ 1.5倍 / 最終スコア 2.25倍 / 初期デッキに呪い / 大ケガ)</option>
+<option value="hard">難易度：ハード (敵の攻撃 1.12倍 / HP 1.05倍 / 最終スコア 1.2倍)</option>
+<option value="expert">難易度：エキスパート (敵の攻撃 1.2倍 / HP 1.1倍 / 最終スコア 1.5倍)</option>
+<option value="veryhard">難易度：ベリーハード (敵の攻撃 1.28倍 / HP 1.15倍 / 最終スコア 1.75倍 / レジェンドボスラッシュ解放)</option>
+<option value="legend">難易度：レジェンド (敵の攻撃 1.4倍 / HP 1.2倍 / 最終スコア 2.25倍 / 初期デッキに呪い / 大ケガ)</option>
 </select>
 
 <button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
@@ -1357,11 +1357,12 @@ background: linear-gradient(135deg, #300000, #3f2e00);
       <p>与えたダメージ・ボス撃破・フロア到達などでスコアが加算されます。難易度が高いほど最終スコアに倍率がかかります。</p>
       <ul class="space-y-0.5 pl-2 mt-1">
         <li><b>ノーマル</b>：スコア等倍</li>
-        <li><b>ハード</b>：敵の攻撃1.2倍 / スコア1.2倍</li>
-        <li><b>エキスパート</b>：敵ステ1.25倍 / スコア1.5倍</li>
-        <li><b>ベリーハード</b>：敵ステ1.3倍 / スコア1.75倍 / 63階のレジェンドボスラッシュ解放</li>
-        <li><b>レジェンド</b>：敵ステ1.5倍 / スコア2.25倍。初期デッキに取り除けない「呪い」が入り、ボスラッシュの必殺技で受けるケガが「大ケガ」（手札に残したままターンを終えると自傷）になります</li>
+        <li><b>ハード</b>：敵の攻撃1.12倍 / HP1.05倍 / スコア1.2倍</li>
+        <li><b>エキスパート</b>：敵の攻撃1.2倍 / HP1.1倍 / スコア1.5倍</li>
+        <li><b>ベリーハード</b>：敵の攻撃1.28倍 / HP1.15倍 / スコア1.75倍 / 63階のレジェンドボスラッシュ解放</li>
+        <li><b>レジェンド</b>：敵の攻撃1.4倍 / HP1.2倍 / スコア2.25倍。初期デッキに取り除けない「呪い」が入り、ボスラッシュの必殺技で受けるケガが「大ケガ」（手札に残したままターンを終えると自傷）になります</li>
       </ul>
+      <p class="mt-1 text-zinc-400">※ボスだけは別の倍率です（エキスパート以上でHP1.2〜1.5倍・攻撃1.25〜1.5倍）。</p>
     </div>
 
     <div>
@@ -2522,6 +2523,12 @@ function listDiaPlayMilestones(current){
 // 上が新しい。新しい版を出したら先頭に1件足すだけでよい。
 // タイトル画面左下の「最終アップデート」をタップすると開く。
 const CHANGELOG = [
+  { date:'2026/08/04', title:'難易度バランスの修正', items:[
+    '難易度を上げても通常敵と強敵の攻撃力が上がっていなかった不具合を修正しました',
+    'とくにハードは、通常敵・強敵がノーマルと全く同じ強さになっていました',
+    '攻撃力が上がる分、通常敵と強敵のHP倍率は下げています(レジェンドで1.5倍→1.2倍)',
+    'ボスの強さは変えていません',
+  ]},
   { date:'2026/08/04', title:'新ラインナップ追加', items:[
     'モノリスのSSRスキン「魔王の魔典」を追加。専用技は「魔王の雄叫び」(コスト20 攻35 氷結1 感電1)',
     'ゴーレムのSSRスキン「スピリットゴーレム」を追加。専用技は「スピリットパンチ」(コスト12 攻28 攻弱2)',
@@ -4777,21 +4784,14 @@ if(t.isRareElite && t.trait!=='narikillog') {
   t.dmg = Math.floor(t.dmg * 1.2);
 }
 }
-// Difficulty Adjustments
-if (state.difficulty === 'hard') {
-t.dmg = Math.floor(t.dmg * 1.2);
-} else if (state.difficulty === 'expert') {
-t.dmg = Math.floor(t.dmg * 1.25);
-t.hp = Math.floor(t.hp * 1.2);
-t.maxHp = t.hp; // Update maxHp for UI
-} else if (state.difficulty === 'veryhard') {
-t.dmg = Math.floor(t.dmg * 1.3);
-t.hp = Math.floor(t.hp * 1.3);
-t.maxHp = t.hp; // Update maxHp for UI
-} else if (state.difficulty === 'legend') {
-t.dmg = Math.floor(t.dmg * 1.5);
-t.hp = Math.floor(t.hp * 1.5);
-t.maxHp = t.hp; // Update maxHp for UI
+// 難易度によるHPの補正。ダメージ側は setEnemyIntent() でまとめてかけている。
+// (t.dmg は実ダメージには使われず「戦闘中の力アップ分」の基準値でしかないため、
+//  ここで倍率をかけても被ダメージは1も変わらない。表示の辻褄合わせで揃えてある)
+{
+const dm = diffMultFor(mode === 'boss');
+t.hp = Math.floor(t.hp * dm.hp);
+t.dmg = Math.floor(t.dmg * dm.dmg);
+t.maxHp = t.hp;
 }
 
 state.enemy={...t,maxHp:t.hp,mode:mode,weak:0,vuln:0,burn:0,freeze:0,shock:0,block:0,evasion:0,bleed:0,turnCount:0,isElite:mode!=='normal',_baseDmg:t.dmg}; state.battleEnded=false;
@@ -4958,132 +4958,170 @@ function addInjuryCards(n){
   }
 }
 
+// ==== 難易度ごとの敵の強化倍率 ====
+// 通常敵・強敵と、ボスで別の表を持つ。
+// 【経緯】以前は通常敵・強敵の攻撃力に倍率が一切かかっておらず、レジェンドでも
+// ノーマルと1ダメージも変わらなかった(HPだけ増えていた)。ハードに至ってはHPすら
+// 増えず、通常戦闘がノーマルと完全に同一だった。
+// 敵の実ダメージは技ごとの固定値から作られていて、spawn時にスケールしていた
+// `t.dmg` は「戦闘中に敵が力アップした差分」を測るためだけに使われていたのが原因。
+// ダメージ倍率を足した分、通常敵・強敵のHP倍率は下げて総ダメージ量を釣り合わせている
+// (レジェンドの通常敵で、被ダメージ総量は約+12%。ただし1発の重さは1.4倍になる)。
+// ボスは元々ダメージ倍率が効いていて調整済みなので、値を変えていない。
+const DIFF_ENEMY_MULT = {
+  normal:   { hp:1.00, dmg:1.00 },
+  hard:     { hp:1.05, dmg:1.12 },
+  expert:   { hp:1.10, dmg:1.20 },
+  veryhard: { hp:1.15, dmg:1.28 },
+  legend:   { hp:1.20, dmg:1.40 },
+};
+const DIFF_BOSS_MULT = {
+  normal:   { hp:1.00, dmg:1.00 },
+  hard:     { hp:1.00, dmg:1.20 },
+  expert:   { hp:1.20, dmg:1.25 },
+  veryhard: { hp:1.30, dmg:1.30 },
+  legend:   { hp:1.50, dmg:1.50 },
+};
+function diffMultFor(isBoss){
+  const table = isBoss ? DIFF_BOSS_MULT : DIFF_ENEMY_MULT;
+  return table[state.difficulty] || table.normal;
+}
+// 敵の行動を決めて、最後に難易度のダメージ倍率をかける。
+// 本体(setEnemyIntentBase)は素の数値を入れるだけなので、敵を追加するときに
+// 倍率のかけ忘れが起きない。
 function setEnemyIntent() {
+  setEnemyIntentBase();
+  const e = state.enemy;
+  if(!e || !e.intent) return;
+  const mult = diffMultFor(e.mode === 'boss').dmg;
+  if(mult !== 1 && e.intent.val > 0) e.intent.val = Math.floor(e.intent.val * mult);
+}
+// 敵の行動を決める本体。ここでは難易度倍率をかけず、素の数値を入れる。
+// 倍率は呼び出し口の setEnemyIntent() で一括してかける(かけ忘れ防止のため)。
+function setEnemyIntentBase() {
 const e=state.enemy, r=Math.random();
-const diffMult = state.difficulty === 'legend' ? 1.5 : (state.difficulty === 'veryhard' ? 1.3 : (state.difficulty === 'expert' ? 1.25 : (state.difficulty === 'hard' ? 1.2 : 1.0)));
-const adjust = (val) => Math.floor(val * diffMult);
 
 if(e.trait === 'carmine') {
 // HP100以下でデスファイナル（優先）
-if(e.hp<=100 && !e._deathUsed){ e._deathUsed=true; e.intent={type:'atk_debuff',val:adjust(120),drain:50,desc:'デスファイナル'}; return; }
+if(e.hp<=100 && !e._deathUsed){ e._deathUsed=true; e.intent={type:'atk_debuff',val:120,drain:50,desc:'デスファイナル'}; return; }
 // HP900以下で超本気（初回のみ）
 if(e.hp<=900 && !e._rageUsed){ e._rageUsed=true; e._drainBonus=(e._drainBonus||0)+5; e.intent={type:'buff',block:100,atkUp:20,desc:'超本気'}; return; }
 // 4ターンに1回デスフォール
-if(e.turnCount%4===0) { e.intent={type:'atk_debuff_both',val:adjust(71),drain:38,weak:2,vuln:2,desc:'デスフォール'}; return; }
-if(r<0.25) e.intent={type:'atk',val:adjust(40),drain:14,desc:'デスナックル'};
-else if(r<0.5) e.intent={type:'atk_debuff',val:adjust(55),drain:24,desc:'デススラッシュ'};
-else if(r<0.7) e.intent={type:'atk_weak',val:adjust(49),drain:20,weak:3,handMinus:1,desc:'デスエナジー改'};
-else e.intent={type:'atk_vuln',val:adjust(58),drain:11,vuln:1,injuryCards:1,desc:'デスクラッシュ'};
+if(e.turnCount%4===0) { e.intent={type:'atk_debuff_both',val:71,drain:38,weak:2,vuln:2,desc:'デスフォール'}; return; }
+if(r<0.25) e.intent={type:'atk',val:40,drain:14,desc:'デスナックル'};
+else if(r<0.5) e.intent={type:'atk_debuff',val:55,drain:24,desc:'デススラッシュ'};
+else if(r<0.7) e.intent={type:'atk_weak',val:49,drain:20,weak:3,handMinus:1,desc:'デスエナジー改'};
+else e.intent={type:'atk_vuln',val:58,drain:11,vuln:1,injuryCards:1,desc:'デスクラッシュ'};
 return;
 }
 if(e.trait === 'okurei_15') {
 // 4ターンに1回マッハパンチ改（ケガ×2注入）
-if(e.turnCount%4===0) { e.intent={type:'atk',val:adjust(45),injuryCards:2,desc:'マッハパンチ改'}; return; }
-if(r<0.25) e.intent={type:'atk',val:adjust(21),drain:5,desc:'闘魂はりて'};
-else if(r<0.5) e.intent={type:'atk_vuln',val:adjust(14),drain:22,vuln:2,desc:'なげキッス'};
-else if(r<0.75) e.intent={type:'atk_weak',val:adjust(27),weak:2,handMinus:1,desc:'ひゃっかん落とし'};
-else e.intent={type:'block_atk',val:adjust(32),block:32,desc:'ネンドロサイクロン'};
+if(e.turnCount%4===0) { e.intent={type:'atk',val:45,injuryCards:2,desc:'マッハパンチ改'}; return; }
+if(r<0.25) e.intent={type:'atk',val:21,drain:5,desc:'闘魂はりて'};
+else if(r<0.5) e.intent={type:'atk_vuln',val:14,drain:22,vuln:2,desc:'なげキッス'};
+else if(r<0.75) e.intent={type:'atk_weak',val:27,weak:2,handMinus:1,desc:'ひゃっかん落とし'};
+else e.intent={type:'block_atk',val:32,block:32,desc:'ネンドロサイクロン'};
 return;
 }
 if(e.trait === 'magmaheart') {
 // HP500以下で怒りの一撃（初回のみ）
-if(e.hp<=500 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'atk',val:adjust(40),atkUp:15,desc:'怒りの一撃'}; return; }
+if(e.hp<=500 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'atk',val:40,atkUp:15,desc:'怒りの一撃'}; return; }
 // 4ターンに1回マグマラッシュ（ケガ×2注入）
-if(e.turnCount%4===0) { e.intent={type:'atk_debuff',val:adjust(70),drain:27,injuryCards:2,desc:'マグマラッシュ'}; return; }
-if(r<0.2) e.intent={type:'atk',val:adjust(30),drain:7,desc:'しっぽアタック'};
-else if(r<0.4) e.intent={type:'atk_debuff',val:adjust(39),drain:12,injuryCards:1,desc:'ウィングコンボ'};
-else if(r<0.58) e.intent={type:'atk_weak',val:adjust(38),drain:21,weak:3,desc:'ファイアブレス'};
-else if(r<0.75) e.intent={type:'atk_vuln',val:adjust(45),drain:38,vuln:3,desc:'インフェルノ'};
-else e.intent={type:'atk',val:adjust(51),drain:18,handMinus:1,desc:'空中おとし'};
+if(e.turnCount%4===0) { e.intent={type:'atk_debuff',val:70,drain:27,injuryCards:2,desc:'マグマラッシュ'}; return; }
+if(r<0.2) e.intent={type:'atk',val:30,drain:7,desc:'しっぽアタック'};
+else if(r<0.4) e.intent={type:'atk_debuff',val:39,drain:12,injuryCards:1,desc:'ウィングコンボ'};
+else if(r<0.58) e.intent={type:'atk_weak',val:38,drain:21,weak:3,desc:'ファイアブレス'};
+else if(r<0.75) e.intent={type:'atk_vuln',val:45,drain:38,vuln:3,desc:'インフェルノ'};
+else e.intent={type:'atk',val:51,drain:18,handMinus:1,desc:'空中おとし'};
 return;
 }
 if(e.trait === 'politoka') {
 // HP900以下でアイズオブレジェンド（初回のみ）
-if(e.hp<=900 && !e._legendUsed){ e._legendUsed=true; e._drainBonus=(e._drainBonus||0)+8; e.intent={type:'atk_debuff',val:adjust(50),drain:30,handMinus:2,atkUp:15,desc:'アイズオブレジェンド'}; return; }
+if(e.hp<=900 && !e._legendUsed){ e._legendUsed=true; e._drainBonus=(e._drainBonus||0)+8; e.intent={type:'atk_debuff',val:50,drain:30,handMinus:2,atkUp:15,desc:'アイズオブレジェンド'}; return; }
 // 4ターンに1回超熱視線（丈夫さダウン）
-if(e.turnCount%4===0) { e.intent={type:'atk_debuff',val:adjust(79),drain:25,blockDown:5,desc:'超熱視線'}; return; }
-if(r<0.2) e.intent={type:'atk_debuff',val:adjust(39),drain:17,desc:'しっぽラッシュ'};
-else if(r<0.4) e.intent={type:'atk_weak',val:adjust(48),drain:22,handMinus:1,atkDown:5,desc:'ホワイトキネシス'};
-else if(r<0.6) e.intent={type:'atk_debuff_both',val:adjust(40),drain:32,weak:3,vuln:3,desc:'なめまくる'};
-else if(r<0.8) e.intent={type:'block_atk_drain',val:adjust(49),drain:39,block:45,weak:1,vuln:1,desc:'大熱唱'};
-else e.intent={type:'atk_drain',val:adjust(61),drain:19,desc:'食う'};
+if(e.turnCount%4===0) { e.intent={type:'atk_debuff',val:79,drain:25,blockDown:5,desc:'超熱視線'}; return; }
+if(r<0.2) e.intent={type:'atk_debuff',val:39,drain:17,desc:'しっぽラッシュ'};
+else if(r<0.4) e.intent={type:'atk_weak',val:48,drain:22,handMinus:1,atkDown:5,desc:'ホワイトキネシス'};
+else if(r<0.6) e.intent={type:'atk_debuff_both',val:40,drain:32,weak:3,vuln:3,desc:'なめまくる'};
+else if(r<0.8) e.intent={type:'block_atk_drain',val:49,drain:39,block:45,weak:1,vuln:1,desc:'大熱唱'};
+else e.intent={type:'atk_drain',val:61,drain:19,desc:'食う'};
 return;
 }
 if(e.trait === 'most') {
 // HP500以下でおもち根性（初回のみ）
 if(e.hp<=500 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'buff',block:200,atkUp:20,desc:'おもち根性'}; return; }
 // 4ターンに1回絶モッチ砲（ケガ×3）
-if(e.turnCount%4===0) { e.intent={type:'atk_vuln',val:adjust(100),drain:24,vuln:2,block:30,injuryCards:3,desc:'絶モッチ砲'}; return; }
-if(r<0.2) e.intent={type:'block_atk_drain',val:adjust(45),drain:5,block:25,desc:'真もんた'};
-else if(r<0.3) e.intent={type:'block_atk',val:adjust(75),block:52,desc:'白もっさま'};
-else if(r<0.5) e.intent={type:'block_atk_vuln',val:adjust(59),drain:19,block:22,vuln:1,desc:'白モッチ砲'};
-else if(r<0.7) e.intent={type:'atk_debuff',val:adjust(84),drain:14,handMinus:1,desc:'ガッチェスト'};
-else if(r<0.85) e.intent={type:'atk_weak',val:adjust(49),drain:21,weak:2,heal:50,desc:'白銀さくらふぶき'};
-else e.intent={type:'atk_debuff',val:adjust(60),drain:9,handMinus:2,desc:'シローリンモッチ'};
+if(e.turnCount%4===0) { e.intent={type:'atk_vuln',val:100,drain:24,vuln:2,block:30,injuryCards:3,desc:'絶モッチ砲'}; return; }
+if(r<0.2) e.intent={type:'block_atk_drain',val:45,drain:5,block:25,desc:'真もんた'};
+else if(r<0.3) e.intent={type:'block_atk',val:75,block:52,desc:'白もっさま'};
+else if(r<0.5) e.intent={type:'block_atk_vuln',val:59,drain:19,block:22,vuln:1,desc:'白モッチ砲'};
+else if(r<0.7) e.intent={type:'atk_debuff',val:84,drain:14,handMinus:1,desc:'ガッチェスト'};
+else if(r<0.85) e.intent={type:'atk_weak',val:49,drain:21,weak:2,heal:50,desc:'白銀さくらふぶき'};
+else e.intent={type:'atk_debuff',val:60,drain:9,handMinus:2,desc:'シローリンモッチ'};
 return;
 }
 if(e.trait === 'ragna') {
 // HP1000以下でエンドフォール（初回のみ）
-if(e.hp<=1000 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'atk_debuff',val:adjust(78),drain:32,handMinus:2,atkUp:20,desc:'エンドフォール'}; return; }
+if(e.hp<=1000 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'atk_debuff',val:78,drain:32,handMinus:2,atkUp:20,desc:'エンドフォール'}; return; }
 // 5ターンに1回終焉の炎（丈夫さ・力5ダウン）
-if(e.turnCount%5===0) { e.intent={type:'atk_debuff_both',val:adjust(120),drain:36,atkDown:5,blockDown:5,desc:'終焉の炎'}; return; }
-if(r<0.2) e.intent={type:'block_atk',val:adjust(60),block:25,desc:'キングテイル'};
-else if(r<0.4) e.intent={type:'atk_vuln',val:adjust(51),drain:29,vuln:2,desc:'フレイムブレス'};
-else if(r<0.6) e.intent={type:'atk_debuff',val:adjust(74),drain:21,handMinus:2,blockDown:3,desc:'空中落とし（極）'};
-else if(r<0.8) e.intent={type:'block_atk_drain',val:adjust(62),drain:14,block:20,handMinus:1,atkDown:3,desc:'ウィングコンボ（王）'};
-else e.intent={type:'block_atk',val:adjust(90),block:42,injuryCards:2,desc:'ラグナラッシュ'};
+if(e.turnCount%5===0) { e.intent={type:'atk_debuff_both',val:120,drain:36,atkDown:5,blockDown:5,desc:'終焉の炎'}; return; }
+if(r<0.2) e.intent={type:'block_atk',val:60,block:25,desc:'キングテイル'};
+else if(r<0.4) e.intent={type:'atk_vuln',val:51,drain:29,vuln:2,desc:'フレイムブレス'};
+else if(r<0.6) e.intent={type:'atk_debuff',val:74,drain:21,handMinus:2,blockDown:3,desc:'空中落とし（極）'};
+else if(r<0.8) e.intent={type:'block_atk_drain',val:62,drain:14,block:20,handMinus:1,atkDown:3,desc:'ウィングコンボ（王）'};
+else e.intent={type:'block_atk',val:90,block:42,injuryCards:2,desc:'ラグナラッシュ'};
 return;
 }
 if(e.trait === 'ark') {
 // 黄泉の根源に従え：ライフ6000以下で初回のみ発動（自己バフ・大回復・大ブロック）
 if(e.hp<=6000 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'buff',atkUp:15,heal:2000,block:1000,desc:'黄泉の根源に従え'}; return; }
 // 5ターンに1回、天の慈悲よ示されよ
-if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:adjust(120),hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
-if(r<0.12) e.intent={type:'atk',val:adjust(90),drain:18,handMinus:2,desc:'世界を揺らせ'};
-else if(r<0.24) e.intent={type:'atk',val:adjust(118),drain:29,injuryCards:2,handMinus:1,desc:'神光よ汚れを祓え'};
-else if(r<0.36) e.intent={type:'atk_debuff',val:adjust(104),hits:3,drain:31,desc:'翔べ震律の刃よ'};
-else if(r<0.48) e.intent={type:'atk',val:adjust(124),drain:40,injuryCards:2,costUpTurns:2,costUpPct:20,desc:'導け神光の道標'};
-else if(r<0.62) e.intent={type:'atk_debuff',val:adjust(94),drain:31,atkDown:8,blockDown:8,desc:'今こそ真なる目覚め'};
-else if(r<0.76) e.intent={type:'atk',val:adjust(103),hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
-else if(r<0.88) e.intent={type:'atk',val:adjust(140),drain:40,injuryCards:1,handMinus:3,desc:'終焉に救いを与えよ'};
-else e.intent={type:'block_atk',val:adjust(112),drain:38,block:240,desc:'聖光よ奇跡を灯せ'};
+if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:120,hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
+if(r<0.12) e.intent={type:'atk',val:90,drain:18,handMinus:2,desc:'世界を揺らせ'};
+else if(r<0.24) e.intent={type:'atk',val:118,drain:29,injuryCards:2,handMinus:1,desc:'神光よ汚れを祓え'};
+else if(r<0.36) e.intent={type:'atk_debuff',val:104,hits:3,drain:31,desc:'翔べ震律の刃よ'};
+else if(r<0.48) e.intent={type:'atk',val:124,drain:40,injuryCards:2,costUpTurns:2,costUpPct:20,desc:'導け神光の道標'};
+else if(r<0.62) e.intent={type:'atk_debuff',val:94,drain:31,atkDown:8,blockDown:8,desc:'今こそ真なる目覚め'};
+else if(r<0.76) e.intent={type:'atk',val:103,hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
+else if(r<0.88) e.intent={type:'atk',val:140,drain:40,injuryCards:1,handMinus:3,desc:'終焉に救いを与えよ'};
+else e.intent={type:'block_atk',val:112,drain:38,block:240,desc:'聖光よ奇跡を灯せ'};
 return;
 }
 if(e.trait === 'bloody') {
 // HP600以下で血祭り（初回のみ）
-if(e.hp<=600 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'atk',val:adjust(80),atkUp:30,desc:'血祭り'}; return; }
+if(e.hp<=600 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'atk',val:80,atkUp:30,desc:'血祭り'}; return; }
 // 4ターンに1回冥王剣（自身に炎上1）
-if(e.turnCount%4===0) { e.intent={type:'atk_drain',val:adjust(130),drain:15,selfBurn:1,desc:'冥王剣'}; return; }
-if(r<0.15) e.intent={type:'atk',val:adjust(55),drain:9,injuryCards:1,desc:'鮮血斬り'};
-else if(r<0.3) e.intent={type:'atk',val:adjust(75),injuryCards:1,desc:'五月雨斬り'};
-else if(r<0.45) e.intent={type:'atk_vuln',val:adjust(70),vuln:2,blockDown:3,desc:'ダイセツダン'};
-else if(r<0.6) e.intent={type:'atk_drain',val:adjust(71),drain:31,desc:'風雷神剣'};
-else if(r<0.8) e.intent={type:'atk_debuff',val:adjust(91),drain:19,handMinus:1,injuryCards:1,desc:'ブラッディスラッシュ'};
-else e.intent={type:'atk_drain',val:adjust(49),drain:21,atkUp:3,heal:30,desc:'ブラッディドレイン'};
+if(e.turnCount%4===0) { e.intent={type:'atk_drain',val:130,drain:15,selfBurn:1,desc:'冥王剣'}; return; }
+if(r<0.15) e.intent={type:'atk',val:55,drain:9,injuryCards:1,desc:'鮮血斬り'};
+else if(r<0.3) e.intent={type:'atk',val:75,injuryCards:1,desc:'五月雨斬り'};
+else if(r<0.45) e.intent={type:'atk_vuln',val:70,vuln:2,blockDown:3,desc:'ダイセツダン'};
+else if(r<0.6) e.intent={type:'atk_drain',val:71,drain:31,desc:'風雷神剣'};
+else if(r<0.8) e.intent={type:'atk_debuff',val:91,drain:19,handMinus:1,injuryCards:1,desc:'ブラッディスラッシュ'};
+else e.intent={type:'atk_drain',val:49,drain:21,atkUp:3,heal:30,desc:'ブラッディドレイン'};
 return;
 }
 if(e.trait === 'okurei') {
 // 4ターンに1回ソニックパンチ（ケガ×2注入）
-if(e.turnCount%4===0) { e.intent={type:'atk',val:adjust(80),drain:18,handMinus:3,injuryCards:2,desc:'ソニックパンチ'}; return; }
-if(r<1/7) e.intent={type:'atk',val:adjust(41),handMinus:1,desc:'超闘魂はりて'};
-else if(r<2/7) e.intent={type:'atk',val:adjust(60),desc:'大回転逆水平'};
-else if(r<3/7) e.intent={type:'atk_vuln',val:adjust(47),drain:34,vuln:2,desc:'ようかい液'};
-else if(r<4/7) e.intent={type:'atk',val:adjust(55),drain:17,handMinus:2,desc:'フジヤマおとし'};
-else if(r<5/7) e.intent={type:'atk_drain',val:adjust(71),drain:35,desc:'めいどのみやげ'};
+if(e.turnCount%4===0) { e.intent={type:'atk',val:80,drain:18,handMinus:3,injuryCards:2,desc:'ソニックパンチ'}; return; }
+if(r<1/7) e.intent={type:'atk',val:41,handMinus:1,desc:'超闘魂はりて'};
+else if(r<2/7) e.intent={type:'atk',val:60,desc:'大回転逆水平'};
+else if(r<3/7) e.intent={type:'atk_vuln',val:47,drain:34,vuln:2,desc:'ようかい液'};
+else if(r<4/7) e.intent={type:'atk',val:55,drain:17,handMinus:2,desc:'フジヤマおとし'};
+else if(r<5/7) e.intent={type:'atk_drain',val:71,drain:35,desc:'めいどのみやげ'};
 else if(r<6/7) e.intent={type:'buff',atkUp:15,desc:'力を貯める'};
-else e.intent={type:'atk_drain',val:adjust(70),drain:10,desc:'サムライキック'};
+else e.intent={type:'atk_drain',val:70,drain:10,desc:'サムライキック'};
 return;
 }
 if(e.trait === 's_politoka') {
 // HP1800以下で伝説の眼力（初回のみ・自身のマイナス効果を全て除去）
-if(e.hp<=1800 && !e._legendUsed){ e._legendUsed=true; e._drainBonus=(e._drainBonus||0)+10; e.weak=0; e.vuln=0; e.burn=0; e.freeze=0; e.shock=0; e.intent={type:'atk_debuff',val:adjust(79),drain:35,handMinus:2,atkUp:20,desc:'伝説の眼力'}; return; }
+if(e.hp<=1800 && !e._legendUsed){ e._legendUsed=true; e._drainBonus=(e._drainBonus||0)+10; e.weak=0; e.vuln=0; e.burn=0; e.freeze=0; e.shock=0; e.intent={type:'atk_debuff',val:79,drain:35,handMinus:2,atkUp:20,desc:'伝説の眼力'}; return; }
 // 4ターンに1回滅熱視線（力ダウン＋ケガ1）
-if(e.turnCount%4===0) { e.intent={type:'atk',val:adjust(99),drain:40,handMinus:1,atkDown:5,injuryCards:1,desc:'滅熱視線'}; return; }
-if(r<0.14) e.intent={type:'atk',val:adjust(50),drain:20,atkDown:1,desc:'真しっぽラッシュ'};
-else if(r<0.28) e.intent={type:'atk',val:adjust(55),drain:37,blockDown:3,desc:'つばガトリング'};
-else if(r<0.42) e.intent={type:'atk_weak',val:adjust(59),weak:3,handMinus:2,desc:'超念動力'};
-else if(r<0.56) e.intent={type:'atk_debuff_both',val:adjust(45),drain:45,weak:2,vuln:2,handMinus:1,desc:'モンスターライブ'};
-else if(r<0.7) e.intent={type:'atk_vuln',val:adjust(75),drain:24,vuln:2,heal:60,desc:'喰らい尽くす'};
+if(e.turnCount%4===0) { e.intent={type:'atk',val:99,drain:40,handMinus:1,atkDown:5,injuryCards:1,desc:'滅熱視線'}; return; }
+if(r<0.14) e.intent={type:'atk',val:50,drain:20,atkDown:1,desc:'真しっぽラッシュ'};
+else if(r<0.28) e.intent={type:'atk',val:55,drain:37,blockDown:3,desc:'つばガトリング'};
+else if(r<0.42) e.intent={type:'atk_weak',val:59,weak:3,handMinus:2,desc:'超念動力'};
+else if(r<0.56) e.intent={type:'atk_debuff_both',val:45,drain:45,weak:2,vuln:2,handMinus:1,desc:'モンスターライブ'};
+else if(r<0.7) e.intent={type:'atk_vuln',val:75,drain:24,vuln:2,heal:60,desc:'喰らい尽くす'};
 else e.intent={type:'buff',block:180,drain:35,atkUp:3,desc:'念動バリア'};
 return;
 }
@@ -5091,13 +5129,13 @@ if(e.trait === 's_most') {
 // HP1500以下で伝説の力（初回のみ・自身のマイナス効果を全て除去）
 if(e.hp<=1500 && !e._legendUsed){ e._legendUsed=true; e.weak=0; e.vuln=0; e.burn=0; e.freeze=0; e.shock=0; e.intent={type:'buff',block:300,drain:50,atkUp:30,desc:'伝説の力'}; return; }
 // 4ターンに1回神モッチ砲（ケガ×2）
-if(e.turnCount%4===0) { e.intent={type:'atk',val:adjust(130),drain:45,injuryCards:2,desc:'神モッチ砲'}; return; }
-if(r<0.14) e.intent={type:'atk',val:adjust(61),drain:7,desc:'モスた'};
-else if(r<0.28) e.intent={type:'block_atk',val:adjust(85),block:78,desc:'白銀もっさま'};
-else if(r<0.42) e.intent={type:'atk_debuff',val:adjust(74),drain:18,handMinus:2,desc:'ガッチョ∞'};
-else if(r<0.56) e.intent={type:'atk_weak',val:adjust(64),drain:40,weak:3,atkDown:3,desc:'乱れ白銀桜'};
-else if(r<0.7) e.intent={type:'atk_vuln',val:adjust(78),drain:24,vuln:2,injuryCards:2,desc:'乱れモッチ砲'};
-else e.intent={type:'atk',val:adjust(91),drain:17,injuryCards:1,desc:'神ローリンモッチ'};
+if(e.turnCount%4===0) { e.intent={type:'atk',val:130,drain:45,injuryCards:2,desc:'神モッチ砲'}; return; }
+if(r<0.14) e.intent={type:'atk',val:61,drain:7,desc:'モスた'};
+else if(r<0.28) e.intent={type:'block_atk',val:85,block:78,desc:'白銀もっさま'};
+else if(r<0.42) e.intent={type:'atk_debuff',val:74,drain:18,handMinus:2,desc:'ガッチョ∞'};
+else if(r<0.56) e.intent={type:'atk_weak',val:64,drain:40,weak:3,atkDown:3,desc:'乱れ白銀桜'};
+else if(r<0.7) e.intent={type:'atk_vuln',val:78,drain:24,vuln:2,injuryCards:2,desc:'乱れモッチ砲'};
+else e.intent={type:'atk',val:91,drain:17,injuryCards:1,desc:'神ローリンモッチ'};
 return;
 }
 if(e.trait === 'king_ragna') {
@@ -5105,42 +5143,42 @@ const bi = e._bonusInjury||0; // 極憤怒発動後は全攻撃にケガ+1
 // HP2500以下で極憤怒（初回のみ）
 if(e.hp<=2500 && !e._rageUsed){ e._rageUsed=true; e._bonusInjury=(e._bonusInjury||0)+1; e._drainBonus=(e._drainBonus||0)+8; e.intent={type:'buff',atkUp:30,heal:1000,desc:'極憤怒'}; return; }
 // 12ターンに1回エンドオブハート
-if(e.turnCount%12===0) { e.intent={type:'atk',val:adjust(220),drain:40,injuryCards:2+bi,desc:'エンドオブハート'}; return; }
+if(e.turnCount%12===0) { e.intent={type:'atk',val:220,drain:40,injuryCards:2+bi,desc:'エンドオブハート'}; return; }
 // 5ターンに1回終焉の炎
-if(e.turnCount%5===0) { e.intent={type:'atk',val:adjust(160),drain:32,handMinus:2,injuryCards:2+bi,desc:'終焉の炎'}; return; }
-if(r<1/6) e.intent={type:'atk',val:adjust(69),drain:11,injuryCards:1+bi,desc:'キングテイル'};
-else if(r<2/6) e.intent={type:'atk_debuff_both',val:adjust(74),drain:39,weak:2,vuln:2,injuryCards:bi,desc:'キングブレス'};
-else if(r<3/6) e.intent={type:'atk',val:adjust(90),drain:22,handMinus:2,injuryCards:1+bi,desc:'ドラゴンラッシュ'};
-else if(r<4/6) e.intent={type:'atk',val:adjust(109),drain:14,handMinus:3,injuryCards:bi,desc:'空中コンボ'};
-else if(r<5/6) e.intent={type:'atk_weak',val:adjust(80),drain:48,weak:2,atkDown:5,injuryCards:bi,desc:'ウィングタイフーン'};
-else e.intent={type:'atk_vuln',val:adjust(85),drain:18,handMinus:1,vuln:2,blockDown:5,injuryCards:bi,desc:'ドラゴンブレイク'};
+if(e.turnCount%5===0) { e.intent={type:'atk',val:160,drain:32,handMinus:2,injuryCards:2+bi,desc:'終焉の炎'}; return; }
+if(r<1/6) e.intent={type:'atk',val:69,drain:11,injuryCards:1+bi,desc:'キングテイル'};
+else if(r<2/6) e.intent={type:'atk_debuff_both',val:74,drain:39,weak:2,vuln:2,injuryCards:bi,desc:'キングブレス'};
+else if(r<3/6) e.intent={type:'atk',val:90,drain:22,handMinus:2,injuryCards:1+bi,desc:'ドラゴンラッシュ'};
+else if(r<4/6) e.intent={type:'atk',val:109,drain:14,handMinus:3,injuryCards:bi,desc:'空中コンボ'};
+else if(r<5/6) e.intent={type:'atk_weak',val:80,drain:48,weak:2,atkDown:5,injuryCards:bi,desc:'ウィングタイフーン'};
+else e.intent={type:'atk_vuln',val:85,drain:18,handMinus:1,vuln:2,blockDown:5,injuryCards:bi,desc:'ドラゴンブレイク'};
 return;
 }
 if(e.trait === 'phoenix') {
 const rb = e._reviveAtkBonus||0; // 復活後は力+35
 // 4ターンに1回ファイアウェーブ（火傷3）
-if(e.turnCount%4===0) { e.intent={type:'atk',val:adjust(165)+rb,drain:20,burnCards:3,desc:'ファイアウェーブ'}; return; }
-if(r<1/7) e.intent={type:'atk_drain',val:adjust(75)+rb,drain:12,heal:30,desc:'ついばみ'};
-else if(r<2/7) e.intent={type:'atk_vuln',val:adjust(91)+rb,drain:32,handMinus:2,vuln:3,desc:'フレイムキャノン'};
-else if(r<3/7) e.intent={type:'atk',val:adjust(100)+rb,drain:25,atkDown:8,blockDown:8,desc:'エターナルウィング'};
-else if(r<4/7) e.intent={type:'atk',val:adjust(88)+rb,drain:26,burnCards:2,desc:'フレイムノヴァ'};
-else if(r<5/7) e.intent={type:'atk',val:adjust(62)+rb,drain:41,costUpTurns:2,costUpPct:20,desc:'フリーズフレイム'};
-else if(r<6/7) e.intent={type:'atk',val:adjust(121)+rb,drain:31,burnCards:2,desc:'ファイアリバー'};
-else e.intent={type:'atk_weak',val:adjust(68)+rb,drain:16,weak:3,heal:150,desc:'不死鳥の炎'};
+if(e.turnCount%4===0) { e.intent={type:'atk',val:165+rb,drain:20,burnCards:3,desc:'ファイアウェーブ'}; return; }
+if(r<1/7) e.intent={type:'atk_drain',val:75+rb,drain:12,heal:30,desc:'ついばみ'};
+else if(r<2/7) e.intent={type:'atk_vuln',val:91+rb,drain:32,handMinus:2,vuln:3,desc:'フレイムキャノン'};
+else if(r<3/7) e.intent={type:'atk',val:100+rb,drain:25,atkDown:8,blockDown:8,desc:'エターナルウィング'};
+else if(r<4/7) e.intent={type:'atk',val:88+rb,drain:26,burnCards:2,desc:'フレイムノヴァ'};
+else if(r<5/7) e.intent={type:'atk',val:62+rb,drain:41,costUpTurns:2,costUpPct:20,desc:'フリーズフレイム'};
+else if(r<6/7) e.intent={type:'atk',val:121+rb,drain:31,burnCards:2,desc:'ファイアリバー'};
+else e.intent={type:'atk_weak',val:68+rb,drain:16,weak:3,heal:150,desc:'不死鳥の炎'};
 return;
 }
 if(e.trait === 'zan') {
 // 5ターンに1回ダークホウスト（出血18・ケガ3）
-if(e.turnCount%5===0) { e.intent={type:'atk',val:adjust(150),drain:35,bleed:18,injuryCards:3,desc:'ダークホウスト'}; return; }
-if(r<0.1) e.intent={type:'atk',val:adjust(65),drain:19,bleed:3,desc:'レッグアーク'};
-else if(r<0.2) e.intent={type:'atk',val:adjust(71),drain:8,bleed:5,injuryCards:1,desc:'ソニックナイフ'};
-else if(r<0.3) e.intent={type:'atk_weak',val:adjust(76),drain:10,bleed:6,weak:3,desc:'ダブルサマー'};
-else if(r<0.4) e.intent={type:'atk_vuln',val:adjust(89),drain:29,vuln:3,blockDown:5,desc:'スタナーブリッツ'};
-else if(r<0.5) e.intent={type:'atk',val:adjust(60),drain:30,blockDown:5,selfEvasion:3,desc:'フォルダーブリッツ'};
-else if(r<0.6) e.intent={type:'atk',val:adjust(80),drain:19,bleed:5,desc:'メテオドライブ'};
-else if(r<0.7) e.intent={type:'atk',val:adjust(90),drain:40,bleed:11,desc:'ライジングレイヴ'};
-else if(r<0.8) e.intent={type:'atk',val:adjust(111),drain:18,bleed:5,injuryCards:2,desc:'アサルトレイド'};
-else e.intent={type:'atk',val:adjust(75),drain:15,bleed:10,injuryCards:2,desc:'アクシズバレット'};
+if(e.turnCount%5===0) { e.intent={type:'atk',val:150,drain:35,bleed:18,injuryCards:3,desc:'ダークホウスト'}; return; }
+if(r<0.1) e.intent={type:'atk',val:65,drain:19,bleed:3,desc:'レッグアーク'};
+else if(r<0.2) e.intent={type:'atk',val:71,drain:8,bleed:5,injuryCards:1,desc:'ソニックナイフ'};
+else if(r<0.3) e.intent={type:'atk_weak',val:76,drain:10,bleed:6,weak:3,desc:'ダブルサマー'};
+else if(r<0.4) e.intent={type:'atk_vuln',val:89,drain:29,vuln:3,blockDown:5,desc:'スタナーブリッツ'};
+else if(r<0.5) e.intent={type:'atk',val:60,drain:30,blockDown:5,selfEvasion:3,desc:'フォルダーブリッツ'};
+else if(r<0.6) e.intent={type:'atk',val:80,drain:19,bleed:5,desc:'メテオドライブ'};
+else if(r<0.7) e.intent={type:'atk',val:90,drain:40,bleed:11,desc:'ライジングレイヴ'};
+else if(r<0.8) e.intent={type:'atk',val:111,drain:18,bleed:5,injuryCards:2,desc:'アサルトレイド'};
+else e.intent={type:'atk',val:75,drain:15,bleed:10,injuryCards:2,desc:'アクシズバレット'};
 return;
 }
 
