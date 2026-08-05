@@ -1483,9 +1483,9 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 </div>
 </div>
 <!-- ==================== 管理者ページ ====================
-     ?admin=1 を付けて開くと出る。合言葉を入れないと中身は見られない。
+     タイトル画面の右下「管理」から開く(?admin=1 でも開ける)。合言葉を入れないと中身は見られない。
      【重要】このゲームはサーバーを持たない静的サイトなので、合言葉の確認はブラウザの中でしかできない。
-     つまり本気で解析されれば突破できる。「普通に遊んでいる人が迷い込まない」ための鍵であって、
+     つまり本気で解析されれば突破できる。「普通に遊んでいる人が押しても入れない」ための鍵であって、
      本当の意味の防御ではない。合言葉そのものはソースに書かず、ハッシュだけ置いている。 -->
 <!-- style="display:none" は保険。Tailwind(CDN)が届かないと hidden クラスが効かず、
      管理者ページがタイトル画面に丸見えになるため、CSSに頼らない形でも閉じておく -->
@@ -1559,6 +1559,12 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 <!-- NAME ENTRY -->
 <section id="name-scene" class="dungeon-bg absolute inset-0 z-[120] flex flex-col items-center justify-center p-6 overflow-y-auto">
 <div id="title-dia-display" class="fixed top-2 right-2 z-[130] bg-black/70 border border-cyan-400/40 text-cyan-200 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm" style="top:calc(8px + env(safe-area-inset-top,0px));">💎 0</div>
+<!-- 管理者ページの入口。タイトル画面の中に置いてあるので、ゲームが始まれば一緒に消える -->
+<!-- 位置はインラインで書く。Tailwind(CDN)が届かないと fixed/right-2 が効かず、
+     画面の真ん中あたりに「管理」が浮くことになるため -->
+<button id="admin-entry-btn" onclick="window.game.openAdmin()"
+  class="text-zinc-600 hover:text-zinc-400"
+  style="position:fixed;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:130;font-size:10px;padding:4px 8px;line-height:1;">管理</button>
 <picture>
 <source srcset="title-logo.webp" type="image/webp">
 <img src="title-logo.png" alt="Monster Farm DS モンスターファーム デッキサバイバル" class="w-full max-w-[280px] md:max-w-sm mb-6 drop-shadow-[0_6px_16px_rgba(0,0,0,0.85)]">
@@ -2882,11 +2888,12 @@ else tryResumeRun();
 // ==================== 管理者ページ ====================
 // 目的: 新キャラ・新SSRスキン・新カードを、本実装の前に実機で確かめるための道具箱。
 // ダイヤや継承ポイントを増やしたり、コスメを解放したりできる。
+// 入口はタイトル画面の右下の「管理」(?admin=1 を付けても開ける)。
 //
 // 【重要】合言葉について
 // このゲームはGitHub Pagesの静的サイトで、サーバーが無い。つまり合言葉の照合は
 // ブラウザの中でしかできず、**本気で解析されれば必ず突破される**。
-// これは「普通に遊んでいる人が迷い込まない」ための鍵であって、本当の防御ではない。
+// これは「普通に遊んでいる人が押しても入れない」ための鍵であって、本当の防御ではない。
 // (そもそもlocalStorageを直接いじればダイヤは増やせるので、守るべき秘密は元から無い)
 // ただし合言葉そのものをソースに書くと検索一発で見つかるので、ハッシュだけを置いている。
 //
