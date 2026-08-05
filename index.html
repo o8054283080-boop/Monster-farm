@@ -1297,15 +1297,30 @@ background: linear-gradient(135deg, #300000, #3f2e00);
   28%{transform:translate(7px,-6px)}44%{transform:translate(-6px,-3px)}
   62%{transform:translate(5px,5px)}82%{transform:translate(-3px,2px)}}
 
+/* ==================== 演出を弱めるときの指定 ====================
+   端末の「視差効果を減らす」(iPhone: 設定→アクセシビリティ→動作)がONだと、
+   ここが効いてモーション・属性エフェクト・必殺技演出が全部消える。
+   【重要】これは端末の設定なので、ゲーム側から見ると「一部の人だけ演出が出ない」
+   という形で現れる。装備画面では正しく装備されて見えるので、原因が分かりにくい。
+   そのため、ゲーム内設定(FX_PREF_KEY)で上書きできるようにしてある:
+     html.fx-on  … 端末がreduceでも必ず演出を出す
+     html.fx-off … 端末に関わらず演出を減らす
+   どちらのクラスも付いていなければ、今まで通り端末の設定に従う。
+   JSが動かなかった場合も従来の挙動になるよう、既定は media query 側に置くこと。 */
+/* 技名は演出ではなく情報なので消さない。動きだけ止めて静かに出す */
+@keyframes bfx-banner-quiet{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion: reduce){
-  .motion-fx,.elem-fx,.special-fx{display:none}
-  #player-visual-wrap[class*="mv-"],#enemy-monster-node[class*="emv-"]{animation:none !important}
-  #battle-scene.special-shake{animation:none !important}
-  /* 技名は演出ではなく情報なので消さない。動きだけ止めて静かに出す */
-  #special-move-banner.is-on{animation:bfx-banner-quiet 1.45s ease-out forwards}
-  #special-move-banner.is-on .plate::after{display:none}
-  @keyframes bfx-banner-quiet{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
+  html:not(.fx-on) .motion-fx,html:not(.fx-on) .elem-fx,html:not(.fx-on) .special-fx{display:none}
+  html:not(.fx-on) #player-visual-wrap[class*="mv-"],html:not(.fx-on) #enemy-monster-node[class*="emv-"]{animation:none !important}
+  html:not(.fx-on) #battle-scene.special-shake{animation:none !important}
+  html:not(.fx-on) #special-move-banner.is-on{animation:bfx-banner-quiet 1.45s ease-out forwards}
+  html:not(.fx-on) #special-move-banner.is-on .plate::after{display:none}
 }
+html.fx-off .motion-fx,html.fx-off .elem-fx,html.fx-off .special-fx{display:none}
+html.fx-off #player-visual-wrap[class*="mv-"],html.fx-off #enemy-monster-node[class*="emv-"]{animation:none !important}
+html.fx-off #battle-scene.special-shake{animation:none !important}
+html.fx-off #special-move-banner.is-on{animation:bfx-banner-quiet 1.45s ease-out forwards}
+html.fx-off #special-move-banner.is-on .plate::after{display:none}
 
 /* ==================== オーラ(戦闘中・装備プレビュー共通) ====================
    画像素材を一切使わず、CSSのグラデーションだけで全7種族に使い回せるようにしている。
@@ -1445,7 +1460,7 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <button id="global-volume-btn" onclick="window.game.toggleVolumePanel()" title="音量設定" class="fixed top-2 left-2 z-[190] cursor-pointer bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-full w-9 h-9 flex items-center justify-center text-base shadow-lg backdrop-blur-sm">🔊</button>
 <div id="volume-panel" class="hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
 <div class="ornate-panel w-full max-w-xs p-5 space-y-4">
-<h2 class="text-amber-200 text-sm font-bold pixel-font text-center mb-2">🔊 音量設定</h2>
+<h2 class="text-amber-200 text-sm font-bold pixel-font text-center mb-2">⚙️ 設定</h2>
 <div class="flex items-center justify-between">
 <span class="text-zinc-300 text-xs">サウンド全体</span>
 <button id="volume-panel-master-toggle" onclick="window.game.toggleSound()" class="cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-8 h-8 flex items-center justify-center text-sm">🔊</button>
@@ -1457,6 +1472,12 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 <div>
 <div class="flex justify-between text-[11px] text-zinc-400 mb-1"><span>SE音量</span><span id="se-volume-label">100%</span></div>
 <input type="range" id="se-volume-slider" min="0" max="100" value="100" class="w-full accent-amber-500 h-1">
+</div>
+<!-- 演出の出し方。端末の「視差効果を減らす」で演出が消える人がここから出せる -->
+<div class="pt-1 border-t border-zinc-700/70">
+<div class="text-[11px] text-zinc-400 mb-1.5">戦闘の演出</div>
+<div id="fx-pref-row" class="grid grid-cols-3 gap-1"></div>
+<div id="fx-pref-note" class="text-[9px] leading-relaxed mt-1.5 text-left"></div>
 </div>
 <button onclick="document.getElementById('volume-panel').classList.add('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-sm font-bold rounded-sm transition-all active:scale-95 mt-2">閉じる</button>
 </div>
@@ -2220,8 +2241,100 @@ window.game.toggleVolumePanel = function() {
   const p = document.getElementById('volume-panel');
   if (!p) return;
   p.classList.toggle('hidden');
-  if (!p.classList.contains('hidden')) ensureAudioCtx();
+  if (!p.classList.contains('hidden')) { ensureAudioCtx(); renderFxPrefRow(); }
 };
+
+// ==== 戦闘演出の出し方(端末の「視差効果を減らす」の上書き) ====
+// iPhoneの 設定→アクセシビリティ→動作→視差効果を減らす がONだと、
+// CSSの prefers-reduced-motion が効いてモーション・属性エフェクト・必殺技演出が全部消える。
+// 端末側の設定なので「一部の人だけ演出が出ない」という形で表面化し、
+// 装備画面では正しく装備されて見えるため原因が分からない。ここから上書きできるようにする。
+// 'auto' … 端末の設定に従う(既定。今までの挙動)
+// 'on'   … 端末がOFFにしていても必ず出す
+// 'off'  … 端末に関わらず減らす
+const FX_PREF_KEY = 'mf_fx_pref';
+const FX_PREF_OPTIONS = [
+  { key:'on',   label:'出す',   sub:'いつでも演出あり' },
+  { key:'auto', label:'おまかせ', sub:'端末の設定に従う' },
+  { key:'off',  label:'減らす', sub:'演出を出さない' },
+];
+let fxPref = 'auto';
+try { const _v = localStorage.getItem(FX_PREF_KEY); if (_v==='on'||_v==='off'||_v==='auto') fxPref = _v; } catch(e) {}
+// 端末側が「動きを減らして」と言っているか
+function deviceWantsReducedMotion(){
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch(e){ return false; }
+}
+// 今、実際に演出が出る状態かどうか
+function fxEffectivelyOn(){
+  if (fxPref === 'on') return true;
+  if (fxPref === 'off') return false;
+  return !deviceWantsReducedMotion();
+}
+function applyFxPref(){
+  const el = document.documentElement;
+  if (!el) return;
+  el.classList.toggle('fx-on',  fxPref === 'on');
+  el.classList.toggle('fx-off', fxPref === 'off');
+}
+applyFxPref();   // クラスを早めに付ける(CSSはクラスが無ければ従来通りに動く)
+// 端末側の設定は途中で変えられる。「おまかせ」の人の表示がズレないよう追従する
+try {
+  const _mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const _onChange = () => renderFxPrefRow();
+  if (_mq.addEventListener) _mq.addEventListener('change', _onChange);
+  else if (_mq.addListener) _mq.addListener(_onChange);
+} catch(e) {}
+function renderFxPrefRow(){
+  const row = document.getElementById('fx-pref-row');
+  const note = document.getElementById('fx-pref-note');
+  if (!row) return;
+  row.innerHTML = '';
+  FX_PREF_OPTIONS.forEach(o => {
+    const b = document.createElement('button');
+    const active = fxPref === o.key;
+    b.className = 'px-1 py-1.5 rounded-lg border text-center transition ' +
+      (active ? 'bg-amber-900/40 border-amber-400 text-amber-100' : 'bg-zinc-800 border-zinc-600 text-zinc-300 hover:bg-zinc-700');
+    b.innerHTML = `<div class="text-[10px] font-bold leading-tight">${o.label}</div>
+      <div class="text-[8px] leading-tight ${active ? 'text-amber-200/70' : 'text-zinc-500'} mt-0.5">${o.sub}</div>`;
+    b.onclick = () => window.game.setFxPref(o.key);
+    row.appendChild(b);
+  });
+  if (note){
+    // 「おまかせ」なのに端末側で切られている人には、ここで気付けるようにする
+    if (fxPref === 'auto' && deviceWantsReducedMotion()){
+      note.className = 'text-[9px] leading-relaxed mt-1.5 text-left text-amber-300';
+      note.innerHTML = '⚠ この端末は「視差効果を減らす」がONのため、演出が出ない状態です。<br>「出す」を選ぶとこのゲームだけ演出を表示できます。';
+    } else if (fxPref === 'on' && deviceWantsReducedMotion()){
+      note.className = 'text-[9px] leading-relaxed mt-1.5 text-left text-zinc-500';
+      note.innerHTML = '端末の「視差効果を減らす」より、この設定を優先しています。';
+    } else {
+      note.className = 'text-[9px] leading-relaxed mt-1.5 text-left text-zinc-500';
+      note.innerHTML = 'モーション・属性エフェクト・必殺技演出の出し方を切り替えます。';
+    }
+  }
+}
+window.game.setFxPref = function(v){
+  if (v!=='on' && v!=='off' && v!=='auto') return;
+  fxPref = v;
+  try { localStorage.setItem(FX_PREF_KEY, v); } catch(e) {}
+  applyFxPref();
+  renderFxPrefRow();
+  playSfx('select');
+  previewFxSample();
+};
+renderFxPrefRow();
+// 切り替えた結果を確かめられるよう、その場で1回だけ演出を見せる
+function previewFxSample(){
+  if (!fxEffectivelyOn()) return;
+  const host = document.getElementById('fx-pref-row');
+  if (!host || typeof buildMotionFx !== 'function') return;
+  const stage = document.createElement('div');
+  stage.style.cssText = 'position:relative;height:0;overflow:visible;pointer-events:none';
+  host.parentElement.appendChild(stage);
+  try { buildMotionFx(stage, MOTION_BASIC_ID); } catch(e) {}
+  setTimeout(()=>stage.remove(), 1200);
+}
 function hideGlobalVolumeBtn() { const b = document.getElementById('global-volume-btn'); if (b) b.classList.add('hidden'); }
 function showGlobalVolumeBtn() { const b = document.getElementById('global-volume-btn'); if (b) b.classList.remove('hidden'); }
 
@@ -3203,6 +3316,12 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'演出が出ない端末でも出せるようにしました', items:[
+    '一部の端末でモーションや必殺技の演出が出ない状態になっていました',
+    '端末の「視差効果を減らす」がONだと、演出を出さない仕組みになっていたためです',
+    '設定に「戦闘の演出」を追加しました。「出す」を選べば端末の設定に関わらず演出が出ます',
+    '演出が出ない状態のときは、カスタム装備のモーション画面でもお知らせするようにしました',
+  ]},
   { date:'2026/08/06', title:'ガチャにピックアップを実装', items:[
     'ガチャ画面のバナーに出ているSSRスキンが、他のSSRスキンより出やすくなりました',
     'SSRスキン枠5%のうち3.5%がピックアップの2体ぶんです（提供割合の画面で内訳を確認できます）',
@@ -3885,6 +4004,24 @@ function renderLoadoutMotionGrid(){
   const c = loadCosmetics();
   const owned = c.ownedMotions || [];
   const eq = c.equippedMotions || {};
+
+  // 演出が切られていると、ここで正しく装備していても戦闘で何も出ない。
+  // 原因が分からないまま「モーションが出ない」と思われるので、この画面で知らせる
+  if (typeof fxEffectivelyOn === 'function' && !fxEffectivelyOn()) {
+    const warn = document.createElement('div');
+    warn.className = 'bg-amber-950/60 border border-amber-500/70 rounded-xl p-2.5 mb-2 text-left';
+    const why = (fxPref === 'off')
+      ? '設定で「演出を減らす」を選んでいるため'
+      : 'この端末の「視差効果を減らす」がONのため';
+    warn.innerHTML = `<div class="text-[10px] font-bold text-amber-200 mb-1">⚠ いま演出が表示されない設定です</div>
+      <div class="text-[9px] text-amber-100/80 leading-relaxed">${why}、ここで選んでも戦闘中に演出が出ません。</div>`;
+    const btn = document.createElement('button');
+    btn.className = 'mt-1.5 w-full py-1.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold';
+    btn.innerText = '演出を出すようにする';
+    btn.onclick = () => { window.game.setFxPref('on'); renderLoadoutMotionGrid(); };
+    warn.appendChild(btn);
+    el.appendChild(warn);
+  }
 
   MOTION_CATS.forEach(cat => {
     const list = motionsOfCat(cat.key);
