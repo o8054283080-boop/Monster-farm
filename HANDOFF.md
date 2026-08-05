@@ -90,14 +90,48 @@
   タブが裏だと`ctx.currentTime`が進まないので、その間に予約した音は全部「同じ時刻」に積み上がり、
   戻った瞬間にまとめて鳴る。タイマーも裏では間引かれるので溜まった処理が一気に走り、同じことが起きる。
   「戻ると変な音が繰り返し鳴る」と報告された症状の原因
-- **`healStuckBgm()`**: 戻ってきたとき、BGMが`paused===false`なのに`currentTime`が進まない
-  (＝音が詰まっている)ことがある。450ms後に進んでいるか実測し、止まっていたら
-  同じ位置から鳴らし直す。**`paused`だけを見ても検出できない**のがポイント
 - **`playBgmElement()`を通すこと。** `play()`は非同期なので、生の`el.play()`を連続で呼ぶと
   再生開始が重なって音が壊れる。`__bgmPlayPending`で1回にまとめている
 - **`wakeAudio()`は200msで間引いている。** 復帰時は`visibilitychange`/`focus`/`pointerdown`/`click`が
-  続けて飛んでくるため。ミュート解除(`resumeCurrentBGM`)は`wakeAudio`を通さず
-  `playBgmElement`を直接呼ぶこと。通すと同じタップの間引きに巻き込まれて鳴らなくなる
+  続けて飛んでくるため。ただし**間引くのは「BGMを鳴らし直す」部分だけ**で、
+  `ensureAudioCtx()`(＝AudioContextのresume)は毎回通す。
+  iOSは「ユーザー操作の中で呼ばれたresume」だけを通すことがあり、そこを間引くと復帰できない。
+  ミュート解除(`resumeCurrentBGM`)は`wakeAudio`を通さず`playBgmElement`を直接呼ぶこと。
+  通すと同じタップの間引きに巻き込まれて鳴らなくなる
+
+##### 音の見張り番(`startAudioWatchdog` / `audioWatchdogTick`)
+
+**iPhoneで電源ボタンを押して画面を消し、戻ると音が出なくなる**という報告への対処。
+以前は「戻ってきた時に1回だけ復帰を試す」実装で、これが効かないケースがあった。
+
+- **復帰処理を「1回試して終わり」にしてはいけない。** iOSの中断あけには次の性質がある:
+  - 戻った直後(`visibilitychange`/`focus`の時点)の`resume()`/`play()`は**拒否されることがある**。
+    ユーザーが画面を触るまで音を鳴らさせてくれない
+  - `resume()`も`play()`もPromiseで失敗するので、**握りつぶすと失敗に気づけない**。
+    旧コードは両方とも`.catch(()=>{})`で捨てており、1回失敗するとそのまま永久に無音だった
+  - `<audio>`が`paused===false`の顔をしたまま`currentTime`が進まないことがある
+- そこで**「音が戻ったと確認できるまで、400msごとに何度でも試す」見張り番**を置いている。
+  最長20秒試し、直らなければ諦める(次のタップや復帰でまた動きだす)
+- **「鳴っているか」はフラグではなく`currentTime`が実際に進んだかで判定する。**
+  `paused`を見るだけでは詰まりを検出できない
+- 「再生中なのに進まない」の検出は**2回連続で止まっていたときだけ**。1回で判定すると
+  ループで曲が頭に戻った瞬間を誤検出して鳴らし直してしまう
+- **止まっている`<audio>`に`currentTime`を書き込んではいけない**(`restartBgmAtCurrentPos`)。
+  止められた直後の要素にシークをかけると位置を読み直せず**0(曲の頭)に戻る**。
+  実際にこれで「復帰すると曲が頭出しされる」回帰を出した。
+  止まっているなら位置はそのまま残っているので、何も触らずに`play()`するのが正しい。
+  入れ直しが要るのは「再生中の顔をしているのに進まない」場合だけ
+- **通常プレイ中は動かない。** タップのたびに起こすのは無駄なので、`audioLooksBroken()`で足切りし、
+  復帰(`visibilitychange`/`focus`/`pageshow`)のときだけは見た目が正常でも必ず見張る
+  (「鳴っているのに進んでいない」はそこでしか捕まえられないため)。
+  正常だと確認できた時点で自分で`clearInterval`する
+- ミュート中(`soundEnabled===false`)は起動しない。`toggleSound`のOFF側で`stopAudioWatchdog()`も呼ぶこと。
+  忘れると自分で止めたBGMを見張り番が鳴らし直してしまう
+- `__bgmGacha`は演出と同期した一発物なので対象外(`watchedBgm()`が除外する)
+- 状態変数(`__audioWatchdogTimer`など)は**サウンド節の先頭で宣言している**。
+  `ensureAudioCtx()`から見張り番に入ることがあり、宣言を下げるとTDZに当たる(`bgmVolume`と同じ理由)
+- 検証: `scratchpad/audio_resume_verify.js`(中断復帰・resume拒否・詰まり・ループ誤爆・ミュート・
+  ガチャ除外・回りっぱなし防止の8項目)
 - **AudioContextは`state !== 'running'`で必ずresumeする。** iOSは中断時に非標準の
   `'interrupted'`になるので、`'suspended'`だけを見ていると復帰できない。
   併せて`statechange`でも起こし直している
@@ -1099,7 +1133,7 @@ const GACHA_STORAGE_KEY = 'mf_gacha_progress';
      段階の配分を変えたいときは`stagger`と`timing`の比率をいじれば、開封の位置は自動で合ったままになる
    - **ガチャBGMは画面BGMではない。** ガチャ画面にいる間はタイトルのBGMのままで、10連を引いた瞬間だけ
      `playGachaPullBGM()`が頭から流す(ループしない)。終了/スキップで`stopGachaPullBGM()`→`playMenuBGM()`。
-     単発は尺が短いのでBGMを切り替えない。`wakeAudio`/`healStuckBgm`は演出と同期した一発物なので`__bgmGacha`には手を出さない
+     単発は尺が短いのでBGMを切り替えない。`wakeAudio`/音の見張り番(`watchedBgm`)は演出と同期した一発物なので`__bgmGacha`には手を出さない
    - 演出中は`#gacha-overlay`タップで`window.game._gachaSkip()`が呼ばれ即座に結果画面へ
    - 結果画面(`showGachaResults`)に天井カウント(次のSR/SSR・オーラ確定まであと◯連)を表示済み
    - アクセサリ/スキンは`item.img`があるので画像表示、オーラは`img`フィールドが存在しないため✨アイコンにフォールバック(3箇所: 結果一覧・単発演出の公開カード・10連ミニ卵の中身表示)

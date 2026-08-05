@@ -1989,6 +1989,16 @@ let seVolume = 1.0;
 // 下げてはいけない(letのTDZに当たって ReferenceError になり、音が出なくなる)。
 let bgmVolume = 0.35;
 let __currentBgm = null;
+// 音の見張り番(下の startAudioWatchdog / audioWatchdogTick が使う)の状態。
+// 関数宣言は巻き上げられるので下に書けるが、この変数たちは巻き上げられない。
+// ensureAudioCtx() は「読み込み中のタップ」からでも呼ばれ、そこから見張り番に入るため、
+// 宣言を下に置くとTDZに当たって ReferenceError になる。必ずここに置くこと。
+let __audioWatchdogTimer = null;
+let __audioWatchdogUntil = 0;
+let __bgmProbeEl = null;
+let __bgmProbeTime = -1;
+let __bgmStallCount = 0;
+let __lastBgmRestartAt = 0;
 try { soundEnabled = localStorage.getItem('mf_sound_enabled') !== '0'; } catch(e) {}
 try { const _sv = localStorage.getItem('mf_se_volume'); if (_sv !== null) seVolume = parseFloat(_sv); } catch(e) {}
 try { const _bv = localStorage.getItem('mf_bgm_volume'); if (_bv !== null) bgmVolume = parseFloat(_bv); } catch(e) {}
@@ -2053,12 +2063,18 @@ function ensureAudioCtx() {
       __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       // iOSは着信や他アプリの音で勝手に止められる。止まったら即座に起こし直す
       __audioCtx.addEventListener('statechange', () => {
-        if (__audioCtx && __audioCtx.state !== 'running' && soundEnabled) { try { __audioCtx.resume(); } catch(e) {} }
+        if (__audioCtx && __audioCtx.state !== 'running' && soundEnabled) startAudioWatchdog();
       });
     }
     // 'suspended' だけを見てはいけない。iOSは中断時に非標準の 'interrupted' になり、
-    // その場合にresumeしないと「戻ってきても音が出ない/音が詰まる」状態のままになる
-    if (__audioCtx.state !== 'running') __audioCtx.resume();
+    // その場合にresumeしないと「戻ってきても音が出ない/音が詰まる」状態のままになる。
+    // 【重要】resume()の失敗を握りつぶさないこと。iPhoneは画面ロックから戻った直後、
+    // まだユーザーが画面を触っていない段階のresumeを拒否することがある。1回試して
+    // 諦めると、そのまま二度と音が戻らない。失敗したら見張り番に引き継いで鳴るまで粘る。
+    if (__audioCtx.state !== 'running') {
+      const pr = __audioCtx.resume();
+      if (pr && pr.catch) pr.catch(() => { if (soundEnabled) startAudioWatchdog(); });
+    }
     if (!__seGain) { __seGain = __audioCtx.createGain(); __seGain.gain.value = seVolume; __seGain.connect(__audioCtx.destination); }
     if (!__bgmGain) { __bgmGain = __audioCtx.createGain(); __bgmGain.gain.value = bgmVolume; __bgmGain.connect(__audioCtx.destination); }
     loadSeBuffer('select', 'se-select.wav');
@@ -2197,6 +2213,7 @@ window.game.toggleSound = function() {
     const keep = __currentBgm;
     stopMenuBGM(); stopBattleBGM(); stopVictoryBGM(); stopSceneBGM(); stopAllSe();
     __currentBgm = keep;
+    stopAudioWatchdog();   // 自分で止めたBGMを見張り番に鳴らし直させない
   }
 };
 window.game.toggleVolumePanel = function() {
@@ -2397,49 +2414,131 @@ function playBgmElement(el) {
   if (!el.paused || __bgmPlayPending) return;
   __bgmPlayPending = true;
   const pr = el.play();
-  if (pr && pr.then) pr.then(()=>{ __bgmPlayPending = false; }).catch(()=>{ __bgmPlayPending = false; });
+  // 再生開始の失敗を握りつぶさないこと。iOSは画面ロックから戻った直後、ユーザーが
+  // 画面を触るまで play() を拒否することがある。失敗したら見張り番に粘らせる。
+  if (pr && pr.then) pr.then(()=>{ __bgmPlayPending = false; })
+                       .catch(()=>{ __bgmPlayPending = false; if (soundEnabled) startAudioWatchdog(); });
   else __bgmPlayPending = false;
   setTimeout(()=>{ __bgmPlayPending = false; }, 3000);  // 万一promiseが解決しない環境でも詰まらせない
 }
+// ==== 音の見張り番（iPhoneの画面ロック・着信・アプリ切り替えからの復帰） ====
+// 【重要】復帰処理を「1回だけ試して終わり」にしてはいけない。
+// iPhoneで電源ボタンを押して画面を消すと、AudioContextは 'interrupted' にされ、
+// <audio>も止められる。ここからの復帰には次の厄介な性質がある:
+//   ・戻ってきた直後(visibilitychange/focusの時点)のresume()は拒否されることがある。
+//     iOSは「ユーザーが画面を触った」あとでないと音を鳴らさせてくれない場合がある。
+//   ・resume()もplay()もPromiseで失敗するので、握りつぶすと失敗に気づけない。
+//   ・<audio>が paused===false の顔をしたまま currentTime が進まないことがある。
+//     「鳴っているか」はフラグではなく、実際に再生位置が進んだかで判定するしかない。
+// そのため「直ったと確認できるまで、短い間隔で何度でも試す」見張り番を置く。
+// 画面に戻ったとき／音が壊れて見えるときに動きだし、実際に音が進んだのを確認したら自分で止まる。
+const AUDIO_WATCHDOG_INTERVAL_MS = 400;
+const AUDIO_WATCHDOG_WINDOW_MS = 20000;   // これだけ試して直らなければ諦める(次のタップでまた動きだす)
+const BGM_RESTART_COOLDOWN_MS = 1500;     // 鳴らし直しの連打防止。詰まった音が重なるのを避ける
+function audioCtxRunning() { return !!__audioCtx && __audioCtx.state === 'running'; }
+// BGMが「今まさに鳴っているべき」要素かどうか。ガチャは演出と同期した一発物なので対象外。
+function watchedBgm() {
+  const el = __currentBgm;
+  if (!el || el === __bgmGacha) return null;
+  if (el.ended && !el.loop) return null;   // 鳴り終わった曲を勝手に鳴らし直さない
+  return el;
+}
+function restartBgmAtCurrentPos(el) {
+  __bgmPlayPending = false;   // 前回の再生開始が宙ぶらりんでも、ここで必ずやり直せるようにする
+  // 【重要】止まっている<audio>に currentTime を書き込んではいけない。
+  // 止められた直後の要素にシークをかけると、その位置を読み直せずに0(曲の頭)に
+  // 戻ってしまうことがある。止まっているなら位置はそのまま残っているので、
+  // 何も触らずに鳴らし直すのが正しい。
+  if (el.paused) { playBgmElement(el); return; }
+  // 「再生中の顔をしているのに進まない」場合だけ、詰まりを解くために同じ位置へ入れ直す
+  const pos = el.currentTime;
+  try { el.pause(); } catch(e) {}
+  try { el.currentTime = pos; } catch(e) {}   // 頭出しさせない
+  playBgmElement(el);
+}
+function audioWatchdogTick() {
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  if (typeof document !== 'undefined' && document.hidden) return;  // 裏では何もしない
+  if (!soundEnabled) { stopAudioWatchdog(); return; }
+  ensureAudioCtx();               // ここで毎回resumeを試す(タップ直後なら通ることがある)
+  const ctxOk = audioCtxRunning();
+  const el = watchedBgm();
+  let bgmOk = true;
+  if (el) {
+    if (el.paused) {
+      bgmOk = false;
+      __bgmStallCount = 0;
+    } else if (__bgmProbeEl === el && __bgmProbeTime >= 0) {
+      // 前回測った位置から進んでいるか。進んでいれば本当に鳴っている
+      if (el.currentTime - __bgmProbeTime > 0.01) { bgmOk = true; __bgmStallCount = 0; }
+      else { bgmOk = false; __bgmStallCount++; }
+    } else {
+      bgmOk = false;              // まだ測っていないので「鳴っている」と断定しない
+      __bgmStallCount = 0;
+    }
+    __bgmProbeEl = el;
+    __bgmProbeTime = el.currentTime;
+    // 止まっているなら鳴らし直す。ただし「再生中なのに進まない」は
+    // ループの巻き戻しと紛らわしいので、2回続けて止まっていたときだけ。
+    const reallyStuck = el.paused || __bgmStallCount >= 2;
+    if (!bgmOk && ctxOk && reallyStuck && now - __lastBgmRestartAt > BGM_RESTART_COOLDOWN_MS) {
+      __lastBgmRestartAt = now;
+      __bgmStallCount = 0;
+      restartBgmAtCurrentPos(el);
+    }
+  }
+  if (ctxOk && bgmOk) { stopAudioWatchdog(); return; }        // 音が戻ったと確認できた
+  if (now > __audioWatchdogUntil) stopAudioWatchdog();
+}
+function startAudioWatchdog(windowMs) {
+  if (!soundEnabled) return;
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  __audioWatchdogUntil = Math.max(__audioWatchdogUntil, now + (windowMs || AUDIO_WATCHDOG_WINDOW_MS));
+  if (__audioWatchdogTimer) return;
+  // 見張り始めの位置をここで控えておく。1回目の点検からいきなり比べられるので、
+  // 「進んでいない」を1拍早く見つけられる(音が戻るまでの待ち時間が短くなる)
+  const el0 = watchedBgm();
+  __bgmProbeEl = el0; __bgmProbeTime = el0 ? el0.currentTime : -1; __bgmStallCount = 0;
+  __audioWatchdogTimer = setInterval(audioWatchdogTick, AUDIO_WATCHDOG_INTERVAL_MS);
+}
+function stopAudioWatchdog() {
+  if (__audioWatchdogTimer) { clearInterval(__audioWatchdogTimer); __audioWatchdogTimer = null; }
+  __audioWatchdogUntil = 0;
+  __bgmProbeEl = null; __bgmProbeTime = -1; __bgmStallCount = 0;
+}
+// 見るからに音が壊れているか(タップのたびに見張り番を起こすのは無駄なので、これで足切りする)
+function audioLooksBroken() {
+  if (!soundEnabled) return false;
+  if (__audioCtx && __audioCtx.state !== 'running') return true;
+  const el = watchedBgm();
+  return !!(el && el.paused);
+}
 let __lastWakeAt = 0;
 function wakeAudio() {
+  // AudioContextを起こすのは何度呼んでも害がなく、かつ
+  // 「ユーザー操作の中で呼ばれたresume()だけが通る」ことがあるので、ここは間引かない
+  ensureAudioCtx();
+  if (!soundEnabled) return;
+  if (audioLooksBroken()) startAudioWatchdog();
   // 復帰時は visibilitychange・focus・pointerdown・click が続けて飛んでくる。
-  // 全部で鳴らし直そうとすると再生開始が重なって音が壊れるので、まとめて1回にする
+  // 全部で鳴らし直そうとすると再生開始が重なって音が壊れるので、ここから先は1回にまとめる
   const t = (typeof performance !== 'undefined' ? performance.now() : Date.now());
   if (t - __lastWakeAt < 200) return;
   __lastWakeAt = t;
-  ensureAudioCtx();
-  if (!soundEnabled) return;
   // ガチャ演出のBGMは演出と同期した一発物なので、途中で鳴らし直しても意味がない
   if (__currentBgm === __bgmGacha) return;
   // OS側で<audio>ごと止められていた場合は、頭出しせずに続きから鳴らし直す
   if (__currentBgm && __currentBgm.paused) playBgmElement(__currentBgm);
 }
-// 裏に回っていた間にAudioContextを止められると、戻ってきたときにBGMが
-// 「再生中(paused===false)なのに音が進まない/短い音を繰り返す」状態で固まることがある。
-// 進んでいるかを実際に測って、止まっていたら同じ位置から鳴らし直して詰まりを解消する。
-function healStuckBgm() {
-  const el = __currentBgm;
-  if (!el || !soundEnabled || el.paused) return;
-  if (el === __bgmGacha) return;   // 演出と同期した一発物なので触らない
-  const before = el.currentTime;
-  setTimeout(() => {
-    if (__currentBgm !== el || el.paused || !soundEnabled) return;
-    if (Math.abs(el.currentTime - before) >= 0.08) return;   // ちゃんと進んでいる
-    const pos = el.currentTime;
-    el.pause();
-    try { el.currentTime = pos; } catch(e) {}
-    __bgmPlayPending = false;
-    playBgmElement(el);
-  }, 450);
-}
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible') { stopAudioWatchdog(); return; }
   wakeAudio();
-  healStuckBgm();
+  // 画面が消えている間に何をされたか分からないので、見た目が正常でも必ず見張る。
+  // 「鳴っているのに音が進んでいない」はここでしか捕まえられない。
+  startAudioWatchdog();
 });
-window.addEventListener('focus', wakeAudio);
-window.addEventListener('pageshow', wakeAudio);
+window.addEventListener('focus', () => { wakeAudio(); startAudioWatchdog(); });
+window.addEventListener('pageshow', () => { wakeAudio(); startAudioWatchdog(); });
 function resumeCurrentBGM() {
   if (!soundEnabled) return;
   // 今の画面のBGMが分かっているなら、それをそのまま鳴らし直す(頭出ししない)。
@@ -3104,6 +3203,11 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/05', title:'中断から戻ると音が出なくなる不具合を修正', items:[
+    'iPhoneで電源ボタンを押して画面を消したあと、戻ってくると音が鳴らなくなる不具合を修正しました',
+    'BGMも効果音も、音が戻ったのを確認できるまで何度でも復帰を試すようになりました',
+    '復帰しても曲は頭出しされず、止まったところの続きから鳴ります',
+  ]},
   { date:'2026/08/05', title:'10連ガチャの演出を改善', items:[
     '10個すべての中身が先に見えてしまい、最後の演出が盛り上がらなかったのを直しました',
     '一番良かった1個は開けずに取っておき、最後の演出でようやく開くようになりました',
