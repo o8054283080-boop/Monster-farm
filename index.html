@@ -1880,6 +1880,9 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 </div>
 <div onclick="window.game.showDrawPile()" title="山札を見る" class="text-[10px] text-zinc-500 font-bold text-center pixel-font cursor-pointer select-none px-1.5 py-0.5 rounded-md hover:bg-white/10 hover:text-zinc-300 active:scale-95 transition">Deck<br><span id="draw-count" class="text-white text-lg">0</span></div>
 </div>
+<!-- パッシブ「創造の律」の残り枚数。制限を持つ敵と戦っているときだけ出る。
+     位置と表示はインラインで指定する(Tailwindが届かない環境でも壊れないように) -->
+<div id="card-limit-badge" style="display:none;align-items:center;justify-content:center;gap:4px;margin:0 auto 4px;padding:2px 10px;font-size:11px;font-weight:bold;border:1px solid rgba(113,113,122,0.6);border-radius:999px;background:rgba(24,24,27,0.85);color:#d4d4d8;width:fit-content;"></div>
 <!-- カードエリア：スクロール対応 -->
 <div id="player-hand" class="flex justify-center items-end h-[152px] w-full mb-1.5 gap-2 overflow-x-auto px-4 pb-2 no-scrollbar scroll-smooth"></div>
 <div class="flex justify-center">
@@ -3127,6 +3130,41 @@ function showAdminBody(){
       const f = numInput(row2, '階層');
       btn(row2, 'この階へ', ()=>{ const v=parseInt(f.value,10); if(isNaN(v)) return;
         state.floor = Math.max(1, v); if(typeof initMap==='function') initMap(); toast(`${state.floor}階へ`); }, 'primary');
+    }
+  }
+
+  // ---- 🌌 創造神(まだ冒険には出していないボス) ----
+  {
+    const inRun = !!(state && state.player && state.player.species);
+    const c = card('🌌 創造神と戦う',
+      `冒険にはまだ出していない65階のボスです（出すには CREATOR_BOSS_ENABLED を true に）。`
+      + `<br>いま冒険に出せる状態: <b>${(typeof CREATOR_BOSS_ENABLED!=='undefined' && CREATOR_BOSS_ENABLED) ? 'はい' : 'いいえ'}</b>`);
+    if(!inRun){
+      const d = document.createElement('div');
+      d.className = 'text-[10px] text-zinc-500';
+      d.textContent = '冒険中ではありません。ゲームを始めてから開いてください。';
+      c.appendChild(d);
+    } else {
+      const row = btnRow(c);
+      const fight = (diff) => {
+        state.difficulty = diff;
+        state.floor = 65; state.legendRush = true; state.battleEnded = false;
+        window.game.closeAdmin();
+        startBattle('boss');
+        toast(`創造神（${diff}）と戦います`);
+      };
+      btn(row, 'ノーマルで戦う', ()=>fight('normal'), 'primary');
+      btn(row, 'レジェンドで戦う', ()=>fight('legend'), 'primary');
+      const row2 = document.createElement('div'); row2.className='flex flex-wrap gap-1.5 mt-1.5'; c.appendChild(row2);
+      btn(row2, '第2形態にする', ()=>{ if(state.enemy&&state.enemy.trait==='creator'){ state.enemy.hp=1; toast('あと1ダメージで第2形態'); updateUI(); } });
+      btn(row2, '今の形態を見る', ()=>{
+        const e=state.enemy;
+        if(!e||e.trait!=='creator'){ toast('創造神と戦っていません'); return; }
+        showModal('創造神の状態',
+          `${e.name}\n形態 ${(e._reviveCount||0)+1} / 3\nHP ${e.hp}/${e.maxHp}\n`
+          + `ターン ${e.turnCount}\nカット ${e._dmgCutPct||0}%(残${e._dmgCutTurns||0}T)\n`
+          + `反射 ${e._thorns||0}(残${e._thornsTurns||0}T)\n1ターンのカード制限 ${e.cardPlayLimit||'なし'}`);
+      });
     }
   }
 
@@ -6322,6 +6360,42 @@ function getFloorEnemyPool(floor) {
   return ENEMY_NAMES.normal_late;
 }
 
+// ==== 敵の復活（形態変化） ====
+// 【重要】復活の判定は5箇所(炎上/出血/感電/カード使用/例外復旧)から呼ばれていた。
+// 以前は `_revived` という真偽値で「1回だけ」しか復活できず、コピペも5つに散っていた。
+// 3形態のボス(創造神)は2回復活する必要があるため、回数管理に作り替えてここへ集約した。
+// **新しく「敵のHPが0になる経路」を足したら、必ずこの関数を通すこと。**
+//   e.revive     … 復活する敵かどうか(従来どおり)
+//   e.reviveMax  … 復活できる回数。省略すると1回(＝フェニックス等は今までと同じ)
+//   e._reviveCount … 復活した回数
+// 戻り値 true = 復活した(戦闘は続く) / false = 倒した(勝利処理へ)
+// 形態が変わったときの処理。名前を切り替え、前の形態の効果を消す
+function onEnemyFormChange(e, formIdx){
+  if(!e.formNames || !e.formNames[formIdx]) return;
+  e.name = `${e.baseName || e.name.split('・')[0]}・${e.formNames[formIdx]}`;
+  if(!e.baseName) e.baseName = e.name.split('・')[0];
+  // 形態をまたいでカット・反射が残らないようにする
+  e._dmgCutTurns = 0; e._dmgCutPct = 0;
+  e._thornsTurns = 0; e._thorns = 0;
+  e.turnCount = 0;   // 必殺技と「隙」の周期を形態ごとに数え直す
+  e.block = 0;
+}
+function tryEnemyRevive(){
+  const e = state.enemy;
+  if(!e || !e.revive) return false;
+  const max = e.reviveMax || 1;
+  const done = e._reviveCount || 0;
+  if(done >= max) return false;
+  e._reviveCount = done + 1;
+  e._revived = true;              // 旧フラグも残す(他の判定が見ている可能性への保険)
+  e.hp = e.maxHp;
+  if(e.reviveAtkBuff) e._reviveAtkBonus = (e._reviveAtkBonus||0) + e.reviveAtkBuff;
+  // 形態が変わるボスは、ここで見た目と状態を切り替える
+  if(typeof onEnemyFormChange === 'function') onEnemyFormChange(e, e._reviveCount);
+  showFloatingText(e.formNames ? `第${e._reviveCount+1}形態！` : '復活！', 'heal', ui.enemyNode);
+  ui.enemyVisual.classList.add('aura-gold');
+  return true;
+}
 function startBattle(mode) {
 ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = handleEndTurn;
 ui.map.classList.add('hidden'); ui.battle.classList.remove('hidden');
@@ -6386,6 +6460,7 @@ if(mode==='boss' && state.floor>=61){
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null; __exhaustPick=null; updateExhaustPickBar();
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
 state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
+resetCardPlayLimit();   // 「創造の律」の残り枚数を戦闘開始時に戻す(制限が無ければ何も出ない)
 if(state.enemy.legendaryAura){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
 // 初期ガッツ: 50固定 + 遺物ボーナス
 let initEnergy = 50;
@@ -6501,6 +6576,10 @@ if(state.player.critDmgBoostTurns>0) state.player.critDmgBoostTurns--;
 if(state.player.drainReduceTurns>0){ state.player.drainReduceTurns--; if(state.player.drainReduceTurns<=0) state.player.drainReduceAmt=0; }
 if(state.player.costUpTurns>0){ state.player.costUpTurns--; if(state.player.costUpTurns<=0)state.player.costUpPct=0; }
 if(state.player.bleed>0){ const bleedDmg=state.player.bleed*2; state.player.hp=Math.max(0,state.player.hp-bleedDmg); showFloatingText(bleedDmg,'dmg',ui.playerNode); state.player.bleed=Math.max(0,state.player.bleed-2); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } checkHpThresholdRelics(); }
+// 創造神のカット・反射の残りターンを進める
+if((state.enemy._dmgCutTurns||0) > 0){ state.enemy._dmgCutTurns--; if(state.enemy._dmgCutTurns<=0) state.enemy._dmgCutPct=0; }
+if((state.enemy._thornsTurns||0) > 0){ state.enemy._thornsTurns--; if(state.enemy._thornsTurns<=0) state.enemy._thorns=0; }
+resetCardPlayLimit();   // パッシブ「創造の律」の残り枚数を戻す
 state.drawsThisTurn = 0;
 drawCards(5); setEnemyIntent(); updateUI(); renderHand();
 // 手札-N（ドロー後に処理）
@@ -6537,9 +6616,10 @@ function addBurnCards(n){
     state.drawPile.splice(pos,0,c);
   }
 }
-function addInjuryCards(n){
-  // レジェンド難易度のレジェンドボスラッシュ中だけ、ケガの代わりに大ケガを入れる
-  const base = (state.difficulty==='legend' && state.legendRush) ? BIG_INJURY_CARD : INJURY_CARD;
+function addInjuryCards(n, forceBig){
+  // レジェンド難易度のレジェンドボスラッシュ中だけ、ケガの代わりに大ケガを入れる。
+  // forceBig を渡すと、難易度に関わらず大ケガになる(創造神「終焉と始まり」用)
+  const base = (forceBig || (state.difficulty==='legend' && state.legendRush)) ? BIG_INJURY_CARD : INJURY_CARD;
   for(let i=0;i<n;i++){
     const c={...base,instanceId:Math.random()};
     // 山札（drawPile）の中にランダム挿入
@@ -6607,6 +6687,10 @@ function setEnemyIntent() {
 }
 // 敵の行動を決める本体。ここでは難易度倍率をかけず、素の数値を入れる。
 // 倍率は呼び出し口の setEnemyIntent() で一括してかける(かけ忘れ防止のため)。
+// 創造神(65階)を冒険に出すかどうか。
+// false のあいだは 63階でボスラッシュが終わり、65階には行けない(データだけ入っている状態)。
+// true にすると 64階=休息所 / 65階=創造神 になる。
+const CREATOR_BOSS_ENABLED = false;
 function setEnemyIntentBase() {
 const e=state.enemy, r=Math.random();
 
@@ -6680,6 +6764,45 @@ else if(r<0.6) e.intent={type:'atk_debuff',val:74,drain:21,handMinus:2,blockDown
 else if(r<0.8) e.intent={type:'block_atk_drain',val:62,drain:14,block:20,handMinus:1,atkDown:3,desc:'ウィングコンボ（王）'};
 else e.intent={type:'block_atk',val:90,block:42,injuryCards:2,desc:'ラグナラッシュ'};
 return;
+}
+// ==== 創造神(3形態) ====
+// 【重要】まだ冒険には出していない。CREATOR_BOSS_ENABLED を true にすると65階に出る。
+// HPが0になるたび復活して形態が変わる(reviveMax:2 で3形態)。形態は _reviveCount で見る。
+// 各技には必ずガッツダウン(drain)が付く。drainには難易度倍率がかからないので素の値がそのまま効く。
+if(e.trait === 'creator') {
+  const form = (e._reviveCount || 0);   // 0=秩序 / 1=混沌 / 2=創造
+  const t = e.turnCount || 0;
+  if(form === 0){
+    // --- 第1形態「秩序」: 攻撃は控えめ。手札とガッツを削って動きを縛る ---
+    if(t > 0 && t % 5 === 0){ e.intent={type:'atk_debuff',val:140,drain:30,handMinus:3,nextHandMinus:2,desc:'創世の律'}; return; }
+    if(t > 0 && t % 4 === 0){ e.intent={type:'atk',val:0,drain:0,openWindow:true,desc:'秩序の綻び'}; return; }
+    if(r<0.18)      e.intent={type:'atk',val:60,drain:8,nextHandMinus:1,desc:'律を敷く'};
+    else if(r<0.42) e.intent={type:'atk',val:110,drain:8,desc:'原初の光'};
+    else if(r<0.62) e.intent={type:'atk_debuff',val:100,drain:13,handMinus:2,desc:'概念の楔'};
+    else if(r<0.80) e.intent={type:'atk',val:95,drain:18,injuryCards:2,desc:'白紙に還す'};
+    else            e.intent={type:'atk_debuff_both',val:90,drain:28,weak:2,vuln:2,costUpTurns:2,costUpPct:20,desc:'静止せよ'};
+    return;
+  }
+  if(form === 1){
+    // --- 第2形態「混沌」: 削りを鈍らせ、状態異常で汚す ---
+    if(t > 0 && t % 5 === 0){ e.intent={type:'atk_debuff_both',val:130,drain:40,weak:2,vuln:2,burnCards:3,desc:'万象還元'}; return; }
+    if(t > 0 && t % 4 === 0){ e.intent={type:'atk',val:0,drain:0,openWindow:true,clearCut:true,desc:'歪みの反動'}; return; }
+    if(r<0.18)      e.intent={type:'atk',val:70,drain:18,dmgCutPct:25,dmgCutTurns:3,desc:'世界を歪める'};
+    else if(r<0.38) e.intent={type:'atk_debuff_both',val:95,drain:23,weak:3,vuln:3,bleed:8,desc:'万物流転'};
+    else if(r<0.58) e.intent={type:'atk',val:110,drain:13,burnCards:3,desc:'概念崩壊'};
+    else if(r<0.80) e.intent={type:'atk_debuff',val:115,drain:18,injuryCards:2,handMinus:1,desc:'混沌の吐息'};
+    else            e.intent={type:'atk',val:62,hits:2,drain:28,atkDown:5,blockDown:5,desc:'歪みの奔流'};
+    return;
+  }
+  // --- 第3形態「創造」: 殴り返す。攻撃も本気 ---
+  if(t > 0 && t % 5 === 0){ e.intent={type:'atk_debuff',val:180,drain:50,injuryCards:3,handMinus:2,desc:'天地創造'}; return; }
+  if(t > 0 && t % 4 === 0){ e.intent={type:'atk',val:0,drain:0,openWindow:true,clearThorns:true,desc:'創造の狭間'}; return; }
+  if(r<0.20)      e.intent={type:'atk',val:80,drain:18,thorns:12,thornsTurns:3,desc:'触れるものは還る'};
+  else if(r<0.40) e.intent={type:'atk',val:100,drain:23,nextHandMinus:2,desc:'律を敷き直す'};
+  else if(r<0.62) e.intent={type:'atk_vuln',val:145,drain:38,vuln:2,injuryCards:2,bigInjury:true,desc:'終焉と始まり'};
+  else if(r<0.84) e.intent={type:'atk_weak',val:78,hits:3,drain:28,weak:2,desc:'星々の慟哭'};
+  else            e.intent={type:'atk',val:100,drain:23,nextHandMinus:2,desc:'律を敷き直す'};
+  return;
 }
 if(e.trait === 'ark') {
 // 黄泉の根源に従え：ライフ6000以下で初回のみ発動（自己バフ・大回復・大ブロック）
@@ -6950,12 +7073,7 @@ let burnDmg = Math.max(1, Math.floor(state.enemy.maxHp * 0.05));
 state.enemy.hp -= burnDmg;
 showFloatingText(burnDmg, 'dmg', ui.enemyNode);
 if (state.enemy.hp <= 0) {
-  if(state.enemy.revive && !state.enemy._revived){
-    state.enemy._revived=true;
-    state.enemy.hp=state.enemy.maxHp;
-    if(state.enemy.reviveAtkBuff) state.enemy._reviveAtkBonus=(state.enemy._reviveAtkBonus||0)+state.enemy.reviveAtkBuff;
-    showFloatingText('復活！','heal',ui.enemyNode);
-    ui.enemyVisual.classList.add('aura-gold');
+  if(tryEnemyRevive()){
     await new Promise(r=>setTimeout(r,800));
   } else {
     await new Promise(r=>setTimeout(r,600)); winBattle(); return;
@@ -6969,12 +7087,7 @@ if ((state.enemy.bleed||0) > 0) {
   showFloatingText(bleedDmg, 'dmg', ui.enemyNode);
   state.enemy.bleed = Math.max(0, state.enemy.bleed-2);
   if (state.enemy.hp <= 0) {
-    if(state.enemy.revive && !state.enemy._revived){
-      state.enemy._revived=true;
-      state.enemy.hp=state.enemy.maxHp;
-      if(state.enemy.reviveAtkBuff) state.enemy._reviveAtkBonus=(state.enemy._reviveAtkBonus||0)+state.enemy.reviveAtkBuff;
-      showFloatingText('復活！','heal',ui.enemyNode);
-      ui.enemyVisual.classList.add('aura-gold');
+    if(tryEnemyRevive()){
       await new Promise(r=>setTimeout(r,800));
     } else {
       await new Promise(r=>setTimeout(r,600)); winBattle(); return;
@@ -7055,7 +7168,7 @@ if(i.drawReduce||i.handMinus) {
     const hm=i.drawReduce||i.handMinus; state.player.nextTurnHandReduce=(state.player.nextTurnHandReduce||0)+hm; showFloatingText(`手札-${hm}`,'drain',ui.playerNode);
   }
 }
-if(i.injuryCards && i.injuryCards>0) { addInjuryCards(i.injuryCards); showFloatingText(`ケガ×${i.injuryCards}`,  'drain',ui.playerNode); }
+if(i.injuryCards && i.injuryCards>0) { addInjuryCards(i.injuryCards, i.bigInjury); showFloatingText(`${i.bigInjury?'大ケガ':'ケガ'}×${i.injuryCards}`,  'drain',ui.playerNode); }
 if(i.burnCards && i.burnCards>0) { addBurnCards(i.burnCards); showFloatingText(`火傷×${i.burnCards}`,  'drain',ui.playerNode); }
 if(i.costUpTurns && i.costUpPct) {
   if((state.player.statusImmuneCharges||0) > 0) {
@@ -7094,6 +7207,18 @@ const statDown = (baseKey, battleKey, amount, label) => {
 };
 if(i.blockDown) statDown('blockBase','blockBattle', i.blockDown, '丈');
 if(i.atkDown)   statDown('atkBase','atkBattle',    i.atkDown,   '力');
+// ---- 創造神の新しい効果 ----
+// 次のターンの手札を減らす(既存の nextTurnHandReduce に乗せる)
+if(i.nextHandMinus){ state.player.nextTurnHandReduce = (state.player.nextTurnHandReduce||0) + i.nextHandMinus; showFloatingText(`次の手札-${i.nextHandMinus}`,'drain',ui.playerNode); }
+// ダメージカットを張る
+if(i.dmgCutPct){ state.enemy._dmgCutPct = i.dmgCutPct; state.enemy._dmgCutTurns = i.dmgCutTurns || 3; showFloatingText(`ダメージ${i.dmgCutPct}%カット`,'block',ui.enemyNode); }
+// 反射を張る
+if(i.thorns){ state.enemy._thorns = i.thorns; state.enemy._thornsTurns = i.thornsTurns || 3; showFloatingText(`反射${i.thorns}`,'block',ui.enemyNode); }
+// 「隙」の技はカット・反射を自分で解除する
+if(i.clearCut){ state.enemy._dmgCutTurns = 0; state.enemy._dmgCutPct = 0; }
+if(i.clearThorns){ state.enemy._thornsTurns = 0; state.enemy._thorns = 0; }
+// 「隙」のターンは無防備になる(防御0・こちらの与ダメージ1.5倍＝守弱を1ターン付ける)
+if(i.openWindow){ state.enemy.block = 0; state.enemy.vuln = Math.max(state.enemy.vuln||0, 1); }
 // 敵HP回復
 if(i.heal) { state.enemy.hp=Math.min(state.enemy.maxHp,state.enemy.hp+i.heal); showFloatingText(`+${i.heal}`,'heal',ui.enemyNode); }
 // プレイヤーHP回復（ドレイン系）
@@ -7231,8 +7356,36 @@ function toggleExhaustPick(idx){
     playCard(pick.idx);
   }
 }
+// ==== パッシブ「創造の律」: 1ターンに使えるカードの枚数制限 ====
+// 【重要】これは「伝説のオーラ」「伝説のきまぐれ」と同じ、ボス固有の常時パッシブ。
+// 手札を無限に回す戦法だけを止めるためのもので、10枚は普通のデッキならまず届かない。
+// 残り枚数は画面に出す(#card-limit-badge)。理由が分からず使えなくなる事故を防ぐため。
+const CARD_LIMIT_DEFAULT = 10;
+function cardPlayLimit(){
+  const e = state.enemy;
+  return (e && e.cardPlayLimit) ? e.cardPlayLimit : 0;   // 0 = 制限なし
+}
+function resetCardPlayLimit(){ state.cardsPlayedThisTurn = 0; updateCardLimitBadge(); }
+function cardPlayLeft(){
+  const lim = cardPlayLimit();
+  if(!lim) return Infinity;
+  return Math.max(0, lim - (state.cardsPlayedThisTurn||0));
+}
+function updateCardLimitBadge(){
+  const el = document.getElementById('card-limit-badge');
+  if(!el) return;
+  const lim = cardPlayLimit();
+  if(!lim){ el.style.display = 'none'; return; }
+  const left = cardPlayLeft();
+  el.style.display = 'flex';
+  el.textContent = `⚖️ 残り ${left}`;
+  // 残りが少なくなったら色で知らせる
+  el.style.color = left === 0 ? '#fca5a5' : (left <= 3 ? '#fcd34d' : '#d4d4d8');
+  el.style.borderColor = left === 0 ? 'rgba(248,113,113,0.7)' : (left <= 3 ? 'rgba(252,211,77,0.7)' : 'rgba(113,113,122,0.6)');
+}
 function clickCard(idx) {
   if(!state.isPlayerTurn) return;
+  if(cardPlayLeft() <= 0){ showFloatingText('これ以上使えない','drain',ui.playerNode); return; }
   if(__exhaustPick){ toggleExhaustPick(idx); return; }   // 選択モード中はタップ＝選択
   const c = state.hand[idx];
   // 選ばせるカードは、消費する前に選択を済ませる(上のコメント参照)
@@ -7248,6 +7401,11 @@ const c=state.hand[idx];
 let cardCost = getCardCost(c);
 if(state.player.energy<cardCost)return;
 if(!state.isPlayerTurn)return; // 演出中の連打による多重実行を防止
+// 【重要】clickCard だけでなくここでも見ること。
+// ドラッグで出す経路や、カードから別のカードを使う効果は clickCard を通らない
+if(cardPlayLeft() <= 0) return;
+state.cardsPlayedThisTurn = (state.cardsPlayedThisTurn||0) + 1;
+updateCardLimitBadge();
 state.isPlayerTurn=false;
 try {
 state.player.energy-=cardCost;
@@ -7331,6 +7489,10 @@ if(c.crit){
   if(Math.random()<critRate){cr=critMult; showCritEffect(); isCrit=true; anyCritThisAttack=true;}
 }
 let tot=Math.floor(b*m*cr);
+// 敵のダメージカット(創造神 第2形態「世界を歪める」)。切れるまで受けるダメージを%減らす
+if((state.enemy._dmgCutTurns||0) > 0 && (state.enemy._dmgCutPct||0) > 0){
+  tot = Math.floor(tot * (1 - state.enemy._dmgCutPct/100));
+}
 if(state.enemy.evasion>0){ state.enemy.evasion--; tot=0; showFloatingText('回避!','drain',ui.enemyNode); }
 state.totalDmgDealt+=tot;
 state.score += (tot * 5);
@@ -7339,6 +7501,14 @@ else{
 let d=tot-state.enemy.block; state.enemy.hp-=d; state.enemy.block=0;
 comboTotalDmg += d;
 showFloatingText(d,'dmg',ui.enemyNode,isCrit);
+// 反射(創造神 第3形態「触れるものは還る」)。攻撃1発ごとに跳ね返る。
+// 【重要】連撃は1発ずつここを通るので、連撃4のカードなら4回ぶん跳ね返る。
+// 数値を決めるときは必ず連撃カードで実測すること。
+if((state.enemy._thornsTurns||0) > 0 && (state.enemy._thorns||0) > 0 && state.player.hp > 0){
+  const th = state.enemy._thorns;
+  state.player.hp = Math.max(0, state.player.hp - th);
+  showFloatingText(th,'dmg',ui.playerNode);
+}
 // ガリ専用: 神核(スタックが5貯まるごとにガッツ回復15、ダメージ10%アップ 最大50%)
 if(state.player.godCoreActive){
   state.player.godCoreStacks=(state.player.godCoreStacks||0)+1;
@@ -7365,12 +7535,7 @@ if(state.player.relics.some(r=>r.id==='br_ga_royalmask')) state.player.energy=Ma
 if(state.player.relics.some(r=>r.id==='ga_raijin_koromo')) state.player.hp=Math.min(state.player.maxHp,state.player.hp+1);
 updateUI();
 if(state.enemy.hp<=0){
-  if(state.enemy.revive && !state.enemy._revived){
-    state.enemy._revived=true;
-    state.enemy.hp=state.enemy.maxHp;
-    if(state.enemy.reviveAtkBuff) state.enemy._reviveAtkBonus=(state.enemy._reviveAtkBonus||0)+state.enemy.reviveAtkBuff;
-    showFloatingText('復活！','heal',ui.enemyNode);
-    ui.enemyVisual.classList.add('aura-gold');
+  if(tryEnemyRevive()){
     updateUI();
     state.isPlayerTurn=true;
     return;
@@ -7516,10 +7681,8 @@ if(c.tempUpgradeHand){
 
 updateUI(); renderHand();
 if(state.enemy.hp<=0&&!state.battleEnded){
-  if(state.enemy.revive&&!state.enemy._revived){
-    state.enemy._revived=true; state.enemy.hp=state.enemy.maxHp;
-    if(state.enemy.reviveAtkBuff) state.enemy._reviveAtkBonus=(state.enemy._reviveAtkBonus||0)+state.enemy.reviveAtkBuff;
-    showFloatingText('復活！','heal',ui.enemyNode); ui.enemyVisual.classList.add('aura-gold'); updateUI();
+  if(tryEnemyRevive()){
+    updateUI();
     state.isPlayerTurn=true;
   } else { winBattle(); }
 } else if(state.player.hp<=0) gameOver();
@@ -7528,10 +7691,7 @@ else state.isPlayerTurn=true;
   console.error('カード使用中にエラーが発生しました。操作を復旧します。', e);
   try {
     if(state.enemy && state.enemy.hp<=0 && !state.battleEnded){
-      if(state.enemy.revive && !state.enemy._revived){
-        state.enemy._revived=true; state.enemy.hp=state.enemy.maxHp;
-        if(state.enemy.reviveAtkBuff) state.enemy._reviveAtkBonus=(state.enemy._reviveAtkBonus||0)+state.enemy.reviveAtkBuff;
-        showFloatingText('復活！','heal',ui.enemyNode); ui.enemyVisual.classList.add('aura-gold');
+      if(tryEnemyRevive()){
         state.isPlayerTurn=true;
       } else {
         winBattle();
@@ -7676,6 +7836,7 @@ window.game.showBossEffectInfo = function() {
   let lines = [];
   if(state.enemy.legendaryAura) lines.push('✨ 伝説のオーラ\nバトル開始時と3ターン目に、こちらのデッキへ強制的に「ケガ」を2枚追加する。');
   if(state.enemy.legendaryWhim) lines.push('🌀 伝説のきまぐれ\nこちらの連撃(複数ヒット)攻撃のダメージが半減する代わりに、連撃のない通常攻撃のダメージが2倍になる。');
+  if(state.enemy.cardPlayLimit) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${state.enemy.cardPlayLimit}枚までに制限される。残り枚数は手札の上に出る。`);
   if(lines.length===0) return;
   showModal('特殊効果', lines.join('\n\n'));
   ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText='閉じる'; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');
@@ -7730,7 +7891,10 @@ function nextFloor() {
     gameClear(); return;
   }
   state.floor++;
-  const maxFloor = state.legendRush ? 63 : 60;
+  // 【重要】創造神(65階)はまだ冒険に出していない。
+  // CREATOR_BOSS_ENABLED を true にすると 64階=休息所 / 65階=創造神 まで伸びる。
+  // データと戦闘処理は全部入っているので、確認は管理者ページの「創造神と戦う」から行う。
+  const maxFloor = state.legendRush ? (CREATOR_BOSS_ENABLED ? 65 : 63) : 60;
   if(state.floor>maxFloor) gameClear(); else initMap();
 }
 function calculateFinalScore() {
@@ -9169,6 +9333,7 @@ if(state.player.relics.some(r=>r.id==='candy'))rec+=5;
 if(state.player.relics.some(r=>r.id==='angel_wing'))rec+=8;
 if(state.player.relics.some(r=>r.id==='grace_wing'))rec+=3;
 if(state.player.relics.some(r=>r.id==='sticker_metal'))rec+=3;
+updateCardLimitBadge();
 ui.energyRegen.innerText=` +${rec}`; ui.drawCount.innerText=state.drawPile.length; ui.discardCount.innerText=state.discardPile.length; ui.floor.innerText=state.floor;
 ui.relicUI.innerHTML=state.player.relics.map((r,i)=>`<span class="cursor-pointer hover:scale-125 transition-transform inline-block relative" title="${r.name}: ${r.desc}" onclick="window.game.showRelicTooltip(${i})">${r.icon}</span>`).join('');
 ui.playerStatuses.innerHTML='';
@@ -9227,7 +9392,7 @@ const totalMaxE = state.player.maxEnergy + (state.player.maxEnergyBattle||0);
 if(totalMaxE > 99) ui.playerStatuses.innerHTML+=ps('bg-fuchsia-900','border-fuchsia-400/50','text-fuchsia-200','📈',`G上限${totalMaxE}`);
 if(state.enemy){
 ui.enemyHpBar.style.width=`${(state.enemy.hp/state.enemy.maxHp)*100}%`; ui.enemyHpText.innerText=`${state.enemy.hp}/${state.enemy.maxHp}`;
-if(state.enemy.legendaryAura || state.enemy.legendaryWhim){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
+if(state.enemy.legendaryAura || state.enemy.legendaryWhim || state.enemy.cardPlayLimit){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
 if(state.enemy.isRareElite){
   ui.enemyName.innerHTML=`<span style="background:linear-gradient(90deg,#ffd700,#ff8c00,#ffd700,#fff700,#ffd700);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:lr-border 1s linear infinite;font-weight:900;filter:drop-shadow(0 0 4px #ffd700);">★ ${state.enemy.name} ★</span>`;
 } else {
