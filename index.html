@@ -2904,7 +2904,7 @@ else tryResumeRun();
 //   ブラウザのコンソールで:
 //   crypto.subtle.digest('SHA-256', new TextEncoder().encode('新しい合言葉'))
 //     .then(b=>console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
-const ADMIN_PASS_HASH = 'ecc7813daeeb78e3511e808a62d4800a41f4ccd22e8fc78b19eebc3328b9068a';
+const ADMIN_PASS_HASH = 'e9ab39f01d431c5250493a3dc493bba9c43f73a4461c72b5135ee09738582af7';
 const ADMIN_SESSION_KEY = 'mf_admin_ok';   // タブを閉じるまで開いたままにする(sessionStorage)
 
 async function sha256Hex(text){
