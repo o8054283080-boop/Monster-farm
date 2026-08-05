@@ -63,7 +63,11 @@ const ALL_RELICS = [
 {id:'h_enkaku', mid:'hinotori', name:'炎核', icon:'☀️', desc:'炎上している相手から受けるダメージ0.9倍 炎上している相手から攻撃を受けるとガッツ10回復'},
 // ザン専用通常遺物
 {id:'z_kuroi_houseki', mid:'zan', name:'黒い宝石', icon:'⚫', desc:'出血している相手から受けるダメージ0.9倍'},
-{id:'z_eiri_no_ha', mid:'zan', name:'鋭利な刃', icon:'🗡️', desc:'与えるダメージ1.1倍 消費ガッツ-5%'}
+{id:'z_eiri_no_ha', mid:'zan', name:'鋭利な刃', icon:'🗡️', desc:'与えるダメージ1.1倍 消費ガッツ-5%'},
+// イブリース専用通常遺物（実装中の種族）
+{id:'ib_kagami', mid:'iblis', name:'反転の鏡', icon:'🪞', desc:'形態が変わったときガッツ回復10'},
+{id:'ib_yomi_no_kubbi', mid:'iblis', name:'黄泉のくびき', icon:'⛓️', desc:'通常形態のあいだ毎ターンブロック10'},
+{id:'ib_tenshi_no_wa', mid:'iblis', name:'天使の輪', icon:'💫', desc:'天使型のあいだ受けるダメージ-8'}
 ];
 
 // ボス遺物（15F/30F/45Fのボス撃破時のみ、3つから1つ選択して獲得）
@@ -112,5 +116,10 @@ const BOSS_RELICS_SPECIES = {
     {id:'br_zan_bloodmark', name:'血の証', icon:'🩸', desc:'全てのカードに出血+1を追加'},
     {id:'br_zan_masamune', name:'マサムネ', icon:'⚔️', desc:'力+10 毎ターンガッツ回復8 毎ターンブロック3'},
     {id:'br_zan_scroll', name:'忍びの巻物', icon:'📜', desc:'Rカード以下の消費ガッツ-3 連撃+1(連撃のないダメージカードは連撃2に、連撃のあるカードは+1)'}
+  ],
+  iblis: [
+    {id:'br_ib_balance', name:'二律の天秤', icon:'⚖️', desc:'力+6 丈夫さ+6 形態が変わったとき1枚ドロー'},
+    {id:'br_ib_seiten', name:'聖天の冠', icon:'👑', desc:'ライフ+30 天使型のあいだ与えるダメージ1.1倍'},
+    {id:'br_ib_yomi_core', name:'黄泉の核', icon:'🕳️', desc:'通常形態のあいだ毎ターンガッツ回復10 毎ターンライフ回復4'}
   ]
 };

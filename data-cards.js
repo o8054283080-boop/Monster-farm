@@ -24,6 +24,9 @@ hinotori_b3:{mid:'hinotori',id:'hinotori_b3',name:'爆裂落とし',cost:27,val:
 zan_b1:{mid:'zan',id:'zan_b1',name:'レッグアーク',cost:8,val:10,crit:'E',bleed:1,rarity:'N',desc:'攻10 出血1',isStarter:true},
 zan_b2:{mid:'zan',id:'zan_b2',name:'ソニックナイフ',cost:11,val:13,crit:'D',bleed:1,rarity:'N',desc:'攻13 出血1',isStarter:true},
 zan_b3:{mid:'zan',id:'zan_b3',name:'血踊',cost:10,selfBleedOnHit:1,remove:true,rarity:'N',desc:'今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true},
+iblis_b1:{mid:'iblis',id:'iblis_b1',name:'黄泉の爪',cost:8,val:12,crit:'E',rarity:'N',desc:'攻12',isStarter:true},
+iblis_b2:{mid:'iblis',id:'iblis_b2',name:'光刃',cost:11,val:13,crit:'D',formTo:'angel',rarity:'N',desc:'攻13 使用後 天使型になる',isStarter:true},
+iblis_b3:{mid:'iblis',id:'iblis_b3',name:'反転の型',cost:14,val:14,block:16,crit:'E',formTo:'toggle',rarity:'SR',desc:'攻14 防16 使用後 形態が入れ替わる',isStarter:true},
 
 // ==== スキン専用の初期技 ====
 // SSRスキンを「所持していれば」装備画面で選べる、種族の看板技(b3)の差し替え版。
@@ -374,4 +377,46 @@ m_mr1_gojo:{mid:'motchi',id:'m_mr1_gojo',name:'虚式「茈」',cost:75,val:150,
   desc:'攻150 連撃2 守弱1 守弱時ダメージ+150 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_mr1',motion:'atk_flash'},
 m_mr2_gojo:{mid:'motchi',id:'m_mr2_gojo',name:'領域展開「無量空処」',cost:80,block:80,regenBlock:20,freeze:5,vuln:5,weak:5,kiaiTurns:5,permDmgMultBonus:0.25,remove:true,rarity:'MR',
   desc:'防80 毎T防20 氷結5 守弱5 攻弱5 5T気合い状態(会心率+30%) この戦闘中ダメージ+25% 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_mr2',motion:'buf_awaken'},
+
+// ==== イブリース専用カード（実装中の種族） ====
+// 形態のルール:
+//   通常形態 … 受けるダメージ0.9倍 / 毎ターンのガッツ回復+6
+//   天使型　 … 与えるダメージ1.2倍 / 受けるダメージ1.1倍
+//   formTo : 'angel' / 'normal' / 'toggle'  → カードの効果が全部終わったあとに変身する
+//   formEff: その形態で「使ったとき」だけ差し替わる値。数値の上書きで、説明文は上書きしない。
+// 【重要】説明文(desc)には必ず両方の形態ぶんを書くこと。
+//   出ている数値は「いまの形態のもの」だが、プレイヤーは変身前に反対側の値も知りたい。
+//   【天】= 天使型で使ったとき / 【通】= 通常形態で使ったとき
+ib_n1:{mid:'iblis',name:'黄泉の一撃',cost:7,val:16,crit:'F',rarity:'N',desc:'攻16'},
+ib_n2:{mid:'iblis',name:'昇華の翼',cost:10,val:14,crit:'D',formTo:'angel',rarity:'N',desc:'攻14 使用後 天使型になる'},
+ib_n3:{mid:'iblis',name:'闇衣',cost:11,block:18,formTo:'normal',rarity:'N',desc:'防18 使用後 通常形態になる'},
+ib_n4:{mid:'iblis',name:'神光の欠片',cost:9,val:12,crit:'E',formEff:{angel:{val:20}},rarity:'N',desc:'攻12 【天】攻20'},
+ib_n5:{mid:'iblis',name:'静かな祈り',cost:6,nextTurnEnergy:14,formEff:{normal:{nextTurnEnergy:22}},rarity:'N',desc:'次ガッツ14 【通】次ガッツ22'},
+ib_n6:{mid:'iblis',name:'呪縛の指先',cost:13,val:10,crit:'F',weak:1,vuln:1,rarity:'N',desc:'攻10 攻弱守弱1'},
+ib_r1:{mid:'iblis',name:'熾天の羽ばたき',cost:18,val:30,crit:'D',formTo:'angel',rarity:'R',desc:'攻30 使用後 天使型になる'},
+ib_r2:{mid:'iblis',name:'黄泉還り',cost:16,block:22,regenEnergy:5,formTo:'normal',rarity:'R',desc:'防22 毎ターンガッツ5 使用後 通常形態になる'},
+ib_r3:{mid:'iblis',name:'二律の刃',cost:20,val:20,block:22,crit:'D',formEff:{angel:{val:33,block:0}},rarity:'R',desc:'攻20 防22 【天】攻33(防なし)'},
+ib_r4:{mid:'iblis',name:'神光よ汚れを祓え',cost:22,val:28,crit:'C',vuln:1,formEff:{angel:{val:34}},rarity:'R',desc:'攻28 守弱1 【天】攻34'},
+ib_r5:{mid:'iblis',name:'深淵の護り',cost:17,block:26,blockBattle:3,formEff:{normal:{block:34,blockBattle:5}},rarity:'R',desc:'防26 丈+3 【通】防34 丈+5'},
+ib_r6:{mid:'iblis',name:'翔べ震律の刃よ',cost:21,val:13,hits:2,crit:'C',formEff:{angel:{val:17}},rarity:'R',desc:'攻13 連撃2 【天】攻17'},
+ib_r7:{mid:'iblis',name:'反転の呼吸',cost:12,draw:1,nextTurnEnergy:10,formTo:'toggle',rarity:'R',desc:'1ドロー 次ガッツ10 使用後 形態が入れ替わる'},
+ib_sr1:{mid:'iblis',name:'熾天の剣よ降り立て',cost:34,val:11,hits:4,crit:'C',formTo:'angel',formEff:{angel:{val:13}},rarity:'SR',desc:'攻11 連撃4 使用後 天使型になる 【天】攻13'},
+ib_sr2:{mid:'iblis',name:'聖光よ奇跡を灯せ',cost:30,val:30,crit:'B',heal:15,formEff:{angel:{val:40,heal:20}},rarity:'SR',desc:'攻30 回15 【天】攻40 回20'},
+ib_sr3:{mid:'iblis',name:'黄泉の根源に従え',cost:28,block:40,regenBlock:8,formTo:'normal',rarity:'SR',desc:'防40 毎ターン防8 使用後 通常形態になる'},
+ib_sr4:{mid:'iblis',name:'導け神光の道標',cost:26,val:25,crit:'B',vuln:2,formTo:'angel',formEff:{angel:{val:37,vuln:3}},rarity:'SR',desc:'攻25 守弱2 使用後 天使型になる 【天】攻37 守弱3'},
+ib_sr5:{mid:'iblis',name:'天秤',cost:20,draw:2,atkBattle:4,blockBattle:4,formTo:'toggle',rarity:'SR',desc:'2ドロー 力丈+4 使用後 形態が入れ替わる'},
+ib_sr6:{mid:'iblis',name:'冥き福音',cost:24,val:20,crit:'D',weak:2,nextTurnEnergy:12,formEff:{normal:{weak:3,nextTurnEnergy:24}},rarity:'SR',desc:'攻20 攻弱2 次ガッツ12 【通】攻弱3 次ガッツ24'},
+ib_sr7:{mid:'iblis',name:'双極',cost:32,val:34,block:34,crit:'C',formEff:{angel:{val:48,block:20}},rarity:'SR',desc:'攻34 防34 【天】攻48 防20'},
+ib_ssr1:{mid:'iblis',name:'天の慈悲よ示されよ',cost:44,val:16,hits:4,crit:'C',formTo:'angel',formEff:{angel:{val:19}},rarity:'SSR',desc:'攻16 連撃4 使用後 天使型になる 【天】攻19'},
+ib_ssr2:{mid:'iblis',name:'終焉に救いを与えよ',cost:46,val:58,crit:'A',vuln:2,formEff:{angel:{val:72}},rarity:'SSR',desc:'攻58 守弱2 【天】攻72'},
+ib_ssr3:{mid:'iblis',name:'黄泉の甲冑',cost:30,block:45,blockBattle:8,regenEnergy:10,formTo:'normal',remove:true,rarity:'SSR',desc:'防45 丈+8 毎ターンガッツ10 使用後 通常形態になる 消滅'},
+ib_ssr4:{mid:'iblis',name:'熾天使化',cost:36,atkBattle:8,draw:3,formTo:'angel',remove:true,rarity:'SSR',desc:'力+8 3ドロー 使用後 天使型になる 消滅'},
+ib_ssr5:{mid:'iblis',name:'世界を揺らせ',cost:40,val:20,hits:3,crit:'B',weak:2,vuln:2,formEff:{angel:{val:24}},rarity:'SSR',desc:'攻20 連撃3 攻弱守弱2 【天】攻24'},
+ib_ssr6:{mid:'iblis',name:'二相の福音',cost:34,block:50,regenBlock:10,formEff:{angel:{block:0,regenBlock:0,val:56,crit:'A',vuln:2}},rarity:'SSR',desc:'防50 毎ターン防10 【天】攻56 会心A 守弱2(防なし)'},
+ib_ssr7:{mid:'iblis',name:'今こそ真なる目覚め',cost:38,atkBattle:6,blockBattle:6,regenEnergy:12,formTo:'toggle',remove:true,rarity:'SSR',desc:'力丈+6 毎ターンガッツ12 使用後 形態が入れ替わる 消滅'},
+ib_mr1:{mid:'iblis',name:'神光の裁き',cost:60,val:46,hits:2,crit:'S',vuln:2,formTo:'angel',formEff:{angel:{val:54}},rarity:'MR',desc:'攻46 連撃2 守弱2 使用後 天使型になる 【天】攻54'},
+ib_mr2:{mid:'iblis',name:'黄泉の根源、開闢',cost:55,block:80,regenBlock:15,blockBattle:10,formTo:'normal',remove:true,rarity:'MR',desc:'防80 毎ターン防15 丈+10 使用後 通常形態になる 消滅'},
+ib_mr3:{mid:'iblis',name:'二律背反',cost:70,val:60,block:60,crit:'A',formEff:{angel:{val:100,block:20}},rarity:'MR',desc:'攻60 防60 【天】攻100 防20'},
+ib_mr4:{mid:'iblis',name:'熾天顕現',cost:65,atkBattle:10,draw:2,permDmgMultBonus:0.2,formTo:'angel',remove:true,rarity:'MR',desc:'力+10 2ドロー この戦闘中ダメージ+20% 使用後 天使型になる 消滅'},
+ib_mr5:{mid:'iblis',name:'終焉と再誕',cost:80,val:90,crit:'S',weak:3,vuln:3,heal:40,formTo:'toggle',remove:true,rarity:'MR',desc:'攻90 攻弱守弱3 回40 使用後 形態が入れ替わる 消滅'},
 };

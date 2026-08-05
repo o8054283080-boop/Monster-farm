@@ -144,6 +144,9 @@ background: linear-gradient(168deg, #1c1917 0%, #0c0a09 62%, #141110 100%);
 .bg-motchi   { --sp:#f9a8d4; --spSoft:rgba(249,168,212,0.38); --spBand:rgba(190,58,120,0.62); background: linear-gradient(168deg, #7a2b57 0%, #3d1428 58%, #5c1f40 100%); }
 .bg-golem    { --sp:#e7e5e4; --spSoft:rgba(231,229,228,0.34); --spBand:rgba(140,132,118,0.62); background: linear-gradient(168deg, #5c554b 0%, #2a2620 58%, #453f36 100%); }
 .bg-monolith { --sp:#c4b5fd; --spSoft:rgba(196,181,253,0.36); --spBand:rgba(118,86,205,0.62); background: linear-gradient(168deg, #4a3585 0%, #221a42 58%, #382a64 100%); }
+.bg-iblis { --sp:#bae6fd; --spSoft:rgba(186,230,253,0.36); --spBand:rgba(56,132,189,0.62); background: linear-gradient(168deg, #16324f 0%, #0d1b2e 58%, #23486b 100%); }
+/* 天使型のあいだキャラ絵を光らせる。イブリースの絵は1枚しかないので、色で形態を見分けている */
+#player-visual-wrap.form-angel { filter: brightness(1.14) saturate(1.1) drop-shadow(0 0 10px rgba(253,224,71,0.75)); }
 .bg-kawazumo { --sp:#6ee7b7; --spSoft:rgba(110,231,183,0.36); --spBand:rgba(21,138,96,0.62); background: linear-gradient(168deg, #166245 0%, #0b2c1f 58%, #114a35 100%); }
 .bg-gali     { --sp:#fcd34d; --spSoft:rgba(252,211,77,0.36);  --spBand:rgba(168,130,30,0.62); background: linear-gradient(168deg, #6d551a 0%, #33270c 58%, #524015 100%); }
 .bg-hinotori { --sp:#fdba74; --spSoft:rgba(253,186,116,0.38); --spBand:rgba(185,88,36,0.62); background: linear-gradient(168deg, #74381a 0%, #34180a 58%, #582a13 100%); }
@@ -1978,6 +1981,66 @@ const GACHA_STORAGE_KEY = 'mf_gacha_progress';
 const SELF_DMG_CARD_MULT = 3;
 
 // ==============================
+// イブリースの「形態」システム(実装中の種族)
+// ==============================
+// 戦闘中に「通常形態」と「天使型」を行き来する種族。倍率の中身はここだけを見ればいい。
+// 【重要】ダメージの倍率は「実際に計算する場所」と「予告・カードに出す予測の場所」の
+// 両方に入れること。片方だけ直すと「120と出ているのに132くらう」という気づきにくいズレになる。
+//   受けるダメージ … applyEnemyIntent(実処理) と updateUI の攻撃予告(予測)
+//   与えるダメージ … playCard(実処理) と calcPreviewDmg(予測)
+const IBLIS_FORMS = {
+  normal: { key:'normal', name:'通常形態', short:'通常', icon:'🌑', takenMult:0.9, dealtMult:1.0, energyBonus:6 },
+  angel:  { key:'angel',  name:'天使型',   short:'天使', icon:'👼', takenMult:1.1, dealtMult:1.2, energyBonus:0 },
+};
+const IBLIS_DEFAULT_FORM = 'normal';   // 戦闘は必ず通常形態から始まる
+// true にすると種族の選択画面にイブリースが並ぶ。false のあいだは管理者ページからだけ試せる。
+const IBLIS_ENABLED = false;
+
+function isIblis(){ return !!(state && state.player && state.player.species && state.player.species.id === 'iblis'); }
+function currentForm(){ return isIblis() ? (IBLIS_FORMS[state.player.form] || IBLIS_FORMS[IBLIS_DEFAULT_FORM]) : null; }
+function formTakenMult(){ const f = currentForm(); return f ? f.takenMult : 1; }   // 受けるダメージ
+function formDealtMult(){ const f = currentForm(); return f ? f.dealtMult : 1; }   // 与えるダメージ
+function formEnergyBonus(){ const f = currentForm(); return f ? f.energyBonus : 0; } // 毎ターンのガッツ回復に足す
+// 形態を変える。カードの formTo が 'angel'/'normal'/'toggle' のときに呼ぶ。
+function setPlayerForm(next, silent){
+  if(!isIblis() || !next) return;
+  const key = (next === 'toggle')
+    ? (state.player.form === 'angel' ? 'normal' : 'angel')
+    : (IBLIS_FORMS[next] ? next : IBLIS_DEFAULT_FORM);
+  if(state.player.form === key) return;
+  state.player.form = key;
+  applyFormVisual();
+  // 形態の切り替えに反応する遺物
+  if(state.player.relics && state.player.relics.some(r=>r.id==='ib_kagami')){
+    state.player.energy = Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy + 10);
+  }
+  if(state.player.relics && state.player.relics.some(r=>r.id==='br_ib_balance') && typeof drawCards==='function') drawCards(1);
+  if(!silent && typeof showFloatingText === 'function' && ui && ui.playerNode){
+    showFloatingText(IBLIS_FORMS[key].name, key === 'angel' ? 'heal' : 'block', ui.playerNode);
+  }
+}
+// 天使型のあいだキャラ絵を光らせる。絵は1枚しかないので色で見分けをつけている。
+function applyFormVisual(){
+  const el = document.getElementById('player-visual-wrap');
+  if(!el) return;
+  el.classList.toggle('form-angel', isIblis() && state.player.form === 'angel');
+}
+// 「いまの形態で使ったらどうなるか」を返す。イブリース以外はそのまま返す。
+// 【重要】説明文(desc)は上書きしない。descには両方の形態ぶんが書いてあり、
+// 変身する前に反対側の数値も知りたいので、そのまま見せる。
+function formCard(c){
+  if(!c || !c.formEff || !isIblis()) return c;
+  const eff = c.formEff[state.player.form];
+  return eff ? Object.assign({}, c, eff) : c;
+}
+// 選択画面・装備画面・称号一覧に出す種族id。hidden の種族は解禁されるまで出さない。
+// 【注意】アクセサリのデータ移行のような「全種族ぶん器を用意する」処理では
+// この関数ではなく素の Object.keys(SPECIES) を使うこと。隠れている種族のデータが消える。
+function speciesIds(){
+  return Object.keys(SPECIES).filter(k => !SPECIES[k].hidden || (k === 'iblis' && IBLIS_ENABLED));
+}
+
+// ==============================
 // オンラインランキング設定 (Firebase)
 // ==============================
 // 1. https://console.firebase.google.com/ でプロジェクトを新規作成
@@ -3168,6 +3231,48 @@ function showAdminBody(){
     }
   }
 
+  // ---- 👼 イブリース(まだ選択画面に出していない種族) ----
+  {
+    const inRun = !!(state && state.player && state.player.species);
+    const c = card('👼 イブリースを試す',
+      '実装中の新種族です（選択画面に並べるには IBLIS_ENABLED を true に）。'
+      + `<br>いま選択画面に出ている: <b>${(typeof IBLIS_ENABLED!=='undefined' && IBLIS_ENABLED) ? 'はい' : 'いいえ'}</b>`
+      + '<br>🌑 通常形態 … 被ダメ0.9倍 / 毎ターンのガッツ回復+6'
+      + '<br>👼 天使型 … 与ダメ1.2倍 / 被ダメ1.1倍');
+    const row = btnRow(c);
+    const start = (diff) => {
+      const nameEl = document.getElementById('player-name-input');
+      if(nameEl && !nameEl.value.trim()) nameEl.value = 'テスト';
+      if(ui && ui.diffInput) ui.diffInput.value = diff;
+      window.game.closeAdmin();
+      window.game.confirmName();       // 名前入力→種族選択の流れをそのまま通す
+      window.game.selectMonster('iblis');
+      toast(`イブリース（${diff}）で冒険を始めます`);
+    };
+    if(inRun){
+      const d = document.createElement('div');
+      d.className = 'text-[10px] text-zinc-500 mb-1.5';
+      d.textContent = '冒険中です。始め直すと今の冒険は失われます。';
+      c.appendChild(d);
+    }
+    btn(row, 'ノーマルで始める', ()=>start('normal'), 'primary');
+    btn(row, 'レジェンドで始める', ()=>start('legend'), 'primary');
+    if(inRun && isIblis()){
+      const row2 = document.createElement('div'); row2.className='flex flex-wrap gap-1.5 mt-1.5'; c.appendChild(row2);
+      btn(row2, '通常形態にする', ()=>{ setPlayerForm('normal'); updateUI(); });
+      btn(row2, '天使型にする', ()=>{ setPlayerForm('angel'); updateUI(); });
+      btn(row2, '専用カードを全部デッキへ', ()=>{
+        Object.values(CARDS).filter(v=>v.mid==='iblis').forEach(v=>state.deck.push(mkDeckCard(v)));
+        updateUI(); toast('イブリースの技を全部入れました');
+      });
+      btn(row2, '専用遺物を全部つける', ()=>{
+        const pool = ALL_RELICS.filter(r=>r.mid==='iblis').concat(BOSS_RELICS_SPECIES.iblis||[]);
+        pool.forEach(r=>{ if(!state.player.relics.some(x=>x.id===r.id)){ state.player.relics.push(r); applyRelicEffect(r); } });
+        updateUI(); toast('イブリースの遺物を全部つけました');
+      });
+    }
+  }
+
   // ---- 🗑️ データ ----
   {
     const c = card('🗑️ データ', '押すと元に戻せません。');
@@ -3242,7 +3347,7 @@ function renderSpeciesSelect(){
   const grid = document.getElementById('select-grid');
   if(!grid) return;
   grid.innerHTML = '';
-  Object.keys(SPECIES).forEach(key=>{
+  speciesIds().forEach(key=>{
     const spec = SPECIES[key];
     const btn = document.createElement('button');
     btn.onclick = () => window.game.selectMonster(key);
@@ -3941,12 +4046,12 @@ function renderTitlesScreen(){
   // ---- 種族別の初踏破称号 ----
   const tHead = document.createElement('div');
   tHead.className = 'text-[11px] text-zinc-400 font-bold text-left mt-1';
-  const totalTitles = Object.keys(SPECIES).length * Object.keys(DIA_DIFF_LABEL).length;
+  const totalTitles = speciesIds().length * Object.keys(DIA_DIFF_LABEL).length;
   tHead.innerHTML = `初踏破称号 <span class="text-zinc-500">(${dp.firstClearTitles.length} / ${totalTitles})</span>
     <div class="text-[9px] text-zinc-500 font-normal mt-0.5">60階まで到達すると、その種族と難易度の組み合わせごとに1回だけ獲得できます</div>`;
   wrap.appendChild(tHead);
 
-  Object.keys(SPECIES).forEach(spId => {
+  speciesIds().forEach(spId => {
     const sp = SPECIES[spId];
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2';
@@ -4297,7 +4402,7 @@ window.game.openLoadout = function(){
   playSceneBGM(__bgmShop);   // 継承ショップと同じ曲
   document.getElementById('name-scene').classList.add('hidden');
   document.getElementById('loadout-scene').classList.remove('hidden');
-  if(!loadoutSelectedSpecies) loadoutSelectedSpecies = Object.keys(SPECIES)[0];
+  if(!loadoutSelectedSpecies) loadoutSelectedSpecies = speciesIds()[0];
   renderLoadoutScene();
 };
 window.game.closeLoadout = function(){
@@ -4368,7 +4473,7 @@ function renderLoadoutStarterCardGrid(){
 function renderLoadoutSpeciesTabs(){
   const el = document.getElementById('loadout-species-tabs');
   el.innerHTML = '';
-  Object.keys(SPECIES).forEach(spId=>{
+  speciesIds().forEach(spId=>{
     const sp = SPECIES[spId];
     const btn = document.createElement('button');
     const active = spId===loadoutSelectedSpecies;
@@ -5824,7 +5929,7 @@ if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = hand
 state = {
 playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
 difficulty: ui.diffInput.value,
-player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
+player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false, form:'normal'},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false,
 // 使っているスキン専用技セットのスキンid。selectMonster()で焼き付けて冒険中は変えない
@@ -6461,6 +6566,8 @@ state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
 state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
 resetCardPlayLimit();   // 「創造の律」の残り枚数を戦闘開始時に戻す(制限が無ければ何も出ない)
+// イブリースの形態は戦闘ごとに通常形態へ戻す(atkBattle等と同じ扱い。冒険をまたいで持ち越さない)
+state.player.form = IBLIS_DEFAULT_FORM; applyFormVisual();
 if(state.enemy.legendaryAura){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
 // 初期ガッツ: 50固定 + 遺物ボーナス
 let initEnergy = 50;
@@ -6542,6 +6649,13 @@ if(state.player.relics.some(r=>r.id==='br_g_earthbell')) {state.player.hp=Math.m
 if(state.player.relics.some(r=>r.id==='br_h_flamewing')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+3); showFloatingText(3,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='br_mo_repairkit')) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+5); showFloatingText(5,'heal',ui.playerNode);}
 if(state.player.relics.some(r=>r.id==='artemis')) state.player.block+=2;
+// イブリース: 形態に反応する遺物（通常形態のあいだだけ効く）
+if(isIblis() && state.player.form==='normal'){
+  if(state.player.relics.some(r=>r.id==='ib_yomi_no_kubbi')) state.player.block+=10;
+  if(state.player.relics.some(r=>r.id==='br_ib_yomi_core')){
+    state.player.hp=Math.min(state.player.maxHp,state.player.hp+4); showFloatingText(4,'heal',ui.playerNode);
+  }
+}
 if(state.player.regenHp>0) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+state.player.regenHp); showFloatingText(state.player.regenHp,'heal',ui.playerNode);}
 if((state.player.regenBlock||0)>0){state.player.block+=state.player.regenBlock;}
 if((state.player.nextTurnBlockBonus||0)>0){state.player.block+=state.player.nextTurnBlockBonus; showFloatingText(state.player.nextTurnBlockBonus,'block',ui.playerNode); state.player.nextTurnBlockBonus=0;}
@@ -6551,7 +6665,8 @@ if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; }
 // ガッツ回復（ガッツダウンの前に処理）
 let rec = 0;
 if(state.enemy.turnCount > 1) {
-  rec = state.player.species.energyRate + state.player.nextTurnEnergy + state.player.regenEnergy;
+  rec = state.player.species.energyRate + formEnergyBonus() + state.player.nextTurnEnergy + state.player.regenEnergy;
+  if(isIblis() && state.player.form==='normal' && state.player.relics.some(r=>r.id==='br_ib_yomi_core')) rec+=10;
   if(state.player.relics.some(r=>r.id==='beans')) rec+=2;
   if(state.player.relics.some(r=>r.id==='candy')) rec+=5;
   if(state.player.relics.some(r=>r.id==='angel_wing')) rec+=8;
@@ -7121,6 +7236,8 @@ dmg=i.val + _atkBonus; if(state.enemy.weak>0)dmg=Math.floor(dmg*0.75); if(state.
 if((state.player.evasion||0) > 0) { state.player.evasion--; dmg=0; evadedThisAttack=true; showFloatingText('回避!','block',ui.playerNode); }
 if(state.player.species.id==='monolith')dmg=Math.floor(dmg*0.85);
 if(state.player.species.id==='gali')dmg=Math.floor(dmg*0.95);
+if(isIblis())dmg=Math.floor(dmg*formTakenMult());   // 通常0.9 / 天使1.1(予告の計算にも同じ行がある)
+if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='ib_tenshi_no_wa')) dmg=Math.max(0,dmg-8);
 if(state.player.species.id==='suezo')dmg=Math.max(0,dmg-3);
 if(state.player.species.id==='ham')dmg=Math.max(0,dmg-3);
 if(state.player.species.id==='kolope')dmg=Math.max(0,dmg-4);
@@ -7387,7 +7504,7 @@ function clickCard(idx) {
   if(!state.isPlayerTurn) return;
   if(cardPlayLeft() <= 0){ showFloatingText('これ以上使えない','drain',ui.playerNode); return; }
   if(__exhaustPick){ toggleExhaustPick(idx); return; }   // 選択モード中はタップ＝選択
-  const c = state.hand[idx];
+  const c = formCard(state.hand[idx]);
   // 選ばせるカードは、消費する前に選択を済ませる(上のコメント参照)
   if(c && (c.chooseExhaust||0) > 0){
     if(state.player.energy < getCardCost(c)) return;     // 使えないなら選択にも入らない
@@ -7397,7 +7514,11 @@ function clickCard(idx) {
   playCard(idx);
 }
 async function playCard(idx) {
-const c=state.hand[idx]; 
+// 【重要】rawCard = デッキに入っている本体、c = 「いまの形態で使ったらどうなるか」。
+// 効果の計算は c を見るが、捨て札/消滅置き場へ戻すのは必ず rawCard のほう。
+// c を戻すと、形態で書き換わった数値がそのカードに焼き付いてしまう。
+const rawCard=state.hand[idx];
+const c=formCard(rawCard);
 let cardCost = getCardCost(c);
 if(state.player.energy<cardCost)return;
 if(!state.isPlayerTurn)return; // 演出中の連打による多重実行を防止
@@ -7413,7 +7534,7 @@ if(c.discardTwo&&state.hand.length>1) { for(let k=0;k<2;k++){if(state.hand.lengt
 if(c.discardAll){const o=state.hand.filter((_,i)=>i!==idx); o.forEach(x=>state.discardPile.push(x)); state.hand=[state.hand[idx]]; idx=0;}
 // プレイしたカード自体は先に手札から除去し、山札/捨て札に確定させる。
 // （こうしておくことで、この後の効果処理中に万一エラーが起きても、カードが手札に残ったままにならない）
-state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(c); else state.discardPile.push(c);
+state.hand.splice(idx,1); if(c.exhaust||c.remove)state.exhaustPile.push(rawCard); else state.discardPile.push(rawCard);
 resetCardMotions(); // このカードで各場面のモーションを1回ずつだけ鳴らす
 resetElemFx();      // 属性エフェクトも1枚につき1回だけ
 playElementFx(c);   // 炎上/氷結/感電、あるいは「砲・ビーム」等の技名から自動で出す
@@ -7460,6 +7581,8 @@ if(k===0 && state.player.relics.some(r=>r.id==='br_h_flamewing') && state.enemy.
 let m=state.player.nextDmgMult;
 if(state.player.species.id==='golem')m*= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
 if(state.player.species.id==='gali')m*=1.1;
+if(isIblis())m*=formDealtMult();   // 天使型1.2(calcPreviewDmgにも同じ行がある)
+if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='br_ib_seiten')) m*=1.1;
 if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m*=1.15;
 if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
 if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
@@ -7678,6 +7801,12 @@ if(c.tempUpgradeHand){
   });
 }
 } catch(errNewMech) { console.error('[playCard:新規メカニクス]でエラー', errNewMech); }
+
+// イブリースの変身。カードの効果が全部終わったあとに変身する。
+// この順番が肝で、「いま通常形態だから通常ぶんの効果、そのあと天使型になる」という
+// 使い分けが成立する。先に変身させると、変身技はいつも同じ形態でしか使われなくなる。
+try { if(c.formTo) setPlayerForm(c.formTo); }
+catch(errForm) { console.error('[playCard:形態変化]でエラー', errForm); }
 
 updateUI(); renderHand();
 if(state.enemy.hp<=0&&!state.battleEnded){
@@ -8224,7 +8353,11 @@ br_zan_scroll:()=>{
       if(cd.val>0){ if(!cd.hits||cd.hits<=1) cd.hits=2; else cd.hits+=1; }
     }
   });
-}
+},
+// ボス遺物（イブリース限定）。形態にかかわる効果は setPlayerForm / startPlayerTurn 側にある
+br_ib_balance:()=>{state.player.atkBase+=6;state.player.blockBase+=6},
+br_ib_seiten:()=>{state.player.maxHp+=30;state.player.hp+=30},
+br_ib_yomi_core:()=>{}
 };
 if(m[r.id])m[r.id]();
 
@@ -9161,11 +9294,12 @@ function createCardChoice(card, idx, onPick){
   return { wrap, el };
 }
 function createCardUI(c,idx,isR=false,isSmall=false) {
+c=formCard(c);   // イブリースは、いまの形態で出る数値をカードの面に出す
 const d=document.createElement('div');
 const realCost = isR ? (c.cost||0) : getCardCost(c);
 const discounted = realCost < (c.cost||0);
 const can=isR||state.player.energy>=realCost;
-let bg="bg-common"; if(c.isInjury)bg="bg-red-900"; else if(c.mid==='motchi')bg="bg-motchi"; else if(c.mid==='golem')bg="bg-golem"; else if(c.mid==='monolith')bg="bg-monolith"; else if(c.mid==='kawazumo')bg="bg-kawazumo"; else if(c.mid==='gali')bg="bg-gali"; else if(c.mid==='hinotori')bg="bg-hinotori"; else if(c.mid==='zan')bg="bg-zan";
+let bg="bg-common"; if(c.isInjury)bg="bg-red-900"; else if(c.mid==='motchi')bg="bg-motchi"; else if(c.mid==='golem')bg="bg-golem"; else if(c.mid==='monolith')bg="bg-monolith"; else if(c.mid==='kawazumo')bg="bg-kawazumo"; else if(c.mid==='gali')bg="bg-gali"; else if(c.mid==='hinotori')bg="bg-hinotori"; else if(c.mid==='zan')bg="bg-zan"; else if(c.mid==='iblis')bg="bg-iblis";
 d.className=`card ${bg} ${isSmall?'small':''} rarity-${c.rarity} type-${cardRoleOf(c).cls} ${can?'':'disabled'} ${c.upgraded?'upgraded-card':''}`;
 const lrMark = '';
 const nameColor = c.isInjury ? 'style="color:#ff6b6b;font-weight:900;"' : (c.rarity==='LR' ? 'style="background:linear-gradient(90deg,#fff700,#ff00ff,#00ffff,#fff700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;animation:lr-border 1.5s linear infinite;"' : '');
@@ -9294,6 +9428,7 @@ function showCritEffect(){
 // ps() の第6引数にキーを渡すこと。プレイヤーはバッジをタップして中身を読める。
 // 【重要】説明は実装から起こすこと。ここと実際の処理がズレると嘘の説明になる。
 const STATUS_DESCS = {
+  iblisForm:{ icon:'👼', name:'形態', desc:'イブリースは戦闘中に2つの形態を行き来します。\n\n🌑 通常形態…受けるダメージが0.9倍になり、毎ターンのガッツ回復が6増えます。\n👼 天使型…与えるダメージが1.2倍になりますが、受けるダメージも1.1倍になります。\n\n変身するカードは、効果が出たあとに形態が変わります。受けるダメージの倍率は「そのターンを終えたときの形態」で決まるので、相手の攻撃予告を見て、どちらで締めるかを選べます。戦闘が始まるときは必ず通常形態です。' },
   godCore:  { icon:'🌟', name:'神核', desc:'攻撃で敵にダメージを与えるたび神聖が1たまります。5たまるごとにガッツが15回復し、与えるダメージが10%上がります(最大+50%)。この戦闘の間ずっと続きます。' },
   enoOh:    { icon:'🔥', name:'炎王', desc:'炎上している敵にダメージを与えるたび、ライフが2回復します。さらに相手の炎上が5を超えていると追加で100ダメージ、15を超えているとさらに100ダメージを与えます。この戦闘の間ずっと続きます。' },
   ikkiIssin:{ icon:'🗡️', name:'一撃入魂', desc:'連撃を持たないカードの与えるダメージが3倍になります。連撃カードには効きません。この戦闘の間ずっと続きます。' },
@@ -9327,7 +9462,7 @@ function updateUI(){
 ui.playerHp.innerText=`${Math.ceil(state.player.hp)}/${state.player.maxHp}`; ui.playerHpBar.style.width=`${(state.player.hp/state.player.maxHp)*100}%`; ui.playerBlock.innerText=`🛡️ ${state.player.block}`;
 let maxE=state.player.maxEnergy + (state.player.maxEnergyBattle||0); ui.energyVal.innerText=state.player.energy; ui.energyMax.innerText=`/${maxE}`;
 ui.pAtkStat.innerText=`力${state.player.atkBase + state.player.atkBattle}`; ui.pDefStat.innerText=`丈${state.player.blockBase + state.player.blockBattle}`; ui.scoreDisplay.innerText=`${state.score}`; ui.goldDisplay.innerText=`${(state.gold||0).toLocaleString()}`;
-let rec=state.player.species.energyRate + state.player.nextTurnEnergy + state.player.regenEnergy;
+let rec=state.player.species.energyRate + formEnergyBonus() + state.player.nextTurnEnergy + state.player.regenEnergy;
 if(state.player.relics.some(r=>r.id==='beans'))rec+=2;
 if(state.player.relics.some(r=>r.id==='candy'))rec+=5;
 if(state.player.relics.some(r=>r.id==='angel_wing'))rec+=8;
@@ -9345,6 +9480,13 @@ const ps=(bg,border,text,icon,label,key)=>{
   const on = info ? ` onclick="window.game.showStatusDesc('${key}')"` : '';
   return `<span class="${cls}"${on}><span>${icon}</span><span>${label}</span>${info?'<span class="opacity-60">ⓘ</span>':''}</span>`;
 };
+// イブリースの形態。いちばん左に、常に出す(いまどちらなのかが読めないと何も決められない)
+if(isIblis()){
+  const f = currentForm();
+  ui.playerStatuses.innerHTML += (f.key==='angel')
+    ? ps('bg-amber-900','border-amber-400/60','text-amber-100',f.icon,f.name,'iblisForm')
+    : ps('bg-indigo-950','border-indigo-400/50','text-indigo-200',f.icon,f.name,'iblisForm');
+}
 // 永続ステータス（遺物・カード由来）
 if(state.player.atkBase>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-600/50','text-red-300','⚔️',`力${state.player.atkBase}`);
 if(state.player.blockBase>0)ui.playerStatuses.innerHTML+=ps('bg-blue-950','border-blue-600/50','text-blue-300','🛡️',`丈${state.player.blockBase}`);
@@ -9361,7 +9503,7 @@ if(state.player.currentTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-700
 if(state.player.currentTurnBlockDouble)ui.playerStatuses.innerHTML+=ps('bg-cyan-900','border-cyan-400/50','text-cyan-200','🛡️','防×2');
 if(state.player.regenHp>0)ui.playerStatuses.innerHTML+=ps('bg-green-900','border-green-400/50','text-green-200','💚',`毎HP+${state.player.regenHp}`);
 // 毎G: 種族基礎+カード+遺物の合計（右下と同じ値）
-let totalRegenE = (state.player.species?state.player.species.energyRate:0) + state.player.regenEnergy;
+let totalRegenE = (state.player.species?state.player.species.energyRate:0) + formEnergyBonus() + state.player.regenEnergy;
 if(state.player.relics.some(r=>r.id==='beans')) totalRegenE+=2;
 if(state.player.relics.some(r=>r.id==='candy')) totalRegenE+=5;
 if(state.player.relics.some(r=>r.id==='angel_wing')) totalRegenE+=8;
@@ -9414,6 +9556,8 @@ if(state.enemy.weak > 0) dmgVal = Math.floor(dmgVal * 0.75);
 if(state.player.vuln > 0) dmgVal = Math.floor(dmgVal * 1.5);
 if(state.player.species.id === 'monolith') dmgVal = Math.floor(dmgVal * 0.85);
 if(state.player.species.id === 'gali') dmgVal = Math.floor(dmgVal * 0.95);
+if(isIblis()) dmgVal = Math.floor(dmgVal * formTakenMult());   // 実処理(applyEnemyIntent)と必ず同じにすること
+if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='ib_tenshi_no_wa')) dmgVal = Math.max(0, dmgVal - 8);
 if(state.player.species.id === 'suezo') dmgVal = Math.max(0, dmgVal - 3);
 if(state.player.species.id === 'ham') dmgVal = Math.max(0, dmgVal - 3);
 if(state.player.species.id === 'kolope') dmgVal = Math.max(0, dmgVal - 4);
@@ -9464,6 +9608,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
 
   function calcPreviewDmg(c) {
     if(!c) return null;
+    c = formCard(c);
     if(!c.dmgEqualsBlock && (!c.val || c.val <= 0)) return null;
     const hits = c.hits || 1;
     let b = (c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
@@ -9477,6 +9622,8 @@ ui.endTurnBtn.onclick = handleEndTurn;
     let m = state.player.nextDmgMult || 1;
     if(state.player.species && state.player.species.id==='golem') m *= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
     if(state.player.species && state.player.species.id==='gali')  m *= 1.1;
+    if(isIblis()) m *= formDealtMult();   // 実処理(playCard)と必ず同じにすること
+    if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='br_ib_seiten')) m *= 1.1;
     if(state.enemy && state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m *= 1.15;
     if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m *= 1.1;
     if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m *= 1.5;
