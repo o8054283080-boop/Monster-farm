@@ -3316,6 +3316,12 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'力・丈夫さダウンが戦闘後も残る不具合を修正', items:[
+    'ボスの「力-」「丈夫さ-」を受けると、戦闘が終わっても下がったままになっていました',
+    '遺物やレベルアップで手に入れた力・丈夫さが、二度と戻らない状態で削られていました',
+    'これらの弱体は攻弱・守弱と同じく、その戦闘のあいだだけ効くようになりました',
+    'ボスラッシュを通しで戦うほど効いていた不具合なので、終盤がかなり戦いやすくなります',
+  ]},
   { date:'2026/08/06', title:'演出が出ない端末でも出せるようにしました', items:[
     '一部の端末でモーションや必殺技の演出が出ない状態になっていました',
     '端末の「視差効果を減らす」がONだと、演出を出さない仕組みになっていたためです',
@@ -6596,10 +6602,24 @@ if(i.selfEvasion) { state.enemy.evasion=(state.enemy.evasion||0)+i.selfEvasion; 
 if(i.atkUp) { state.enemy.dmg+=i.atkUp; showFloatingText(`力+${i.atkUp}`,'heal',ui.enemyNode); }
 // ガッツダウン上昇（drainUp）
 if(i.drainUp) { state.enemy._drainBonus=(state.enemy._drainBonus||0)+i.drainUp; }
-// プレイヤー丈夫さダウン
-if(i.blockDown) { state.player.blockBase=Math.max(0,state.player.blockBase-(i.blockDown||0)); showFloatingText(`丈-${i.blockDown}`,'drain',ui.playerNode); }
-// プレイヤー力ダウン
-if(i.atkDown) { state.player.atkBase=Math.max(0,state.player.atkBase-(i.atkDown||0)); showFloatingText(`力-${i.atkDown}`,'drain',ui.playerNode); }
+// プレイヤーの力・丈夫さダウン(その戦闘のあいだだけ)
+// 【重要】atkBase / blockBase を削ってはいけない。
+// あれは遺物・レベルアップ・ショップで手に入れた「冒険のあいだ持ち越す」永続ステータスで、
+// 戦闘が終わってもリセットされない。以前ここを削っていたため、ボスの「力-」「丈夫さ-」を
+// くらうと戦闘後も下がったままになり、ボスラッシュを通すと力-48/丈-52ほど回復不能に削られていた。
+// 敵の弱体は weak/vuln と同じくその戦闘限りのものなので、
+// 戦闘開始時に0へ戻る atkBattle / blockBattle を削ること。
+// 合計(base+battle)が0を下回らないように抑える。負にすると防御計算で
+// 「引き算が加算になって被ダメージが増える」ので必ずここで止める。
+const statDown = (baseKey, battleKey, amount, label) => {
+  const total = (state.player[baseKey]||0) + (state.player[battleKey]||0);
+  const dec = Math.min(amount, Math.max(0, total));
+  if(dec <= 0) return;
+  state.player[battleKey] = (state.player[battleKey]||0) - dec;
+  showFloatingText(`${label}-${dec}`,'drain',ui.playerNode);
+};
+if(i.blockDown) statDown('blockBase','blockBattle', i.blockDown, '丈');
+if(i.atkDown)   statDown('atkBase','atkBattle',    i.atkDown,   '力');
 // 敵HP回復
 if(i.heal) { state.enemy.hp=Math.min(state.enemy.maxHp,state.enemy.hp+i.heal); showFloatingText(`+${i.heal}`,'heal',ui.enemyNode); }
 // プレイヤーHP回復（ドレイン系）
