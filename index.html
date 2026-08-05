@@ -3203,6 +3203,19 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'ガチャにピックアップを実装', items:[
+    'ガチャ画面のバナーに出ているSSRスキンが、他のSSRスキンより出やすくなりました',
+    'SSRスキン枠5%のうち3.5%がピックアップの2体ぶんです（提供割合の画面で内訳を確認できます）',
+    '100連・200連の「選んで入手」で、持っているものに「入手済み」、持っていないものに🆕が付くようになりました',
+  ]},
+  { date:'2026/08/06', title:'イブリースの連撃技を弱体化', items:[
+    '連撃を持つ3つの技のダメージを下げました。連撃のない技は変えていません',
+  ]},
+  { date:'2026/08/06', title:'「炎王」「神核」などの説明を読めるように', items:[
+    '戦闘中の状態表示をタップすると、何が起きているのかの説明が読めるようになりました',
+    '「炎王」「神核」「一撃入魂」「絶対防御」「回避」「攻弱」「守弱」「出血」などが対象です',
+    'カードを強化すると「炎王」「神核」の中身の説明が消えてしまう不具合も直しました',
+  ]},
   { date:'2026/08/05', title:'中断から戻ると音が出なくなる不具合を修正', items:[
     'iPhoneで電源ボタンを押して画面を消したあと、戻ってくると音が鳴らなくなる不具合を修正しました',
     'BGMも効果音も、音が戻ったのを確認できるまで何度でも復帰を試すようになりました',
@@ -4287,6 +4300,24 @@ function allSkinsOfRarity(rarity){
   for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(s.rarity===rarity) out.push(s); }); }
   return out;
 }
+// ==== ピックアップ(確率アップ) ====
+// ガチャ画面のバナーに出しているSSRスキンは、SSR枠5%のうち3.5%を占める。
+// 残り1.5%がそれ以外のSSRスキン。
+// 【重要】GACHA_RATES.ssrSkin を変えたら、この値との関係(3.5 ≦ 5)も見直すこと。
+// ピックアップを載せ替えるときは GACHA_PICKUP.skins を書き換えるだけでよい。
+const GACHA_PICKUP_SSR_RATE = 0.035;
+function pickupSsrSkins(){
+  return GACHA_PICKUP.skins.map(findSkinById).filter(s => s && s.rarity === 'SSR');
+}
+function rollSsrSkin(){
+  const all = allSkinsOfRarity('SSR');
+  const up = pickupSsrSkins();
+  const rest = all.filter(s => !up.some(u => u.id === s.id));
+  // どちらかが空ならピックアップ無しとして全体から引く(バナーを畳んだときに壊れないように)
+  if(!up.length || !rest.length) return pickRandom(all);
+  const upChance = GACHA_PICKUP_SSR_RATE / GACHA_RATES.ssrSkin;
+  return Math.random() < upChance ? pickRandom(up) : pickRandom(rest);
+}
 // 1回分の抽選を解決し、報酬をセーブデータへ反映する
 function resolveGachaTier(tier){
   if(tier==='hazure'){
@@ -4322,7 +4353,7 @@ function resolveGachaTier(tier){
     return { tier, rewardType:'new', item:motion, isMotion:true };
   }
   if(tier==='srSkin' || tier==='ssrSkin'){
-    const skin = pickRandom(allSkinsOfRarity(tier==='srSkin' ? 'SR' : 'SSR'));
+    const skin = tier==='srSkin' ? pickRandom(allSkinsOfRarity('SR')) : rollSsrSkin();
     const c = loadCosmetics();
     const dupePt = tier==='srSkin' ? 100 : 400;
     if(c.ownedSkins.includes(skin.id)){
@@ -4407,10 +4438,18 @@ function buildGachaPickupBanner(){
   head.innerHTML =
     `<div class="flex items-center gap-1.5">
        <span class="pickup-badge">NEW</span>
-       <span class="text-[11px] font-black text-amber-200">新登場ラインナップ</span>
+       <span class="text-[11px] font-black text-amber-200">ピックアップ</span>
      </div>
      <span class="text-[9px] text-zinc-500">${GACHA_PICKUP.date}</span>`;
   inner.appendChild(head);
+
+  // ピックアップは実際に確率が上がっているので、そのことをバナーで伝える
+  if(pickupSsrSkins().length){
+    const note = document.createElement('div');
+    note.className = 'text-[9px] font-bold text-pink-200 mb-1.5 relative z-10 text-left';
+    note.innerHTML = `⬆ このSSRスキンは<b class="text-pink-100">確率アップ中</b>（SSRスキン枠${(GACHA_RATES.ssrSkin*100).toFixed(0)}%のうち${(GACHA_PICKUP_SSR_RATE*100).toFixed(1)}%）`;
+    inner.appendChild(note);
+  }
 
   if(skins.length){
     const row = document.createElement('div');
@@ -4531,9 +4570,15 @@ function showGachaRates(){
   const nSSR = allSkinsOfRarity('SSR').length;
   const nSR  = allSkinsOfRarity('SR').length;
   const nMotion = (typeof CARD_MOTIONS !== 'undefined') ? gachaMotions().length : 0;
+  // ピックアップぶんを明記する。実際の抽選(rollSsrSkin)と同じ値から出しているので勝手に一致する
+  const up = pickupSsrSkins();
+  const nUp = up.length;
+  const ssrDetail = nUp
+    ? `全${nSSR}種。うち<b class="text-pink-300">ピックアップ${nUp}種で${(GACHA_PICKUP_SSR_RATE*100).toFixed(1)}%</b>、それ以外${nSSR-nUp}種で${((GACHA_RATES.ssrSkin-GACHA_PICKUP_SSR_RATE)*100).toFixed(1)}%`
+    : `全${nSSR}種からランダム`;
   const rows = [
     { key:'aura',      label:'オーラ',           detail:`全${AURAS.length}種からランダム`,        color:'text-fuchsia-300' },
-    { key:'ssrSkin',   label:'SSRスキン',        detail:`全${nSSR}種からランダム`,                color:'text-amber-300' },
+    { key:'ssrSkin',   label:'SSRスキン',        detail:ssrDetail,                                color:'text-amber-300' },
     { key:'srSkin',    label:'SRスキン / モーション', detail:`半々。SRスキン${nSR}種・モーション${nMotion}種`, color:'text-purple-300' },
     { key:'accessory', label:'アクセサリ',       detail:`全${ACCESSORIES.length}種からランダム`,  color:'text-sky-300' },
     { key:'dia150',    label:'継承ポイント150',  detail:'',                                   color:'text-emerald-300' },
@@ -4615,12 +4660,21 @@ function showPityChooser(type, onChosen){
     choices = allSkinsOfRarity('SSR').map(s=>({...s, kind:'skin'}));
     AURAS.forEach(a=>choices.push({id:a.id, name:a.name, img:null, kind:'aura'}));
   }
+  // すでに持っているものを選ぶと1回ぶん無駄になるので、所持しているかがひと目で分かるようにする
+  const owned0 = loadCosmetics();
+  const isOwned = ch => ch.kind==='aura'   ? owned0.ownedAuras.includes(ch.id)
+                      : ch.kind==='motion' ? (owned0.ownedMotions||[]).includes(ch.id)
+                      :                      owned0.ownedSkins.includes(ch.id);
   choices.forEach(choice=>{
+    const owned = isOwned(choice);
     const btn = document.createElement('button');
-    btn.className = 'p-1 bg-zinc-800 border border-zinc-600 rounded-lg text-center hover:bg-zinc-700 transition';
-    btn.innerHTML = choice.img
-      ? `<img src="${choice.img}" class="w-10 h-10 object-contain mx-auto"><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`
-      : `<div class="text-2xl">${choice.kind==='motion' ? '🎬' : '✨'}</div><div class="text-[8px] text-amber-200 truncate">${choice.name}</div>`;
+    btn.className = `relative p-1 bg-zinc-800 border rounded-lg text-center transition ${owned ? 'border-zinc-700 opacity-50' : 'border-amber-500/70 hover:bg-zinc-700'}`;
+    const mark = owned
+      ? `<span class="absolute top-0 right-0 text-[6px] font-bold bg-zinc-700 text-zinc-300 px-1 rounded-bl">入手済み</span>`
+      : `<span class="absolute top-0 right-0 text-[8px] font-black bg-rose-500 text-white px-1 rounded-bl">🆕</span>`;
+    btn.innerHTML = mark + (choice.img
+      ? `<img src="${choice.img}" class="w-10 h-10 object-contain mx-auto" style="${owned?'opacity:.5':''}"><div class="text-[8px] truncate ${owned?'text-zinc-500':'text-amber-200'}">${choice.name}</div>`
+      : `<div class="text-2xl" style="${owned?'opacity:.5':''}">${choice.kind==='motion' ? '🎬' : '✨'}</div><div class="text-[8px] truncate ${owned?'text-zinc-500':'text-amber-200'}">${choice.name}</div>`);
     btn.onclick = () => {
       const c = loadCosmetics();
       if(choice.kind==='aura'){ if(!c.ownedAuras.includes(choice.id)) c.ownedAuras.push(choice.id); }
@@ -6014,13 +6068,15 @@ if(e.trait === 'ark') {
 // 黄泉の根源に従え：ライフ6000以下で初回のみ発動（自己バフ・大回復・大ブロック）
 if(e.hp<=6000 && !e._rageUsed){ e._rageUsed=true; e.intent={type:'buff',atkUp:15,heal:2000,block:1000,desc:'黄泉の根源に従え'}; return; }
 // 5ターンに1回、天の慈悲よ示されよ
-if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:120,hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
+// 【注意】連撃技のvalは「1発あたり」のダメージで、これをhits回ぶん叩き込む。
+// 合計が跳ね上がって強すぎたため、連撃を持つ3技はvalを40下げてある
+if(e.turnCount>0 && e.turnCount%5===0) { e.intent={type:'atk_debuff',val:80,hits:4,drain:50,handMinus:3,injuryCards:3,desc:'天の慈悲よ示されよ'}; return; }
 if(r<0.12) e.intent={type:'atk',val:90,drain:18,handMinus:2,desc:'世界を揺らせ'};
 else if(r<0.24) e.intent={type:'atk',val:118,drain:29,injuryCards:2,handMinus:1,desc:'神光よ汚れを祓え'};
-else if(r<0.36) e.intent={type:'atk_debuff',val:104,hits:3,drain:31,desc:'翔べ震律の刃よ'};
+else if(r<0.36) e.intent={type:'atk_debuff',val:64,hits:3,drain:31,desc:'翔べ震律の刃よ'};
 else if(r<0.48) e.intent={type:'atk',val:124,drain:40,injuryCards:2,costUpTurns:2,costUpPct:20,desc:'導け神光の道標'};
 else if(r<0.62) e.intent={type:'atk_debuff',val:94,drain:31,atkDown:8,blockDown:8,desc:'今こそ真なる目覚め'};
-else if(r<0.76) e.intent={type:'atk',val:103,hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
+else if(r<0.76) e.intent={type:'atk',val:63,hits:5,drain:34,burnCards:3,desc:'熾天の剣よ降り立て'};
 else if(r<0.88) e.intent={type:'atk',val:140,drain:40,injuryCards:1,handMinus:3,desc:'終焉に救いを与えよ'};
 else e.intent={type:'block_atk',val:112,drain:38,block:240,desc:'聖光よ奇跡を灯せ'};
 return;
@@ -7217,9 +7273,11 @@ if(c.costReducePct)parts.push(`この戦闘中の消費ガッツ-${c.costReduceP
 if(c.blockPersists)parts.push(`この戦闘中ブロックがターン開始時にリセットされない`);
 if(c.ikkiIssin)parts.push(`この戦闘中、連撃のないカードのダメージ3倍`);
 if(c.selfDmgCardsDoubled)parts.push(`この戦闘中、自傷持ちカードのダメージ3倍`);
-if(c.godCoreActive)parts.push(`この戦闘中「神核」を付与`);
+// 【重要】「神核」「炎王」は名前だけでは何をするのか分からない。
+// 中身の説明まで書くこと(以前ここが名前だけだったため、強化した瞬間に説明が消えていた)
+if(c.godCoreActive)parts.push(`この戦闘中「神核」を付与(攻撃で神聖蓄積、5毎にガッツ15回復・ダメ10%アップ 最大50%)`);
 if(c.godMiracleCostDown)parts.push(`「ゴッド」名のカードの消費ガッツ-5`);
-if(c.enoOhActive)parts.push(`この戦闘中「炎王」を付与`);
+if(c.enoOhActive)parts.push(`この戦闘中「炎王」を付与(炎上中の敵への攻撃でライフ2回復、炎上5超で+100、15超でさらに+100)`);
 if(c.drainReduceTurns)parts.push(`${c.drainReduceTurns}T受けるガッツダウン-${c.drainReduceAmt||0}`);
 // 手札・自分への効果
 if(c.discardAll)parts.push(`手札を全て捨てる`);
@@ -8427,6 +8485,40 @@ function showCritEffect(){
   ui.enemyNode.appendChild(fl);
   setTimeout(()=>fl.remove(), 450);
 }
+// ==== 戦闘中ステータスの説明 ====
+// バッジの文字だけでは何が起きているのか分からないものは、ここに説明を書いて
+// ps() の第6引数にキーを渡すこと。プレイヤーはバッジをタップして中身を読める。
+// 【重要】説明は実装から起こすこと。ここと実際の処理がズレると嘘の説明になる。
+const STATUS_DESCS = {
+  godCore:  { icon:'🌟', name:'神核', desc:'攻撃で敵にダメージを与えるたび神聖が1たまります。5たまるごとにガッツが15回復し、与えるダメージが10%上がります(最大+50%)。この戦闘の間ずっと続きます。' },
+  enoOh:    { icon:'🔥', name:'炎王', desc:'炎上している敵にダメージを与えるたび、ライフが2回復します。さらに相手の炎上が5を超えていると追加で100ダメージ、15を超えているとさらに100ダメージを与えます。この戦闘の間ずっと続きます。' },
+  ikkiIssin:{ icon:'🗡️', name:'一撃入魂', desc:'連撃を持たないカードの与えるダメージが3倍になります。連撃カードには効きません。この戦闘の間ずっと続きます。' },
+  blockPersists:{ icon:'🧱', name:'絶対防御', desc:'通常はターン開始時にブロックが0に戻りますが、これがあると戻らずに積み上がっていきます。この戦闘の間ずっと続きます。' },
+  evasion:  { icon:'💨', name:'回避', desc:'敵の攻撃を1発ぶん完全に無効化します。連撃なら1発ごとに1つ消費します。' },
+  statusImmune:{ icon:'✨', name:'状態異常無効', desc:'敵から受ける攻弱・守弱などの弱体効果を1回ぶん打ち消します。使うたびに残り回数が1減ります。' },
+  weak:     { icon:'💢', name:'攻弱', desc:'自分の与えるダメージが25%下がります。ターンが進むと1ずつ減っていきます。' },
+  vuln:     { icon:'🩹', name:'守弱', desc:'自分が受けるダメージが50%増えます。ターンが進むと1ずつ減っていきます。' },
+  bleed:    { icon:'🩸', name:'出血', desc:'自分のターンが始まるとき、出血の数×2のダメージを受けます。そのあと出血が2減ります。' },
+  kiai:     { icon:'🔥', name:'気合い', desc:'会心(クリティカル)の発生率が30%上がります。残りターン数が0になると切れます。' },
+  selfDmgCards:{ icon:'💥', name:'自傷カード強化', desc:'自分にダメージを与える効果を持つカードの、与えるダメージが3倍になります。この戦闘の間ずっと続きます。' },
+};
+window.game.showStatusDesc = function(key){
+  const s = STATUS_DESCS[key];
+  if(!s) return;
+  const existing = document.getElementById('status-tooltip');
+  if(existing) existing.remove();
+  const tip = document.createElement('div');
+  tip.id = 'status-tooltip';
+  tip.className = 'fixed z-[300] bg-zinc-900 border border-amber-500 rounded-xl p-3 shadow-xl max-w-[230px] text-left';
+  tip.style.cssText = 'top:50%;left:50%;transform:translate(-50%,-50%);';
+  tip.innerHTML = `
+    <div class="text-2xl text-center mb-1">${s.icon}</div>
+    <div class="font-bold text-amber-400 text-xs text-center mb-1.5">${s.name}</div>
+    <div class="text-zinc-300 text-[10px] leading-relaxed">${s.desc}</div>
+    <button onclick="document.getElementById('status-tooltip').remove()" class="w-full mt-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-[10px] text-zinc-300">閉じる</button>
+  `;
+  document.body.appendChild(tip);
+};
 function updateUI(){
 ui.playerHp.innerText=`${Math.ceil(state.player.hp)}/${state.player.maxHp}`; ui.playerHpBar.style.width=`${(state.player.hp/state.player.maxHp)*100}%`; ui.playerBlock.innerText=`🛡️ ${state.player.block}`;
 let maxE=state.player.maxEnergy + (state.player.maxEnergyBattle||0); ui.energyVal.innerText=state.player.energy; ui.energyMax.innerText=`/${maxE}`;
@@ -8440,7 +8532,14 @@ if(state.player.relics.some(r=>r.id==='sticker_metal'))rec+=3;
 ui.energyRegen.innerText=` +${rec}`; ui.drawCount.innerText=state.drawPile.length; ui.discardCount.innerText=state.discardPile.length; ui.floor.innerText=state.floor;
 ui.relicUI.innerHTML=state.player.relics.map((r,i)=>`<span class="cursor-pointer hover:scale-125 transition-transform inline-block relative" title="${r.name}: ${r.desc}" onclick="window.game.showRelicTooltip(${i})">${r.icon}</span>`).join('');
 ui.playerStatuses.innerHTML='';
-const ps=(bg,border,text,icon,label)=>`<span class="flex items-center gap-0.5 ${bg} px-1.5 py-0.5 text-[7px] rounded-full border ${border} ${text} font-bold"><span>${icon}</span><span>${label}</span></span>`;
+// 第6引数に STATUS_DESCS のキーを渡すと、タップで内容を読めるバッジになる。
+// 名前だけでは何が起きているのか分からないもの(「神核」「炎王」など)には必ず付けること。
+const ps=(bg,border,text,icon,label,key)=>{
+  const info = key && STATUS_DESCS[key];
+  const cls = `flex items-center gap-0.5 ${bg} px-1.5 py-0.5 text-[7px] rounded-full border ${border} ${text} font-bold${info?' cursor-pointer active:scale-95 transition-transform':''}`;
+  const on = info ? ` onclick="window.game.showStatusDesc('${key}')"` : '';
+  return `<span class="${cls}"${on}><span>${icon}</span><span>${label}</span>${info?'<span class="opacity-60">ⓘ</span>':''}</span>`;
+};
 // 永続ステータス（遺物・カード由来）
 if(state.player.atkBase>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-600/50','text-red-300','⚔️',`力${state.player.atkBase}`);
 if(state.player.blockBase>0)ui.playerStatuses.innerHTML+=ps('bg-blue-950','border-blue-600/50','text-blue-300','🛡️',`丈${state.player.blockBase}`);
@@ -8448,9 +8547,9 @@ if(state.player.blockBase>0)ui.playerStatuses.innerHTML+=ps('bg-blue-950','borde
 // 戦闘中バフ（カード由来）
 if(state.player.atkBattle!==0)ui.playerStatuses.innerHTML+=ps('bg-red-900','border-red-400/50','text-red-200','⚔️',`力${state.player.atkBattle>0?'+':''}${state.player.atkBattle}`);
 if(state.player.blockBattle!==0)ui.playerStatuses.innerHTML+=ps('bg-blue-900','border-blue-400/50','text-blue-200','🛡️',`丈${state.player.blockBattle>0?'+':''}${state.player.blockBattle}`);
-if(state.player.weak>0)ui.playerStatuses.innerHTML+=ps('bg-zinc-700','border-zinc-400/30','text-zinc-300','💢',`攻弱${state.player.weak}`);
-if(state.player.vuln>0)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/30','text-orange-200','🩹',`守弱${state.player.vuln}`);
-if((state.player.bleed||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`出血${state.player.bleed}`);
+if(state.player.weak>0)ui.playerStatuses.innerHTML+=ps('bg-zinc-700','border-zinc-400/30','text-zinc-300','💢',`攻弱${state.player.weak}`,'weak');
+if(state.player.vuln>0)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/30','text-orange-200','🩹',`守弱${state.player.vuln}`,'vuln');
+if((state.player.bleed||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`出血${state.player.bleed}`,'bleed');
 if((state.player.costUpTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-sky-950','border-sky-400/50','text-sky-200','🥶',`消費+${state.player.costUpPct}%(${state.player.costUpTurns}T)`);
 if(state.player.nextTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','💥','次ダメ×2');
 if(state.player.currentTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-700','border-yellow-300/50','text-yellow-100','💥','ダメ×2');
@@ -8466,19 +8565,19 @@ if(state.player.relics.some(r=>r.id==='sticker_metal')) totalRegenE+=3;
 if(totalRegenE>0)ui.playerStatuses.innerHTML+=ps('bg-purple-900','border-purple-400/50','text-purple-200','⚡',`毎G ${totalRegenE}`);
 if((state.player.regenBlock||0)>0)ui.playerStatuses.innerHTML+=ps('bg-cyan-900','border-cyan-400/50','text-cyan-200','🔰',`毎防+${state.player.regenBlock}`);
 if((state.player.bleedOnHit||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`攻撃時出血+${state.player.bleedOnHit}`);
-if((state.player.kiaiTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-orange-950','border-orange-500/50','text-orange-300','🔥',`気合い(クリ+30%) ${state.player.kiaiTurns}T`);
+if((state.player.kiaiTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-orange-950','border-orange-500/50','text-orange-300','🔥',`気合い(クリ+30%) ${state.player.kiaiTurns}T`,'kiai');
 if((state.player.critDmgBoostTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-yellow-950','border-yellow-500/50','text-yellow-300','💥',`クリダメ+25% ${state.player.critDmgBoostTurns}T`);
 if((state.player.drainReduceTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-cyan-950','border-cyan-500/50','text-cyan-300','🛡️',`被ガッツダウン-${state.player.drainReduceAmt||0} ${state.player.drainReduceTurns}T`);
 if((state.player.regenAtk||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','💪',`毎T力+${state.player.regenAtk}`);
 if((state.player.permDmgMultBonus||0)>0)ui.playerStatuses.innerHTML+=ps('bg-rose-950','border-rose-500/50','text-rose-300','⚔️',`ダメージ+${Math.round(state.player.permDmgMultBonus*100)}%`);
 if((state.player.costReducePct||0)>0)ui.playerStatuses.innerHTML+=ps('bg-emerald-950','border-emerald-500/50','text-emerald-300','💧',`消費ガッツ-${state.player.costReducePct}%`);
-if((state.player.statusImmuneCharges||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-950','border-indigo-500/50','text-indigo-300','✨',`状態異常無効×${state.player.statusImmuneCharges}`);
-if((state.player.evasion||0)>0)ui.playerStatuses.innerHTML+=ps('bg-slate-800','border-slate-400/50','text-slate-200','💨',`回避×${state.player.evasion}`);
-if(state.player.selfDmgCardsDoubled)ui.playerStatuses.innerHTML+=ps('bg-purple-950','border-purple-500/50','text-purple-300','💥',`自傷カードダメ${SELF_DMG_CARD_MULT}倍`);
-if(state.player.godCoreActive)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','🌟',`神核 ${state.player.godCoreStacks||0}(+${Math.round((state.player.godCoreDmgBonus||0)*100)}%)`);
-if(state.player.enoOhActive)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/50','text-orange-200','🔥',`炎王`);
-if(state.player.ikkiIssin)ui.playerStatuses.innerHTML+=ps('bg-red-900','border-red-400/50','text-red-200','🗡️',`一撃入魂(単発3倍)`);
-if(state.player.blockPersists)ui.playerStatuses.innerHTML+=ps('bg-blue-950','border-blue-500/50','text-blue-300','🧱',`絶対防御`);
+if((state.player.statusImmuneCharges||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-950','border-indigo-500/50','text-indigo-300','✨',`状態異常無効×${state.player.statusImmuneCharges}`,'statusImmune');
+if((state.player.evasion||0)>0)ui.playerStatuses.innerHTML+=ps('bg-slate-800','border-slate-400/50','text-slate-200','💨',`回避×${state.player.evasion}`,'evasion');
+if(state.player.selfDmgCardsDoubled)ui.playerStatuses.innerHTML+=ps('bg-purple-950','border-purple-500/50','text-purple-300','💥',`自傷カードダメ${SELF_DMG_CARD_MULT}倍`,'selfDmgCards');
+if(state.player.godCoreActive)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','🌟',`神核 ${state.player.godCoreStacks||0}(+${Math.round((state.player.godCoreDmgBonus||0)*100)}%)`,'godCore');
+if(state.player.enoOhActive)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/50','text-orange-200','🔥',`炎王`,'enoOh');
+if(state.player.ikkiIssin)ui.playerStatuses.innerHTML+=ps('bg-red-900','border-red-400/50','text-red-200','🗡️',`一撃入魂(単発3倍)`,'ikkiIssin');
+if(state.player.blockPersists)ui.playerStatuses.innerHTML+=ps('bg-blue-950','border-blue-500/50','text-blue-300','🧱',`絶対防御`,'blockPersists');
 if((state.player.regenDraw||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-900','border-indigo-400/50','text-indigo-200','🃏',`毎ドロー+${state.player.regenDraw}`);
 if(state.player.nextTurnEnergy>0)ui.playerStatuses.innerHTML+=ps('bg-violet-900','border-violet-400/50','text-violet-200','⚡',`次G+${state.player.nextTurnEnergy}`);
 if((state.player.nextTurnDrain||0)>0)ui.playerStatuses.innerHTML+=ps('bg-rose-900','border-rose-400/50','text-rose-200','🌀',`次G-${state.player.nextTurnDrain}`);
