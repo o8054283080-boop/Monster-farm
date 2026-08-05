@@ -357,4 +357,21 @@ c_r13:{name:'選別',cost:11,chooseExhaust:1,draw:1,rarity:'R',desc:'手札か�
 c_sr10:{name:'昇華',cost:12,chooseExhaust:1,energyFromExhausted:true,remove:true,rarity:'SR',desc:'手札から1枚選んで消滅 そのカードのコストぶんガッツ回復 消滅'},
 c_sr11:{name:'整理整頓',cost:15,exhaustHandAll:true,drawPerExhausted:true,remove:true,rarity:'SR',desc:'手札を全て消滅 消滅した枚数ぶんドロー 消滅'},
 c_ssr15:{name:'忘却の礎',cost:8,chooseExhaust:2,draw:1,heal:30,remove:true,rarity:'SSR',desc:'手札から2枚選んで消滅 ドロー1 回復30 消滅'},
+
+// ==== スキン専用の技セット ====
+// skinSetOf で「どのスキンのセットか」、replaces で「どのカードと入れ替わるか」を指定する。
+// isStarter の専用技(skinCardOf)と違い、こちらは報酬・ショップ・イベントも含めた
+// 全ての入手経路で入れ替わる。冒険を始めるときに使うかどうかを決め、途中では変わらない。
+// 【重要】レア度は元カードと揃えること。揃えないと報酬の抽選枠がズレて出現率が変わる。
+// ---- ゴジョモッチー(motchi_ssr_02) ----
+m_r9_gojo:{mid:'motchi',id:'m_r9_gojo',name:'大丈夫僕最強だから',cost:20,block:20,regenEnergy:20,remove:true,rarity:'R',
+  desc:'防20 毎ターンガッツ+20 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_r9',motion:'def_ring'},
+m_r1_gojo:{mid:'motchi',id:'m_r1_gojo',name:'術式順転「蒼」',cost:24,val:45,vuln:1,crit:'D',rarity:'R',
+  desc:'攻45 守弱1',skinSetOf:'motchi_ssr_02',replaces:'m_r1',motion:'deb_bind'},
+m_sr5_gojo:{mid:'motchi',id:'m_sr5_gojo',name:'術式反転「赫」',cost:55,val:70,comboDmg:150,crit:'B',rarity:'SR',
+  desc:'攻70 守弱時ダメージ+150',skinSetOf:'motchi_ssr_02',replaces:'m_sr5',motion:'atk_burst'},
+m_mr1_gojo:{mid:'motchi',id:'m_mr1_gojo',name:'虚式「茈」',cost:75,val:150,hits:2,vuln:1,comboDmg:150,crit:'A',remove:true,rarity:'MR',
+  desc:'攻150 連撃2 守弱1 守弱時ダメージ+150 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_mr1',motion:'atk_flash'},
+m_mr2_gojo:{mid:'motchi',id:'m_mr2_gojo',name:'領域展開「無量空処」',cost:80,block:80,regenBlock:20,freeze:5,vuln:5,weak:5,kiaiTurns:5,permDmgMultBonus:0.25,remove:true,rarity:'MR',
+  desc:'防80 毎T防20 氷結5 守弱5 攻弱5 5T気合い状態(会心率+30%) この戦闘中ダメージ+25% 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_mr2',motion:'buf_awaken'},
 };

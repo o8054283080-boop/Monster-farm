@@ -1599,6 +1599,12 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
     <h3 class="text-zinc-400 text-xs font-bold mb-1">初期技</h3>
     <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">SSRスキンを<b>所持していれば</b>選べます(装備している必要はありません)。冒険開始時、初期デッキの看板技が入れ替わります。</p>
     <div id="loadout-startercard-grid" class="flex flex-col gap-2 mb-5"></div>
+    <!-- 専用技セット(技セット付きSSRスキンを所持していると選べる) -->
+    <div id="loadout-cardset-block" class="hidden">
+      <h3 class="text-zinc-400 text-xs font-bold mb-1">専用技セット</h3>
+      <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">一部のSSRスキンには<b>専用の技セット</b>があります。使うと、そのモンスターの決まったカードが冒険を通してすべて専用の技に入れ替わります(報酬やショップで手に入るぶんも含みます)。<b>冒険を始めるときに決まり、途中では変わりません。</b></p>
+      <div id="loadout-cardset-grid" class="flex flex-col gap-2 mb-5"></div>
+    </div>
     <!-- カード演出モーション -->
     <h3 class="text-zinc-400 text-xs font-bold mb-1">カード演出モーション</h3>
     <p class="text-zinc-500 text-[9px] mb-2 leading-relaxed">カードを使ったときの演出です。場面ごとに設定できます。<b>ランダム</b>を選ぶと、所持しているものから毎回抽選されます。モーションはガチャのSR枠で手に入ります。</p>
@@ -3316,6 +3322,14 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'ゴジョモッチーに専用の技セットを追加', items:[
+    'SSRスキン「ゴジョモッチー」に、5枚のカードが専用の技に入れ替わる技セットを追加しました',
+    '「大丈夫僕最強だから」「術式順転「蒼」」「術式反転「赫」」「虚式「茈」」「領域展開「無量空処」」の5枚です',
+    '蒼で守弱を付けてから赫・茈を撃つと、追加ダメージが乗る組み立てになっています',
+    'カスタム装備の「専用技セット」から選べます。所持していれば装備していなくても使えます',
+    '冒険を始めるときに決まり、途中では変わりません。報酬やショップで手に入るカードも専用の技になります',
+    '専用技はカードごとに演出が決まっています',
+  ]},
   { date:'2026/08/06', title:'力・丈夫さダウンが戦闘後も残る不具合を修正', items:[
     'ボスの「力-」「丈夫さ-」を受けると、戦闘が終わっても下がったままになっていました',
     '遺物やレベルアップで手に入れた力・丈夫さが、二度と戻らない状態で削られていました',
@@ -3658,6 +3672,7 @@ function loadCosmetics(){
     starterCards: {},         // {種族id: 初期技のカードid} 未設定/nullなら種族の通常の看板技
     ownedMotions: [],         // 所持モーションidの配列
     equippedMotions: {},      // {場面key: モーションid | 'random'} 未設定なら演出なし(従来通り)
+    cardSets: {},             // {種族id: スキンid} そのスキンの専用技セットで戦う。未設定なら通常のカード
   };
   try{
     const raw = localStorage.getItem(COSMETICS_STORAGE_KEY);
@@ -3674,6 +3689,7 @@ function loadCosmetics(){
       starterCards: c.starterCards || {},
       ownedMotions: c.ownedMotions || [],
       equippedMotions: c.equippedMotions || {},
+      cardSets: c.cardSets || {},
     };
     return ensureBasicMotion(migrateAccessoryData(out));
   }catch(e){ console.warn('コスメデータの読み込みに失敗しました', e); return ensureBasicMotion(migrateAccessoryData(fallback)); }
@@ -3765,12 +3781,92 @@ function getSelectedStarterCard(speciesId){
 }
 // 初期デッキの看板技を、選択中のスキン専用技に差し替える
 function applyStarterCardChoice(speciesId){
-  const card = getSelectedStarterCard(speciesId);
+  let card = getSelectedStarterCard(speciesId);
+  // 技セットを使う冒険では、看板技もそのセットの一部として必ず差し替える。
+  // 装備画面の操作に頼らずここで揃えることで、どう選ばれていても食い違わない
+  if(state && state.skinCardSet && typeof BASE_CARDS !== 'undefined'){
+    const setStarter = Object.values(BASE_CARDS).find(x => x.skinCardOf === state.skinCardSet);
+    if(setStarter) card = setStarter;
+  }
   if(!card || !card.replaces) return;
   const idx = state.deck.findIndex(c => c.id === card.replaces);
   if(idx === -1) return;
   state.deck[idx] = {...card, instanceId: Math.random()};
 }
+// ---- スキン専用の技セット ----
+// 初期技(skinCardOf)が「初期デッキの看板技1枚だけ」なのに対し、こちらは
+// **報酬・ショップ・イベントも含めた全ての入手経路**でカードが入れ替わる。
+// 【重要】使うかどうかは冒険を始めるときに state.skinCardSet へ焼き付け、途中では変えない。
+//   ・装備画面はタイトルからしか開けないので、実質「冒険ごとに固定」になる
+//   ・stateに持たせてあるのでセーブにも載る。中断復帰後に手に入れるカードもきちんと専用版になる
+//   ・途中で切り替わると「大モッチ砲」と「術式反転「赫」」が同じデッキに並ぶことになる
+// 【重要】専用カードのレア度は元カードと揃えること。ズレると報酬の抽選枠が変わって出現率が狂う。
+function skinSetCardsOf(skinId){
+  if(typeof CARDS === 'undefined' || !skinId) return [];
+  return Object.values(CARDS).filter(c => c.skinSetOf === skinId);
+}
+// 技セットを持つスキンのid一覧(装備画面とバッジ表示が使う)
+function skinIdsWithCardSet(){
+  const out = new Set();
+  if(typeof CARDS !== 'undefined') Object.values(CARDS).forEach(c => { if(c.skinSetOf) out.add(c.skinSetOf); });
+  return Array.from(out);
+}
+function hasCardSet(skinId){ return skinIdsWithCardSet().includes(skinId); }
+// その種族で選択中の技セット(未選択・未所持・中身なしならnull)
+function getSelectedCardSet(speciesId){
+  const c = loadCosmetics();
+  const skinId = (c.cardSets || {})[speciesId];
+  if(!skinId) return null;
+  if(!c.ownedSkins.includes(skinId)) return null;
+  if(!skinSetCardsOf(skinId).length) return null;
+  return skinId;
+}
+// 差し替え表(元カードid → 専用カード)。冒険中は変わらないので作り直さない
+let __skinSetMapCache = { id:undefined, map:{} };
+function skinSetMap(){
+  const id = (typeof state !== 'undefined' && state) ? state.skinCardSet : null;
+  if(__skinSetMapCache.id !== id){
+    const map = {};
+    skinSetCardsOf(id).forEach(c => { if(c.replaces) map[c.replaces] = c; });
+    __skinSetMapCache = { id, map };
+  }
+  return __skinSetMapCache.map;
+}
+// 【重要】data-cards.js のカードは、多くが id を持たずオブジェクトのキーだけで管理されている
+// (`m_r9:{mid:'motchi',name:'お餅体制',...}` のように id が無い)。
+// 置き換え表はそのキーで引くので、`c.id` だけを見ると差し替えが一切効かない(実際にこれで詰まった)。
+// キーから逆引きできるようにしておく。
+let __cardKeyByObj = null;
+function cardKeyOf(c){
+  if(!c) return null;
+  if(c.id) return c.id;
+  if(!__cardKeyByObj){
+    __cardKeyByObj = new WeakMap();
+    if(typeof CARDS !== 'undefined') Object.entries(CARDS).forEach(([k,v]) => __cardKeyByObj.set(v,k));
+    if(typeof BASE_CARDS !== 'undefined') Object.entries(BASE_CARDS).forEach(([k,v]) => __cardKeyByObj.set(v,k));
+  }
+  return __cardKeyByObj.get(c) || null;
+}
+// 【重要】カードを1枚作る/見せるところは必ずここを通すこと。
+// 通し忘れると「報酬では元の名前が出るのに、入手したら専用版だった」のようにズレる。
+function skinSetCard(c){
+  if(!c) return c;
+  const k = cardKeyOf(c);
+  return (k && skinSetMap()[k]) || c;
+}
+// カードのプール(配列)を技セットに合わせて整える。
+// 【重要】先に専用カードを取り除いてから置き換えること。
+//   ・取り除かないと、技セットを使っていない人のプールにも専用カードが混ざる
+//   ・技セットを使っている人は「元カードを置き換えたぶん」と「専用カードそのもの」が
+//     二重に並び、出現率が2倍になる
+// 専用カードは必ず「元カードの置き換え」としてだけ出す。
+function skinSetPool(list){
+  if(!Array.isArray(list)) return list;
+  return list.filter(c => !c.skinSetOf).map(skinSetCard);
+}
+// デッキに入れる1枚を作る。全ての入手経路はこれを使う
+function mkDeckCard(c){ return { ...skinSetCard(c), instanceId: Math.random() }; }
+
 // 現在装備中のスキン画像を返す(未装備なら種族本来の画像)
 function getEquippedSkinImg(speciesId){
   const c = loadCosmetics();
@@ -3878,6 +3974,7 @@ function renderLoadoutScene(){
   renderLoadoutPreview();
   renderLoadoutSkinGrid();
   renderLoadoutStarterCardGrid();
+  renderLoadoutCardSetGrid();
   renderLoadoutMotionGrid();
   renderLoadoutAccessorySlots();
   renderLoadoutAuraSlot();
@@ -3995,9 +4092,83 @@ function renderLoadoutSkinGrid(){
     btn.className = 'relative aspect-square rounded-lg border-2 flex items-center justify-center ' + (equipped ? 'border-amber-400 bg-amber-900/30' : owned ? 'border-zinc-600 bg-zinc-800' : 'border-zinc-800 bg-zinc-900');
     btn.innerHTML = `<img src="${skin.img}" class="w-3/4 h-3/4 object-contain ${owned?'':'grayscale opacity-30'}">`
       + `<span class="absolute top-0.5 left-0.5 text-[7px] font-bold px-1 rounded ${skin.rarity==='SSR'?'bg-fuchsia-700':'bg-purple-700'} text-white">${skin.rarity}</span>`
+      // 「何体目のスキンか」は表に出さない。技セットの有無をスキンの属性として見せる
+      + (hasCardSet(skin.id) ? `<span class="absolute bottom-0.5 right-0.5 text-[7px] font-bold px-1 rounded bg-amber-600 text-white">技セット</span>` : '')
       + (owned?'':'<span class="absolute inset-0 flex items-center justify-center text-lg">🔒</span>');
     if(owned){ btn.onclick = () => { c.equippedSkin[loadoutSelectedSpecies] = skin.id; saveCosmetics(c); renderLoadoutScene(); }; }
     el.appendChild(btn);
+  });
+}
+// 専用技セットの選択欄。「通常」＋そのモンスターの技セット付きSSRスキンを並べる。
+// 中身(どのカードが何に入れ替わるか)をその場で全部見せるので、選ぶ前に確認できる。
+function renderLoadoutCardSetGrid(){
+  const block = document.getElementById('loadout-cardset-block');
+  const el = document.getElementById('loadout-cardset-grid');
+  if(!block || !el) return;
+  const spId = loadoutSelectedSpecies;
+  const sets = skinIdsWithCardSet().filter(id => (SKINS[spId]||[]).some(s => s.id === id));
+  // その種族に技セット付きスキンが1つも無ければ、見出しごと出さない
+  if(!sets.length){ block.classList.add('hidden'); el.innerHTML = ''; return; }
+  block.classList.remove('hidden');
+  el.innerHTML = '';
+  const c = loadCosmetics();
+  const selected = (c.cardSets || {})[spId] || null;
+
+  const makeRow = (opt) => {
+    const row = document.createElement('button');
+    row.className = 'w-full text-left p-2.5 rounded-xl border-2 transition ' +
+      (opt.locked ? 'bg-zinc-900/40 border-zinc-800 opacity-60 cursor-default'
+        : opt.active ? 'bg-amber-900/30 border-amber-400' : 'bg-zinc-800 border-zinc-600 hover:bg-zinc-700');
+    row.innerHTML = `<div class="flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-[11px] font-bold ${opt.locked ? 'text-zinc-500' : opt.active ? 'text-amber-200' : 'text-zinc-200'}">${opt.locked ? '🔒 ' : ''}${opt.name}</div>
+          <div class="text-[9px] text-zinc-400 mt-0.5">${opt.desc}</div>
+        </div>
+        <div class="shrink-0 text-[9px] font-bold ${opt.active ? 'text-amber-300' : 'text-zinc-500'}">${opt.locked ? '未所持' : opt.active ? '選択中' : '選ぶ'}</div>
+      </div>${opt.detail || ''}`;
+    if(!opt.locked) row.onclick = opt.onClick;
+    el.appendChild(row);
+  };
+
+  makeRow({
+    name: '通常のカード',
+    desc: 'このモンスター本来の技で戦います',
+    active: !selected,
+    onClick: () => { const c2 = loadCosmetics(); c2.cardSets = c2.cardSets||{}; c2.cardSets[spId] = null; saveCosmetics(c2); playSfx('select'); renderLoadoutCardSetGrid(); },
+  });
+  sets.forEach(skinId => {
+    const skin = findSkinById(skinId);
+    const owned = c.ownedSkins.includes(skinId);
+    const cards = skinSetCardsOf(skinId);
+    const active = selected === skinId;
+    // 入れ替わる中身を全部見せる(選ぶ前に確認できるように)
+    const detail = `<div class="mt-2 pt-2 border-t border-zinc-700/70 flex flex-col gap-1">` +
+      cards.map(card => {
+        const base = (typeof CARDS !== 'undefined' && CARDS[card.replaces]) || null;
+        return `<div class="text-[9px] leading-tight">
+          <span class="text-zinc-500">${base ? base.name : card.replaces}</span>
+          <span class="text-zinc-600"> → </span>
+          <span class="${owned ? 'text-amber-200' : 'text-zinc-500'} font-bold">${card.name}</span>
+          <div class="text-[8px] text-zinc-500">コスト${card.cost} ${card.desc}</div>
+        </div>`;
+      }).join('') + `</div>`;
+    makeRow({
+      name: `${skin ? skin.name : skinId} の技セット`,
+      desc: `${cards.length}枚のカードが専用の技に入れ替わります`,
+      detail,
+      locked: !owned,
+      active: owned && active,
+      onClick: () => {
+        const c2 = loadCosmetics();
+        c2.cardSets = c2.cardSets||{}; c2.cardSets[spId] = skinId;
+        // 看板技もそのスキンのものに揃える(技セットを選ぶ人は当然そちらも使いたいはず)
+        const starter = (typeof BASE_CARDS !== 'undefined')
+          ? Object.values(BASE_CARDS).find(x => x.skinCardOf === skinId) : null;
+        if(starter){ c2.starterCards = c2.starterCards||{}; c2.starterCards[spId] = starter.id; }
+        saveCosmetics(c2); playSfx('select');
+        renderLoadoutCardSetGrid(); renderLoadoutStarterCardGrid();
+      },
+    });
   });
 }
 const ACC_CATEGORY_LABEL = { hat:'帽子', mask:'メガネ・仮面', other:'その他', weapon:'武器・小物' };
@@ -5072,7 +5243,9 @@ applyMetaShopBonuses();
     showDiaToast(`🎖️ 通算${playsBefore + 1}回目の挑戦！<br>回数報酬 💎+${playEarned}`);
   }
 }
-state.deck = spec.deck.map(id => ({...BASE_CARDS[id], instanceId:Math.random()}));
+// 技セットは冒険を始めるこの瞬間に決めて、途中では変えない(セーブにも載る)
+state.skinCardSet = getSelectedCardSet(spec.id);
+state.deck = spec.deck.map(id => mkDeckCard(BASE_CARDS[id]));
 applyStarterCardChoice(spec.id); // スキン専用の初期技を選んでいれば看板技を差し替える
 // レジェンド難易度は初期デッキに「呪い」を1枚背負って始める
 if(state.difficulty==='legend') state.deck.push({...CURSE_CARD, instanceId:Math.random()});
@@ -5103,9 +5276,9 @@ try {
     state.player.atkBase = 60; state.player.blockBase = 60;
     state.player.regenEnergy = (state.player.regenEnergy||0) + 50;
     // MRカードを全取得（自分の種族専用 + 種族共通のMRカードすべて）
-    Object.values(CARDS).forEach(c => {
+    skinSetPool(Object.values(CARDS)).forEach(c => {
       if (c.rarity === 'MR' && (!c.mid || c.mid === spec.id) && !c.fusion) {
-        state.deck.push({...c, instanceId: Math.random()});
+        state.deck.push(mkDeckCard(c));
       }
     });
     // 現在のデッキ全カードを強化状態に
@@ -5316,7 +5489,9 @@ playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
 difficulty: ui.diffInput.value,
 player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
-deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false
+deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false,
+// 使っているスキン専用技セットのスキンid。selectMonster()で焼き付けて冒険中は変えない
+skinCardSet:null
 };
 ui.topBar.classList.add('hidden'); ui.battle.classList.add('hidden'); ui.map.classList.add('hidden'); ui.modal.classList.add('hidden'); showGlobalVolumeBtn(); stopBattleBGM(); stopVictoryBGM(); clearSpecialFx();
 }
@@ -5606,7 +5781,7 @@ window.game.showForge = function() {
       // 大成功
       const fusionPool = Object.values(CARDS).filter(c=>c.fusion);
       const gotCard = shuffle(fusionPool)[0];
-      state.deck.push({...gotCard,instanceId:Math.random()});
+      state.deck.push(mkDeckCard(gotCard));
       const title = document.createElement('div');
       title.className='text-center text-yellow-300 font-bold mb-3 text-lg';
       title.innerText='✨ 大成功！';
@@ -5624,7 +5799,7 @@ window.game.showForge = function() {
       // 成功
       const nextRarityIdx = Math.min(higherRarityIdx+1, RARITY_ORDER.length-1);
       const nextRarity = RARITY_ORDER[nextRarityIdx];
-      const pool = shuffle(Object.values(CARDS).filter(c=>c.rarity===nextRarity && !c.fusion && (!c.mid||c.mid===state.player.species.id)));
+      const pool = shuffle(skinSetPool(Object.values(CARDS).filter(c=>c.rarity===nextRarity && !c.fusion && (!c.mid||c.mid===state.player.species.id))));
       const picks = pool.slice(0,3);
       const title = document.createElement('div');
       title.className='text-center text-green-300 font-bold mb-3';
@@ -5639,13 +5814,13 @@ window.game.showForge = function() {
           const b=document.createElement('button');
           b.className='w-full p-3 bg-zinc-800 border border-green-600 rounded-xl text-xs mb-2 hover:bg-zinc-700';
           b.innerHTML=`<div class="font-bold text-green-300">[${c.rarity}] ${c.name}</div><div class="text-zinc-400 mt-1">${c.desc}</div>`;
-          b.onclick=()=>{ state.deck.push({...c,instanceId:Math.random()}); nextFloor(); };
+          b.onclick=()=>{ state.deck.push(mkDeckCard(c)); nextFloor(); };
           ui.rewardList.appendChild(b);
         });
       }
     } else {
       // 失敗
-      const pool = Object.values(CARDS).filter(c=>c.rarity===higherRarity && !c.fusion && (!c.mid||c.mid===state.player.species.id));
+      const pool = skinSetPool(Object.values(CARDS).filter(c=>c.rarity===higherRarity && !c.fusion && (!c.mid||c.mid===state.player.species.id)));
       const pick = shuffle(pool)[0];
       const title = document.createElement('div');
       title.className='text-center text-zinc-400 font-bold mb-3';
@@ -5655,7 +5830,7 @@ window.game.showForge = function() {
         const b=document.createElement('button');
         b.className='w-full p-3 bg-zinc-800 border border-zinc-600 rounded-xl text-xs mb-2 hover:bg-zinc-700';
         b.innerHTML=`<div class="font-bold text-zinc-300">[${pick.rarity}] ${pick.name}</div><div class="text-zinc-400 mt-1">${pick.desc}</div>`;
-        b.onclick=()=>{ state.deck.push({...pick,instanceId:Math.random()}); nextFloor(); };
+        b.onclick=()=>{ state.deck.push(mkDeckCard(pick)); nextFloor(); };
         ui.rewardList.appendChild(b);
       } else {
         const nb=document.createElement('button'); nb.className='w-full p-2 bg-zinc-800 rounded text-xs border border-zinc-700'; nb.innerText='次へ'; nb.onclick=()=>nextFloor();
@@ -5684,7 +5859,7 @@ const rollCardRarity = () => {
   if(r < 0.95) return 'SSR';
   return 'MR';
 };
-const fullCardPool = Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id) && !c.fusion);
+const fullCardPool = skinSetPool(Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id) && !c.fusion));
 const usedCardIds = new Set();
 const shopCards = [];
 for(let i=0;i<7;i++){
@@ -5747,7 +5922,7 @@ shopCards.forEach((entry) => {
       if(entry.sold || state.gold < entry.price) return;
       state.gold -= entry.price;
       entry.sold = true;
-      state.deck.push({...entry.card, instanceId:Math.random()});
+      state.deck.push(mkDeckCard(entry.card));
       updateUI();
       renderShop();
     };
@@ -6914,7 +7089,7 @@ if(isMultiHit && comboTotalDmg > 0) {
 }
 // 150以上ダメージで画面揺れ
 if(comboTotalDmg >= 150) showImpactEffect();
-state.player.nextAtkBonus=0; playCardMotion('atk'); ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
+state.player.nextAtkBonus=0; playCardMotion('atk', c); ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
 }
 // クリティカル発動時の効果（連撃で何度クリティカルしても、1回の攻撃につき1回のみ発動）
 try {
@@ -6944,7 +7119,7 @@ try {
 let blk=(c.block||0) + (c.bleedBlock ? (state.enemy.bleed||0) : 0);
 if(state.player.relics.some(r=>r.id==='br_mo_activeshield')) blk+=3;
 if(blk>0){
-  playCardMotion('def');
+  playCardMotion('def', c);
   let bm=state.player.nextBlockMult; if(state.player.currentTurnBlockDouble)bm*=2; state.player.block+=Math.floor(blk*bm);
   if(state.player.relics.some(r=>r.id==='br_g_patience')) state.player.energy=Math.min(state.player.maxEnergy+(state.player.maxEnergyBattle||0),state.player.energy+7);
   if(state.player.relics.some(r=>r.id==='br_mo_spikywall')) { state.enemy.hp-=10; state.score+=50; showFloatingText(10,'dmg',ui.enemyNode); }
@@ -6957,17 +7132,17 @@ if(c.draw)drawCards(c.draw); if(c.nextTurnEnergy)state.player.nextTurnEnergy+=c.
 if(c.zeroCostHand){ state.player.zeroCostTurn=true; }
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
 if(c.nextTurnDouble)state.player.doubleAtk=true; if(c.currentTurnDouble)state.player.currentTurnDouble=true; if(c.currentTurnBlockDouble)state.player.currentTurnBlockDouble=true;
-if(c.atkBattle||c.blockBattle||c.maxEnergyBattle||c.nextAtkBonusMult||c.kiaiTurns||c.permDmgMultBonus) playCardMotion('buf');
+if(c.atkBattle||c.blockBattle||c.maxEnergyBattle||c.nextAtkBonusMult||c.kiaiTurns||c.permDmgMultBonus) playCardMotion('buf', c);
 if(c.nextAtkBonusMult)state.player.nextDmgMult*=c.nextAtkBonusMult; if(c.atkBattle)state.player.atkBattle+=c.atkBattle; if(c.blockBattle)state.player.blockBattle+=c.blockBattle;
 if(c.maxEnergyBattle)state.player.maxEnergyBattle=(state.player.maxEnergyBattle||0) + c.maxEnergyBattle;
-if(c.heal){playCardMotion('heal'); state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
+if(c.heal){playCardMotion('heal', c); state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
 if(c.bleedHealHalf){ const bh=Math.floor((state.enemy.bleed||0)/2); if(bh>0){ state.player.hp=Math.min(state.player.maxHp,state.player.hp+bh); showFloatingText(bh,'heal',ui.playerNode); } }
 if(c.regenHp)state.player.regenHp+=c.regenHp; if(c.regenEnergy)state.player.regenEnergy+=c.regenEnergy; if(c.regenBlock)state.player.regenBlock=(state.player.regenBlock||0)+c.regenBlock; if(c.regenDraw)state.player.regenDraw=(state.player.regenDraw||0)+c.regenDraw; if(c.selfDmg){applySelfDamage(c.selfDmg); if(state.player.hp<=0){return;}}
 } catch(errMisc) { console.error('[playCard:ドロー/回復/自傷等]でエラー', errMisc); }
 
 try {
 const debuffMult = actualHits>1 ? actualHits : 1;
-if(c.weak||c.vuln||c.burn||c.freeze||c.shock) playCardMotion('deb');
+if(c.weak||c.vuln||c.burn||c.freeze||c.shock) playCardMotion('deb', c);
 if(c.weak)state.enemy.weak+=c.weak; if(c.vuln)state.enemy.vuln+=c.vuln;
 if(c.burn)state.enemy.burn+=c.burn*debuffMult; if(c.freeze)state.enemy.freeze+=c.freeze*debuffMult; if(c.shock)state.enemy.shock+=c.shock*debuffMult;
 if(c.selfBleedOnHit) state.player.bleedOnHit=(state.player.bleedOnHit||0)+c.selfBleedOnHit;
@@ -7139,11 +7314,11 @@ if(!(state.enemy.isRareElite) && state.enemy.mode!=='boss'){
   }
 }
 const cr=document.createElement('div'); cr.className="flex gap-1.5 py-2 w-full justify-center items-start";
-const pool=Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id)&&!c.isStarter);
+const pool=skinSetPool(Object.values(CARDS).filter(c=>(!c.mid||c.mid===state.player.species.id)&&!c.isStarter));
 for(let i=0;i<3;i++){
 const rn=Math.random(); let tr='N'; if(rn<r.MR)tr='MR'; else if(rn<r.MR+r.SSR)tr='SSR'; else if(rn<r.MR+r.SSR+r.SR)tr='SR'; else if(rn<r.MR+r.SSR+r.SR+r.R)tr='R';
 let fp=pool.filter(c=>c.rarity===tr); if(fp.length===0)fp=pool.filter(c=>c.rarity==='N');
-const pk={...shuffle(fp)[0],instanceId:Math.random()};
+const pk=mkDeckCard(shuffle(fp)[0]);
 const choice=createCardChoice(pk,i,()=>{ state.deck.push(pk); nextFloor(); }); cr.appendChild(choice.wrap);
 if(pk.rarity==='MR') setTimeout(()=>applyMRCardEffect(choice.el), 50);
 }
@@ -7639,10 +7814,10 @@ function showEvent() {
     { t:'😌 休息', d:'ライフが15回復した', rare:false, result:'ライフが <b>15</b> 回復した！', a:()=>state.player.hp=Math.min(state.player.maxHp,state.player.hp+15) },
     // 幸運SSR
     { t:'✨ 超幸運', d:'SSRカードを入手！', rare:false,
-      a:()=>{ const p=Object.values(CARDS).filter(c=>c.rarity==='SSR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id)); state.deck.push({...shuffle(p)[0],instanceId:Math.random()}); }},
+      a:()=>{ const p=skinSetPool(Object.values(CARDS).filter(c=>c.rarity==='SSR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id))); state.deck.push(mkDeckCard(shuffle(p)[0])); }},
     // 幸運SR
     { t:'🌟 幸運', d:'SRカードを入手！', rare:false,
-      a:()=>{ const p=Object.values(CARDS).filter(c=>c.rarity==='SR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id)); state.deck.push({...shuffle(p)[0],instanceId:Math.random()}); }},
+      a:()=>{ const p=skinSetPool(Object.values(CARDS).filter(c=>c.rarity==='SR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id))); state.deck.push(mkDeckCard(shuffle(p)[0])); }},
     // ライフ特訓
     { t:'❤️ ライフ特訓', d:'最大ライフ+20！', rare:false,
       result:'最大ライフが 20 増えた！',
@@ -7795,8 +7970,8 @@ function showEvent() {
         { label:'親を探してあげる', fn:()=>{
           state.player.hp=Math.max(0,state.player.hp-10); updateUI();
           if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return 'skip'; }
-          const p=Object.values(CARDS).filter(c=>c.rarity==='R'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id));
-          if(p.length) state.deck.push({...shuffle(p)[0],instanceId:Math.random()});
+          const p=skinSetPool(Object.values(CARDS).filter(c=>c.rarity==='R'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id)));
+          if(p.length) state.deck.push(mkDeckCard(shuffle(p)[0]));
           showResult('親が見つかり、お礼をもらった！🎁<br>ライフ <b>−10</b>、<b>Rカードを1枚</b>入手');
           return 'skip';
         }},
@@ -7899,8 +8074,8 @@ function showEvent() {
           const removable=state.deck.map((c,i)=>({c,i})).filter(x=>!x.c.noRemove);
           let lost='（なし）';
           if(removable.length>0){ const pick=removable[Math.floor(Math.random()*removable.length)]; lost=pick.c.name; state.deck.splice(pick.i,1); }
-          const p=Object.values(CARDS).filter(c=>c.rarity==='SSR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id));
-          if(p.length) state.deck.push({...shuffle(p)[0],instanceId:Math.random()});
+          const p=skinSetPool(Object.values(CARDS).filter(c=>c.rarity==='SSR'&&!c.fusion&&(!c.mid||c.mid===state.player.species.id)));
+          if(p.length) state.deck.push(mkDeckCard(shuffle(p)[0]));
           showResult(`釜が眩く光った！✨<br>「<b>${lost}</b>」が溶けて、<b>SSRカード</b>になった！`);
           return 'skip';
         }},
@@ -8076,6 +8251,7 @@ function buildMotionFx(host, id){
   if(old) old.remove();
   const fx = document.createElement('div');
   fx.className = 'motion-fx';
+  fx.dataset.motion = id;   // どのモーションが出たか後から分かるように(動作確認用)
   fx.dataset.m = id;
   const add = (cls, style) => {
     const sp = document.createElement('span');
@@ -8136,10 +8312,18 @@ function pickMotionForCat(cat){
 // 呼ばれる順は 攻撃 → 防御 → 強化/回復 → 弱体 なので、攻撃カードなら攻撃の演出が残る。
 let __cardMotionUsed = { enemy:false, player:false, move:false };
 function resetCardMotions(){ __cardMotionUsed = { enemy:false, player:false, move:false }; }
-function playCardMotion(cat){
+function playCardMotion(cat, card){
   try{
-    const m = pickMotionForCat(cat);
+    // その場面で出す1つを決める。装備しているモーションが基本だが、
+    // カード自身が motion を指定していればそちらを優先する
+    // (スキン専用の技セットは、技ごとに演出が決まっている)。
+    // ただし「なし」を選んでいる場面では、カード指定でも出さない(プレイヤーの選択を尊重する)。
+    let m = pickMotionForCat(cat);
     if(!m) return;
+    if(card && card.motion){
+      const fixed = findMotion(card.motion);
+      if(fixed) m = fixed;
+    }
     // 標準モーションは場面ごとに出し先と動きが変わる
     const fxOn = m.basic ? (MOTION_BASIC_BY_CAT[cat]||{}).fxOn : m.fxOn;
     const move = m.basic ? (MOTION_BASIC_BY_CAT[cat]||{}).move : m.move;
