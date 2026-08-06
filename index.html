@@ -1150,6 +1150,46 @@ background: linear-gradient(135deg, #300000, #3f2e00);
    形は技名のキーワードから、色は属性の言葉かボスごとのテーマ色から決まるので、
    「フレイムキャノン → ビームの形 + 炎の色」のような組み合わせが自動でできる。
    画像素材は使わずCSSだけ。技を増やしても、名前に手掛かりの語が入っていれば演出が付く。 */
+/* ==== ボスの形態変化の演出 ====
+   絵が入れ替わる瞬間を「見せ場」にするためのもの。色は形態ごとに --fc で差し替える。
+   【重要】演出を減らす設定(html.fx-off / prefers-reduced-motion)のときは
+   animationを止めるだけにして、絵の入れ替え自体は必ず起きるようにすること。
+   ここを display:none で消すと、絵が変わらないまま戦うことになる。 */
+#form-change-layer{position:fixed;inset:0;pointer-events:none;z-index:142;overflow:hidden}
+.fchg-flash{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 44%,var(--fc2) 0%,transparent 72%);
+  opacity:0;animation:fchg-flash 1.1s ease-out forwards}
+@keyframes fchg-flash{0%{opacity:0}12%{opacity:.95}45%{opacity:.35}100%{opacity:0}}
+/* 敵の位置から広がる衝撃波の輪 */
+.fchg-ring{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  border:2px solid var(--fc);box-shadow:0 0 18px var(--fc2),inset 0 0 12px var(--fc2);
+  opacity:0;animation:fchg-ring 1.05s cubic-bezier(.15,.75,.3,1) forwards}
+@keyframes fchg-ring{0%{transform:scale(.3);opacity:0}12%{opacity:.95}100%{transform:scale(26);opacity:0}}
+/* 中心から散る光の筋 */
+.fchg-ray{position:absolute;left:0;top:0;width:3px;height:130px;margin-left:-1.5px;transform-origin:50% 0;
+  background:linear-gradient(180deg,var(--fc) 0%,transparent 100%);opacity:0;
+  animation:fchg-ray .85s cubic-bezier(.1,.8,.3,1) forwards}
+@keyframes fchg-ray{0%{transform:rotate(var(--a)) scaleY(.1);opacity:0}20%{opacity:1}100%{transform:rotate(var(--a)) scaleY(1.9);opacity:0}}
+/* 絵そのものの入れ替わり。前半で白く飛ばして消し、後半で新しい絵が降りてくる */
+.enemy-sprite-img.fchg-out{animation:fchg-out .5s ease-in forwards}
+@keyframes fchg-out{
+  0%{filter:brightness(1) saturate(1);transform:scale(var(--esc,1))}
+  55%{filter:brightness(4) saturate(0);transform:scale(calc(var(--esc,1) * 1.12))}
+  100%{filter:brightness(6) saturate(0);opacity:0;transform:scale(calc(var(--esc,1) * .82))}
+}
+.enemy-sprite-img.fchg-in{animation:fchg-in .75s cubic-bezier(.2,.9,.25,1) forwards}
+@keyframes fchg-in{
+  0%{filter:brightness(6) saturate(0);opacity:0;transform:scale(calc(var(--esc,1) * 1.45))}
+  35%{filter:brightness(2.4) saturate(.5);opacity:1}
+  100%{filter:brightness(1) saturate(1);opacity:1;transform:scale(var(--esc,1))}
+}
+/* 演出を減らす設定のときは、動きだけ止めて絵の入れ替えは残す */
+@media (prefers-reduced-motion: reduce){
+  html:not(.fx-on) #form-change-layer{display:none}
+  html:not(.fx-on) .enemy-sprite-img.fchg-out,html:not(.fx-on) .enemy-sprite-img.fchg-in{animation:none !important}
+}
+html.fx-off #form-change-layer{display:none}
+html.fx-off .enemy-sprite-img.fchg-out,html.fx-off .enemy-sprite-img.fchg-in{animation:none !important}
+
 #special-fx-layer{position:fixed;inset:0;pointer-events:none;z-index:140;overflow:hidden}
 .special-fx{position:absolute;inset:0;overflow:hidden}
 .special-fx span{position:absolute;display:block}
@@ -1511,6 +1551,8 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 <div id="impact-flash"></div>
 <!-- ボスの必殺技演出。中身はJSが毎回作って捨てる(playBossMoveFx) -->
 <div id="special-fx-layer"></div>
+<!-- ボスの形態変化の演出。中身はJSが毎回作って捨てる(playFormChangeFx) -->
+<div id="form-change-layer"></div>
 <div id="special-move-banner"><span class="tag"></span><span class="plate"></span></div>
 <div id="last-update-tag" style="position:fixed;left:6px;bottom:calc(6px + env(safe-area-inset-bottom, 0px));z-index:9999;font-size:10px;color:rgba(212,212,216,0.65);pointer-events:none;user-select:none;"></div>
 <script>
@@ -2860,6 +2902,12 @@ function relinkEnemyImg(enemy) {
   if (!enemy || !enemy.trait) return;
   if (!__enemyImgLookup) __enemyImgLookup = buildEnemyImgLookup();
   if (__enemyImgLookup[enemy.trait]) enemy.img = __enemyImgLookup[enemy.trait];
+  // 形態を持つ敵は、途中で再開したときも「いまの形態」の絵に戻すこと。
+  // これが無いと、第2・第3形態で中断→再開したときに第1形態の絵で戦うことになる
+  if (enemy.formImgs) {
+    const idx = enemy._reviveCount || 0;
+    if (enemy.formImgs[idx]) enemy.img = enemy.formImgs[idx];
+  }
 }
 // プレイヤー・敵のスプライト画像を現在のstateから再描画する（通常は選択時/戦闘開始時のみ描画されるため、復帰時にも呼び出して見た目を復元する）
 // プレイヤーのキャラ絵・種族名・アクセサリ・オーラを描く。
@@ -6504,6 +6552,85 @@ function getFloorEnemyPool(floor) {
 //   e._reviveCount … 復活した回数
 // 戻り値 true = 復活した(戦闘は続く) / false = 倒した(勝利処理へ)
 // 形態が変わったときの処理。名前を切り替え、前の形態の効果を消す
+// 形態ごとの見せ方。色は演出、tagは看板の上に出る小さい文字
+const FORM_CHANGE_THEME = [
+  { color:'#fcd34d', tag:'第 一 形 態' },   // 秩序 … 金
+  { color:'#c084fc', tag:'第 二 形 態' },   // 混沌 … 紫
+  { color:'#f0abfc', tag:'最 終 形 態' },   // 創造 … 桃紫
+];
+// 敵の絵を今のstateから描き直す。形態が変わったときに使う
+function redrawEnemySprite(e){
+  if(!ui || !ui.enemyVisual || !e) return null;
+  if(e.img){
+    ui.enemyVisual.innerHTML = `<img src="${e.img}" class="enemy-sprite-img"${enemySpriteAttr(e)}>`;
+    return ui.enemyVisual.querySelector('img');
+  }
+  ui.enemyVisual.innerHTML = `<span class="enemy-sprite-icon">${e.icon||''}</span>`;
+  return null;
+}
+let __formChangeTimers = { fx:null, swap:null, inCls:null };
+// 形態が変わったときの演出。
+// 【重要】絵の差し替え(redrawEnemySprite)は演出のON/OFFに関わらず必ず行うこと。
+// 演出を減らす設定の人だけ絵が第1形態のまま、という事故を防ぐ。
+function playFormChangeFx(e, formIdx){
+  const theme = FORM_CHANGE_THEME[formIdx] || FORM_CHANGE_THEME[FORM_CHANGE_THEME.length-1];
+  const nextImg = (e.formImgs && e.formImgs[formIdx]) || e.img;
+  const img = ui.enemyVisual && ui.enemyVisual.querySelector('img');
+  const swap = () => { e.img = nextImg; const el = redrawEnemySprite(e);
+    if(el){ el.classList.add('fchg-in'); clearTimeout(__formChangeTimers.inCls);
+      __formChangeTimers.inCls = setTimeout(()=>el.classList.remove('fchg-in'), 900); } };
+
+  clearTimeout(__formChangeTimers.swap);
+  if(img && nextImg !== e.img){
+    img.classList.add('fchg-out');
+    __formChangeTimers.swap = setTimeout(swap, 420);   // 白く飛ばしきったところで入れ替える
+  } else {
+    swap();
+  }
+
+  try{
+    const layer = document.getElementById('form-change-layer');
+    if(layer){
+      clearTimeout(__formChangeTimers.fx);
+      layer.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = `position:absolute;inset:0;--fc:${theme.color};--fc2:${hexToGlow(theme.color, 0.85)}`;
+      const f = document.createElement('span'); f.className = 'fchg-flash'; wrap.appendChild(f);
+      // 敵の絵の位置を中心にする(取れなければ画面のやや上)
+      let cx = window.innerWidth/2, cy = window.innerHeight*0.34;
+      if(ui.enemyNode){ const r = ui.enemyNode.getBoundingClientRect();
+        if(r.width) { cx = r.left + r.width/2; cy = r.top + r.height/2; } }
+      for(let i=0;i<3;i++){
+        const ring = document.createElement('span');
+        ring.className = 'fchg-ring';
+        ring.style.left = cx+'px'; ring.style.top = cy+'px';
+        ring.style.animationDelay = (i*130)+'ms';
+        wrap.appendChild(ring);
+      }
+      for(let i=0;i<12;i++){
+        const ray = document.createElement('span');
+        ray.className = 'fchg-ray';
+        ray.style.left = cx+'px'; ray.style.top = cy+'px';
+        ray.style.setProperty('--a', (i*30)+'deg');
+        ray.style.animationDelay = (60 + i*18)+'ms';
+        wrap.appendChild(ray);
+      }
+      layer.appendChild(wrap);
+      __formChangeTimers.fx = setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); }, 1500);
+    }
+    // 看板と画面揺れは必殺技と同じ仕組みを borrow する
+    if(typeof playSpecialMoveFx === 'function'){
+      playSpecialMoveFx(e.name, theme.color, false, true, theme.tag);
+    }
+    if(typeof playSfx === 'function') playSfx('crit');
+  }catch(err){ console.warn('形態変化の演出に失敗しました', err); }
+}
+// 形態変化で残ったものを消す(戦闘が終わったとき・画面を離れたとき)
+function clearFormChangeFx(){
+  clearTimeout(__formChangeTimers.fx); clearTimeout(__formChangeTimers.swap); clearTimeout(__formChangeTimers.inCls);
+  const layer = document.getElementById('form-change-layer');
+  if(layer) layer.innerHTML = '';
+}
 function onEnemyFormChange(e, formIdx){
   if(!e.formNames || !e.formNames[formIdx]) return;
   e.name = `${e.baseName || e.name.split('・')[0]}・${e.formNames[formIdx]}`;
@@ -6513,6 +6640,12 @@ function onEnemyFormChange(e, formIdx){
   e._thornsTurns = 0; e._thorns = 0;
   e.turnCount = 0;   // 必殺技と「隙」の周期を形態ごとに数え直す
   e.block = 0;
+  // 名前の表示もここで更新する。呼び出し側の updateUI() 待ちにすると、
+  // 絵と看板は新しい形態なのに画面の名前だけ前の形態、という一瞬が出る
+  if(ui && ui.enemyName && !e.isRareElite) ui.enemyName.innerText = e.name;
+  // 第1形態(戦闘開始時)は名前を付けるだけ。演出は2形態目以降で出す
+  if(formIdx > 0) playFormChangeFx(e, formIdx);
+  else if(e.formImgs && e.formImgs[0]) e.img = e.formImgs[0];
 }
 function tryEnemyRevive(){
   const e = state.enemy;
@@ -6526,7 +6659,7 @@ function tryEnemyRevive(){
   if(e.reviveAtkBuff) e._reviveAtkBonus = (e._reviveAtkBonus||0) + e.reviveAtkBuff;
   // 形態が変わるボスは、ここで見た目と状態を切り替える
   if(typeof onEnemyFormChange === 'function') onEnemyFormChange(e, e._reviveCount);
-  showFloatingText(e.formNames ? `第${e._reviveCount+1}形態！` : '復活！', 'heal', ui.enemyNode);
+  if(!e.formNames) showFloatingText('復活！', 'heal', ui.enemyNode);
   ui.enemyVisual.classList.add('aura-gold');
   return true;
 }
@@ -6610,10 +6743,13 @@ state.player.nextTurnBlockBonus = 0;
 if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
 else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
 else ui.enemyVisual.className='monster-sprite';
-if(t.img){
-  ui.enemyVisual.innerHTML=`<img src="${t.img}" class="enemy-sprite-img"${enemySpriteAttr(t)}>`;
+// 形態を持つ敵は、戦闘開始の時点で第1形態の名前を付けておく
+// (これが無いと「創造神テクモクレイン」→「〜・混沌」と、1形態目だけ呼び名が違ってしまう)
+if(state.enemy.formNames) onEnemyFormChange(state.enemy, 0);
+if(state.enemy.img){
+  ui.enemyVisual.innerHTML=`<img src="${state.enemy.img}" class="enemy-sprite-img"${enemySpriteAttr(state.enemy)}>`;
 } else {
-  ui.enemyVisual.innerHTML=`<span class="enemy-sprite-icon">${t.icon||''}</span>`;
+  ui.enemyVisual.innerHTML=`<span class="enemy-sprite-icon">${state.enemy.icon||''}</span>`;
 }
 // 敵だけでなく自キャラも毎戦闘描き直す。これが無いと、途中でタスクキルして
 // 復帰したときにキャラが表示されないまま戦闘が始まる
@@ -9295,6 +9431,7 @@ function playPlayerUltimateFx(c){
 }
 // 戦闘が終わった/画面を離れたときに演出を消す(残ったまま次の画面に持ち越さないため)
 function clearSpecialFx(){
+  clearFormChangeFx();
   clearTimeout(__specialFxTimers.fx); clearTimeout(__specialFxTimers.shake); clearTimeout(__specialFxTimers.banner);
   const layer = document.getElementById('special-fx-layer');
   if(layer) layer.innerHTML = '';
