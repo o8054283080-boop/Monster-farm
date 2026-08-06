@@ -7070,6 +7070,8 @@ if(mode==='boss' && state.floor>=61){
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null; __exhaustPick=null; updateExhaustPickBar();
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
 state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.dmgCutPct=0; state.player.dmgCutTurns=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
+// 呪霊(ゲコウスグルの技セット)は戦闘中だけのカウンター。冒険をまたいで持ち越さない
+state.player.curse=0; state.player.regenCurse=0;
 resetCardPlayLimit();   // 「創造の律」の残り枚数を戦闘開始時に戻す(制限が無ければ何も出ない)
 // イブリースの形態は戦闘ごとに通常形態へ戻す(atkBattle等と同じ扱い。冒険をまたいで持ち越さない)
 state.player.form = IBLIS_DEFAULT_FORM; applyFormVisual();
@@ -7165,6 +7167,7 @@ if(isIblis() && state.player.form==='normal'){
     state.player.hp=Math.min(state.player.maxHp,state.player.hp+4); showFloatingText(4,'heal',ui.playerNode);
   }
 }
+if((state.player.regenCurse||0)>0){ state.player.curse=(state.player.curse||0)+state.player.regenCurse; showFloatingText(`呪霊+${state.player.regenCurse}`,'block',ui.playerNode); }
 if(state.player.regenHp>0) {state.player.hp=Math.min(state.player.maxHp,state.player.hp+state.player.regenHp); showFloatingText(state.player.regenHp,'heal',ui.playerNode);}
 if((state.player.regenBlock||0)>0){state.player.block+=state.player.regenBlock;}
 if((state.player.nextTurnBlockBonus||0)>0){state.player.block+=state.player.nextTurnBlockBonus; showFloatingText(state.player.nextTurnBlockBonus,'block',ui.playerNode); state.player.nextTurnBlockBonus=0;}
@@ -8098,6 +8101,8 @@ if(c.dmgEqualsBlock) b = state.player.block;
 if (c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 30;
 if (c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
 if(k===0 && c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
+// 呪霊の追加ダメージ。1回のカード使用につき1回だけ(出血ボーナスと同じ扱い)。calcPreviewDmgにも同じ行がある
+if(k===0 && c.curseDmg) b += (state.player.curse||0) * c.curseDmg;
 if(c.comboDmg&&state.enemy.vuln>0)b+=c.comboDmg;
 if(c.combo&&state.enemy.vuln>0)b+=25;
 // ボス遺物: エレメンタルクローク（状態異常の相手への攻撃で追加ダメージ+ガッツ回復、1回のカード使用につき1回のみ）
@@ -8208,6 +8213,9 @@ if(isMultiHit && comboTotalDmg > 0) {
 if(comboTotalDmg >= 150) showImpactEffect();
 state.player.nextAtkBonus=0; playCardMotion('atk', c); ui.enemyVisual.classList.add('shake'); setTimeout(()=>ui.enemyVisual.classList.remove('shake'),400);
 }
+// 呪霊を全て放つ(うずまき)。連撃を全部撃ち終わってから0に戻す。
+// この後の c.curse より先に置くこと。逆にすると「放った直後に溜めたぶん」まで消える
+if(c.curseSpend && (state.player.curse||0) > 0){ state.player.curse = 0; showFloatingText('呪霊 解放','drain',ui.playerNode); }
 // クリティカル発動時の効果（連撃で何度クリティカルしても、1回の攻撃につき1回のみ発動）
 try {
 if(anyCritThisAttack){
@@ -8252,7 +8260,9 @@ if(c.zeroCostHand){ state.player.zeroCostTurn=true; }
 if(c.dmgCutPct){ state.player.dmgCutPct=c.dmgCutPct; state.player.dmgCutTurns=(c.dmgCutTurns||2); showFloatingText(`ダメージ${c.dmgCutPct}%カット`,'block',ui.playerNode); }
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
 if(c.nextTurnDouble)state.player.doubleAtk=true; if(c.currentTurnDouble)state.player.currentTurnDouble=true; if(c.currentTurnBlockDouble)state.player.currentTurnBlockDouble=true;
-if(c.atkBattle||c.blockBattle||c.maxEnergyBattle||c.nextAtkBonusMult||c.kiaiTurns||c.permDmgMultBonus) playCardMotion('buf', c);
+// 呪霊を溜めるだけのカード(盤星教の教祖など)は攻撃も防御もしないので、ここで演出を出す
+if(c.atkBattle||c.blockBattle||c.maxEnergyBattle||c.nextAtkBonusMult||c.kiaiTurns||c.permDmgMultBonus
+   ||((c.curse||c.regenCurse) && !c.val && !c.block)) playCardMotion('buf', c);
 if(c.nextAtkBonusMult)state.player.nextDmgMult*=c.nextAtkBonusMult; if(c.atkBattle)state.player.atkBattle+=c.atkBattle; if(c.blockBattle)state.player.blockBattle+=c.blockBattle;
 if(c.maxEnergyBattle)state.player.maxEnergyBattle=(state.player.maxEnergyBattle||0) + c.maxEnergyBattle;
 if(c.heal){playCardMotion('heal', c); state.player.hp=Math.min(state.player.maxHp,state.player.hp+c.heal); showFloatingText(c.heal,'heal',ui.playerNode);}
@@ -8286,6 +8296,9 @@ if(c.enemyAtkDown){ state.enemy.dmg=Math.max(0,(state.enemy.dmg||0)-c.enemyAtkDo
 if(c.statusImmune) state.player.statusImmuneCharges=(state.player.statusImmuneCharges||0)+c.statusImmune;
 if(c.grantEvasion) state.player.evasion=(state.player.evasion||0)+c.grantEvasion;
 if(c.selfDmgCardsDoubled) state.player.selfDmgCardsDoubled=true;
+// 呪霊を溜める。攻撃の処理より後なので、同じカードのcurseDmgは自分では強化しない
+if(c.curse){ state.player.curse=(state.player.curse||0)+c.curse; showFloatingText(`呪霊+${c.curse}`,'block',ui.playerNode); }
+if(c.regenCurse) state.player.regenCurse=(state.player.regenCurse||0)+c.regenCurse;
 if(c.godCoreActive) state.player.godCoreActive=true;
 if(c.godMiracleCostDown) state.player.godMiracleCostDown=true;
 if(c.enoOhActive) state.player.enoOhActive=true;
@@ -8694,6 +8707,9 @@ if(c.freeze)c.freeze+=1;
 if(c.shock)c.shock+=1;
 if(c.bleed)c.bleed=Math.floor(c.bleed*1.25);
 if(c.selfBleedOnHit)c.selfBleedOnHit+=1;
+if(c.curse)c.curse+=1;
+if(c.regenCurse)c.regenCurse+=1;
+if(c.curseDmg)c.curseDmg=Math.floor(c.curseDmg*1.25);
 if(c.statusImmune)c.statusImmune=2;
 // descを全効果で再構築
 const parts=[];
@@ -8718,6 +8734,10 @@ if(c.selfDmg)parts.push(`自傷${c.selfDmg}`);
 if(c.combo)parts.push(`守弱時ガッツ7回`);
 if(c.bleed)parts.push(`出血${c.bleed}`);
 if(c.bleedBonusMult)parts.push(`出血${c.bleedBonusMult>1?`×${c.bleedBonusMult}`:''}分追加ダメ`);
+if(c.curseDmg)parts.push(`呪霊×${c.curseDmg}追加ダメージ`);
+if(c.curseSpend)parts.push(`呪霊を全て放つ`);
+if(c.curse)parts.push(`呪霊+${c.curse}`);
+if(c.regenCurse)parts.push(`毎ターン呪霊+${c.regenCurse}`);
 if(c.bleedHealHalf)parts.push(`出血の半分回復`);
 if(c.bleedBlock)parts.push(`出血分ブロック`);
 if(c.zeroCostHand)parts.push(`手札消費ガッツ0`);
@@ -9993,6 +10013,7 @@ function showCritEffect(){
 // 【重要】説明は実装から起こすこと。ここと実際の処理がズレると嘘の説明になる。
 const STATUS_DESCS = {
   iblisForm:{ icon:'👼', name:'形態', desc:'イブリースは戦闘中に2つの形態を行き来します。\n\n🌑 通常形態…受けるダメージが0.9倍になり、毎ターンのガッツ回復が6増えます。\n👼 天使型…与えるダメージが1.2倍になりますが、受けるダメージも1.1倍になります。\n\n変身するカードは、効果が出たあとに形態が変わります。受けるダメージの倍率は「そのターンを終えたときの形態」で決まるので、相手の攻撃予告を見て、どちらで締めるかを選べます。戦闘が始まるときは必ず通常形態です。' },
+  curse:    { icon:'👁️', name:'呪霊', desc:'ゲコウスグルの技で溜まるカウンターです。\n\n「呪霊×N追加ダメージ」を持つカードは、溜まっている呪霊の数×N だけダメージが上がります。カードの攻や力と同じところに足されるので、守弱の1.5倍や会心もそのまま乗ります。\n\n呪霊を溜めるカードは、攻撃の処理が終わったあとに溜まります。そのカード自身のダメージは上がりません。\n\n極ノ番「うずまき」だけは撃ったあとに呪霊が0に戻ります。戦闘が終わるときも0に戻ります。' },
   godCore:  { icon:'🌟', name:'神核', desc:'攻撃で敵にダメージを与えるたび神聖が1たまります。5たまるごとにガッツが15回復し、与えるダメージが10%上がります(最大+50%)。この戦闘の間ずっと続きます。' },
   enoOh:    { icon:'🔥', name:'炎王', desc:'炎上している敵にダメージを与えるたび、ライフが2回復します。さらに相手の炎上が5を超えていると追加で100ダメージ、15を超えているとさらに100ダメージを与えます。この戦闘の間ずっと続きます。' },
   ikkiIssin:{ icon:'🗡️', name:'一撃入魂', desc:'連撃を持たないカードの与えるダメージが3倍になります。連撃カードには効きません。この戦闘の間ずっと続きます。' },
@@ -10091,6 +10112,8 @@ if((state.player.costReducePct||0)>0)ui.playerStatuses.innerHTML+=ps('bg-emerald
 if((state.player.statusImmuneCharges||0)>0)ui.playerStatuses.innerHTML+=ps('bg-indigo-950','border-indigo-500/50','text-indigo-300','✨',`状態異常無効×${state.player.statusImmuneCharges}`,'statusImmune');
 if((state.player.evasion||0)>0)ui.playerStatuses.innerHTML+=ps('bg-slate-800','border-slate-400/50','text-slate-200','💨',`回避×${state.player.evasion}`,'evasion');
 if(state.player.selfDmgCardsDoubled)ui.playerStatuses.innerHTML+=ps('bg-purple-950','border-purple-500/50','text-purple-300','💥',`自傷カードダメ${SELF_DMG_CARD_MULT}倍`,'selfDmgCards');
+if((state.player.curse||0)>0)ui.playerStatuses.innerHTML+=ps('bg-fuchsia-950','border-fuchsia-500/50','text-fuchsia-300','👁️',`呪霊 ${state.player.curse}`,'curse');
+if((state.player.regenCurse||0)>0)ui.playerStatuses.innerHTML+=ps('bg-fuchsia-900','border-fuchsia-400/50','text-fuchsia-200','🌀',`毎T呪霊+${state.player.regenCurse}`);
 if(state.player.godCoreActive)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','🌟',`神核 ${state.player.godCoreStacks||0}(+${Math.round((state.player.godCoreDmgBonus||0)*100)}%)`,'godCore');
 if(state.player.enoOhActive)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/50','text-orange-200','🔥',`炎王`,'enoOh');
 if(state.player.ikkiIssin)ui.playerStatuses.innerHTML+=ps('bg-red-900','border-red-400/50','text-red-200','🗡️',`一撃入魂(単発3倍)`,'ikkiIssin');
@@ -10186,6 +10209,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 30;
     if(c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
     if(c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
+    if(c.curseDmg) b += (state.player.curse||0) * c.curseDmg;   // 実処理(playCard)と必ず同じにすること
     if(c.comboDmg && state.enemy && state.enemy.vuln>0) b += c.comboDmg;
     if(c.combo && state.enemy && state.enemy.vuln>0) b += 25;
     if(state.player.relics.some(r=>r.id==='br_ga_elemental') && state.enemy && (state.enemy.weak>0||state.enemy.vuln>0||state.enemy.burn>0||state.enemy.freeze>0||state.enemy.shock>0)) b += 15;

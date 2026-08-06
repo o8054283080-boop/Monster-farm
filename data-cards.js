@@ -47,6 +47,7 @@ hinotori_b3_skin:{mid:'hinotori',id:'hinotori_b3_skin',name:'黄金雷撃',cost:
 zan_b3_skin:{mid:'zan',id:'zan_b3_skin',name:'溶岩の型',cost:13,burn:2,selfBleedOnHit:1,remove:true,rarity:'N',desc:'炎上2 今後の攻撃時、相手に出血+1を追加 消滅',isStarter:true,skinCardOf:'zan_ssr_01',replaces:'zan_b3'},
 hinotori_b3_skin2:{mid:'hinotori',id:'hinotori_b3_skin2',name:'ハデスフレア',cost:21,val:29,burn:2,bleed:3,crit:'B',rarity:'SR',desc:'攻29 炎上2 出血3',isStarter:true,skinCardOf:'hinotori_ssr_02',replaces:'hinotori_b3'},
 motchi_b3_skin2:{mid:'motchi',id:'motchi_b3_skin2',name:'無下限呪術',cost:9,val:14,block:25,weak:2,crit:'A',rarity:'SR',desc:'攻14 防25 攻弱2',isStarter:true,skinCardOf:'motchi_ssr_02',replaces:'motchi_b3'},
+k_b3_skin2:{mid:'kawazumo',id:'k_b3_skin2',name:'呪霊操術',cost:16,val:18,vuln:1,curse:3,crit:'C',rarity:'SR',desc:'攻18 守弱1 呪霊+3',isStarter:true,skinCardOf:'kawazumo_ssr_02',replaces:'k_b3'},
 };
 const CARDS = {
 hinotori_b1:{mid:'hinotori',id:'hinotori_b1',name:'くちばし',cost:11,val:16,crit:'D',rarity:'N',desc:'攻16',isStarter:true},
@@ -377,6 +378,24 @@ m_mr1_gojo:{mid:'motchi',id:'m_mr1_gojo',name:'虚式「茈」',cost:75,val:150,
   desc:'攻150 連撃2 守弱1 守弱時ダメージ+150 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_mr1',motion:'atk_flash'},
 m_mr2_gojo:{mid:'motchi',id:'m_mr2_gojo',name:'領域展開「無量空処」',cost:80,block:80,regenBlock:20,freeze:5,vuln:5,weak:5,kiaiTurns:5,permDmgMultBonus:0.25,remove:true,rarity:'MR',
   desc:'防80 毎T防20 氷結5 守弱5 攻弱5 5T気合い状態(会心率+30%) この戦闘中ダメージ+25% 消滅',skinSetOf:'motchi_ssr_02',replaces:'m_mr2',motion:'buf_awaken'},
+
+// ---- ゲコウスグル(kawazumo_ssr_02) ----
+// 「呪霊」は戦闘中だけ溜まるカウンター(state.player.curse)。戦闘が終わると0に戻る。
+//   curse:N       … 呪霊を N 溜める（攻撃を撃った「後」に溜まるので、自分のcurseDmgは強化しない）
+//   curseDmg:N    … 追加ダメージ 呪霊×N。カードの攻・力と同じ場所に足すので守弱1.5倍と会心もそのまま乗る
+//   curseSpend    … 撃ったあと呪霊を0に戻す
+//   regenCurse:N  … 毎ターン開始時に呪霊+N
+// 【重要】curseDmg は playCard と calcPreviewDmg の両方に同じ式を書くこと。片方だけだと表示と実際がズレる。
+k_r4_geto:{mid:'kawazumo',id:'k_r4_geto',name:'呪霊吸収',cost:11,block:8,nextTurnEnergy:8,curse:4,rarity:'R',
+  desc:'防8 次G8 呪霊+4',skinSetOf:'kawazumo_ssr_02',replaces:'k_r4',motion:'def_hex'},
+k_r1_geto:{mid:'kawazumo',id:'k_r1_geto',name:'呪霊操術・蝿頭',cost:14,val:12,vuln:1,curse:2,curseDmg:5,crit:'D',rarity:'R',
+  desc:'攻12 守弱1 呪霊×5追加ダメージ 呪霊+2',skinSetOf:'kawazumo_ssr_02',replaces:'k_r1',motion:'deb_corrode'},
+k_sr4_geto:{mid:'kawazumo',id:'k_sr4_geto',name:'呪霊操術・虹龍',cost:34,val:34,block:18,curse:4,curseDmg:10,crit:'C',rarity:'SR',
+  desc:'攻34 防18 呪霊×10追加ダメージ 呪霊+4',skinSetOf:'kawazumo_ssr_02',replaces:'k_sr4',motion:'atk_slash'},
+k_mr4_geto:{mid:'kawazumo',id:'k_mr4_geto',name:'極ノ番「うずまき」',cost:60,val:50,curseDmg:30,curseSpend:true,crit:'B',rarity:'MR',
+  desc:'攻50 呪霊×30追加ダメージ 呪霊を全て放つ',skinSetOf:'kawazumo_ssr_02',replaces:'k_mr4',motion:'atk_burst'},
+k_mr3_geto:{mid:'kawazumo',id:'k_mr3_geto',name:'盤星教の教祖',cost:26,curse:4,regenCurse:3,regenEnergy:8,remove:true,rarity:'MR',
+  desc:'呪霊+4 毎ターン呪霊+3 毎ターンガッツ回復8 消滅',skinSetOf:'kawazumo_ssr_02',replaces:'k_mr3',motion:'buf_sigil'},
 
 // ==== イブリース専用カード（実装中の種族） ====
 // 形態のルール:
