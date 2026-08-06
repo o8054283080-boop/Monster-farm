@@ -286,6 +286,7 @@ localStorageキー `mf_gacha_progress`。タイトル画面「💎 ガチャ」�
 - 実装は`rollSsrSkin()`の1か所だけ。`GACHA_PICKUP_SSR_RATE / GACHA_RATES.ssrSkin`を
   「SSRを引いたときにピックアップになる確率」として使う
 - **ピックアップを載せ替えるときは`GACHA_PICKUP.skins`を書き換えるだけでよい。**
+  `GACHA_PICKUP.date`も一緒に更新する。`accessories`は空配列でよい(その欄ごと出なくなる)。
   バナー・提供割合の表示・抽選の3か所が全部そこを見ている
 - ピックアップが空、または「それ以外」が空になったら、普通に全体から引く動きに戻る
   (バナーを畳んだときに壊れないようにしてある)
@@ -1054,6 +1055,28 @@ SSRを1体足すたびに `SKINS` と `BASE_CARDS` の2箇所に足すだけで�
 **注意**: 調整値の書き込みは必ず`updateAccTuning()`を使うこと。
 この関数は内部で`loadCosmetics`→`saveCosmetics`まで行うので、
 呼び出し側で先に読んだ`c`を後から`saveCosmetics(c)`すると**変更が消える**。
+
+### 形態ごとの位置(イブリース)
+
+イブリースは通常形態(横に広い獣)と天使型(縦に長い六翼)で体つきが全く違うので、
+**調整値だけ形態ごとに分けて持つ**。保存キーは `iblis`(通常形態)と `iblis@angel`(天使型)。
+
+- キーを作るのは`accTuningKey(speciesId, formKey)`。**`accTuning`/`updateAccTuning`には
+  種族idではなくこのキーを渡すこと。** 他の種族はキーが種族idのままなので何も変わらない
+- **分けるのは位置・角度・大きさ・色だけ。** どのアクセサリを着けているか(`accSlots`)は
+  種族ごとのまま。形態が変わるたびに装備そのものが入れ替わるのは分かりにくい
+- **⚠️ 戦闘中は`applyFormVisual()`から`renderBattleAccessories()`を呼び直している。**
+  ここを外すと、天使型なのに通常形態の位置のまま帽子が浮く
+- 装備画面は`loadoutFormKey`(既定`'normal'`)で編集先を切り替える。切り替えボタンは
+  `renderLoadoutFormSwitch()`が作り、形態を持たない種族では丸ごと隠す。
+  種族タブを移ると`'normal'`に戻す
+- プレビューの絵は`loadoutPreviewImg()`。スキン優先で、天使型なら`imgAngel`があればそれ
+- 既存のセーブデータの調整値は**通常形態のぶんとしてそのまま残る**。天使型は既定値から始まる
+- 他の種族に形態を足すときは`ACC_FORM_TUNED_SPECIES`を配列にするところから
+
+**⚠️ `data-accessories.js`の`pos`には全種族ぶんのキーが要る。**
+イブリースを公開したとき`iblis`だけ無く、全アクセが画面中央に既定サイズで出ていた
+(`computeAccVisual`が握りつぶしていて気づきにくい)。種族を足したら23件全部に足すこと。
 
 ### アクセサリを増やすとき
 

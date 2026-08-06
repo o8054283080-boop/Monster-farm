@@ -1799,7 +1799,10 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
         <button id="loadout-aura-slot" onclick="openAuraPicker()" class="w-[calc(50%_-_3px)] aspect-square rounded-lg border-2 flex flex-col items-center justify-center border-zinc-700 bg-zinc-800"></button>
       </div>
     </div>
-    <p class="text-zinc-500 text-[9px] text-center mb-4 leading-relaxed">左＝アクセサリ（モンスターごとに保存）／ 右＝オーラ</p>
+    <!-- 形態を持つ種族(イブリース)のときだけ出る切り替え。
+         アクセサリの位置は形態ごとに別々に持っているので、ここで見比べながら合わせられる -->
+    <div id="loadout-form-switch" class="hidden justify-center gap-1.5 mb-2"></div>
+    <p id="loadout-acc-note" class="text-zinc-500 text-[9px] text-center mb-4 leading-relaxed">左＝アクセサリ（モンスターごとに保存）／ 右＝オーラ</p>
     <!-- スキン -->
     <h3 class="text-zinc-400 text-xs font-bold mb-2">スキン</h3>
     <div id="loadout-skin-grid" class="grid grid-cols-4 gap-2 mb-5"></div>
@@ -2220,6 +2223,9 @@ function applyFormVisual(){
     const want = currentPlayerImg(spec);
     if(want && img.getAttribute('src') !== want) img.setAttribute('src', want);
   }
+  // アクセサリの位置は形態ごとに持っているので、絵と一緒に置き直す。
+  // ここを忘れると、天使型なのに通常形態の位置のまま帽子が浮く
+  if(spec && typeof renderBattleAccessories === 'function') renderBattleAccessories(spec.id);
 }
 // 変身の演出。
 // 【重要】ボスの形態変化(playFormChangeFx)と違って、これは1戦闘に何度も起きる。
@@ -4163,7 +4169,15 @@ const CHANGELOG = [
     'ライオネルには専用の看板技「獅子と熾天」が付いています。通常形態では守って昇り、天使型では殴って降ります',
     'ライオネルは通常形態と天使型で絵が変わります',
     'タイトルのガチャの上に、まだ持っていない新スキンが並ぶようになりました。タップするとガチャへ行けます',
+    'ガチャのピックアップをこの2体に入れ替えました。確率アップの対象です',
     '追加記念に 💎135 をお配りしました',
+  ]},
+  { date:'2026/08/06', title:'イブリースのアクセサリを形態ごとに置けるように', items:[
+    'イブリースは通常形態と天使型で体つきが大きく変わるため、同じ位置だと片方で必ず浮いていました',
+    'アクセサリの位置・角度・大きさ・色を、形態ごとに別々に保存できるようにしました',
+    'カスタム装備のプレビューの下に形態の切り替えが出ます。切り替えてから合わせてください',
+    '着けるアクセサリ自体は今までどおり共通です。変わるのは見た目の調整だけです',
+    '戦闘中に変身すると、その形態の位置に置き直されます',
   ]},
   { date:'2026/08/06', title:'継承ショップに強化枠を追加', items:[
     '「開始チカラ・極」「開始丈夫さ・極」を追加しました。どちらも10段階です',
@@ -4590,7 +4604,20 @@ function accSlots(c, speciesId){
   }
   return c.equippedAccessories[speciesId];
 }
-// その種族・そのアクセサリの調整値(無ければ既定値)
+// ---- 形態ごとのアクセサリ位置 ----
+// イブリースは通常形態(横に広い獣)と天使型(縦に長い六翼)で体つきが全く違うので、
+// 同じ位置に帽子を置くと、どちらかで必ず浮く。そこで調整値だけ形態ごとに分けて持つ。
+// 保存キーは 'iblis'(通常形態) と 'iblis@angel'(天使型)。
+// 【重要】分けるのは「位置・角度・大きさ・色」だけ。どのアクセサリを着けているか(accSlots)は
+// 種族ごとのまま。形態が変わるたびに装備が入れ替わるのはさすがに分かりにくい。
+// 他の種族は今までどおり種族idそのままなので、既存の調整値はそのまま使われる。
+const ACC_FORM_TUNED_SPECIES = 'iblis';
+function accTuningKey(speciesId, formKey){
+  return (speciesId === ACC_FORM_TUNED_SPECIES && formKey === 'angel') ? speciesId + '@angel' : speciesId;
+}
+function hasFormTuning(speciesId){ return speciesId === ACC_FORM_TUNED_SPECIES; }
+// その種族(形態)・そのアクセサリの調整値(無ければ既定値)。
+// speciesId には accTuningKey() が返すキーを渡すこと
 function accTuning(c, speciesId, accId){
   const perSp = (c.accessoryTuning || {})[speciesId] || {};
   return Object.assign({}, ACC_DEFAULT_TUNING, perSp[accId] || {});
@@ -4780,7 +4807,8 @@ function renderBattleAccessories(speciesId){
     const acc = (typeof ACCESSORIES!=='undefined') ? ACCESSORIES.find(a=>a.id===accId) : null;
     if(!acc){ img.style.display = 'none'; img.src=''; return; }
     const pos = acc.pos[speciesId];
-    const custom = accTuning(c, speciesId, accId);
+    // 形態を持つ種族は、いまの形態の調整値を使う(applyFormVisualから呼び直している)
+    const custom = accTuning(c, accTuningKey(speciesId, state.player && state.player.form), accId);
     const v = computeAccVisual(pos, custom, spriteW, spriteH);
     img.src = acc.img;
     img.style.display = 'block';
@@ -4816,6 +4844,42 @@ function renderBattleAccessories(speciesId){
 // ==================== コスメ所持・装備データここまで ====================
 
 let loadoutSelectedSpecies = null;
+// 装備画面でいまどちらの形態を編集しているか。形態を持たない種族では使わない
+let loadoutFormKey = 'normal';
+// 装備画面で読み書きする調整値のキー
+function loadoutTuningKey(){ return accTuningKey(loadoutSelectedSpecies, loadoutFormKey); }
+// 装備画面のプレビューに出す絵(スキン優先、形態ちがいがあればそれ)
+function loadoutPreviewImg(){
+  const c = loadCosmetics();
+  const sp = SPECIES[loadoutSelectedSpecies];
+  const skin = c.equippedSkin[loadoutSelectedSpecies] ? findSkinById(c.equippedSkin[loadoutSelectedSpecies]) : null;
+  const angel = hasFormTuning(loadoutSelectedSpecies) && loadoutFormKey === 'angel';
+  if(skin) return (angel && skin.imgAngel) ? skin.imgAngel : skin.img;
+  return (angel && sp.imgAngel) ? sp.imgAngel : sp.img;
+}
+// 形態の切り替えボタン。形態を持たない種族では丸ごと隠す
+function renderLoadoutFormSwitch(){
+  const el = document.getElementById('loadout-form-switch');
+  const note = document.getElementById('loadout-acc-note');
+  if(!el) return;
+  if(!hasFormTuning(loadoutSelectedSpecies)){
+    el.style.display = 'none';
+    if(note) note.innerText = '左＝アクセサリ（モンスターごとに保存）／ 右＝オーラ';
+    return;
+  }
+  el.style.display = 'flex';
+  el.innerHTML = '';
+  [['normal','🌑 通常形態'], ['angel','👼 天使型']].forEach(([key, label]) => {
+    const on = loadoutFormKey === key;
+    const b = document.createElement('button');
+    b.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 '
+      + (on ? 'border-amber-400 bg-amber-900/40 text-amber-200' : 'border-zinc-700 bg-zinc-800 text-zinc-400');
+    b.innerText = label;
+    b.onclick = () => { loadoutFormKey = key; playSfx('select'); renderLoadoutScene(); };
+    el.appendChild(b);
+  });
+  if(note) note.innerText = 'アクセサリの位置は形態ごとに別々に保存されます。切り替えてから合わせてください';
+}
 window.game.openLoadout = function(){
   hideGlobalVolumeBtn(); // 左上で「← 戻る」と重なるため、装備画面の間は隠す
   playSceneBGM(__bgmShop);   // 継承ショップと同じ曲
@@ -4832,6 +4896,7 @@ window.game.closeLoadout = function(){
 };
 function renderLoadoutScene(){
   renderLoadoutSpeciesTabs();
+  renderLoadoutFormSwitch();
   renderLoadoutPreview();
   renderLoadoutSkinGrid();
   renderLoadoutStarterCardGrid();
@@ -4898,7 +4963,7 @@ function renderLoadoutSpeciesTabs(){
     const active = spId===loadoutSelectedSpecies;
     btn.className = 'shrink-0 px-3 py-2 rounded-lg text-xs font-bold border ' + (active ? 'bg-amber-700 border-amber-400 text-white' : 'bg-zinc-800 border-zinc-600 text-zinc-300');
     btn.innerText = sp.name;
-    btn.onclick = () => { loadoutSelectedSpecies = spId; renderLoadoutScene(); };
+    btn.onclick = () => { loadoutSelectedSpecies = spId; loadoutFormKey = 'normal'; renderLoadoutScene(); };
     el.appendChild(btn);
   });
 }
@@ -4911,10 +4976,7 @@ const ACC_PREVIEW_BOX = 144;
 const ACC_PREVIEW_REF = Math.round(ACC_PREVIEW_BOX * 0.85);
 function renderLoadoutPreview(){
   const c = loadCosmetics();
-  const sp = SPECIES[loadoutSelectedSpecies];
-  const skinId = c.equippedSkin[loadoutSelectedSpecies];
-  const skin = skinId ? findSkinById(skinId) : null;
-  document.getElementById('loadout-preview-img').src = skin ? skin.img : sp.img;
+  document.getElementById('loadout-preview-img').src = loadoutPreviewImg();
   renderAura(document.getElementById('loadout-aura-fx'), document.getElementById('loadout-preview'));
   const refSize = ACC_PREVIEW_REF;
   ['hat','mask','other','weapon'].forEach(cat=>{
@@ -4923,7 +4985,7 @@ function renderLoadoutPreview(){
     if(!accId){ img.style.display = 'none'; img.src=''; return; }
     const acc = ACCESSORIES.find(a=>a.id===accId);
     if(!acc){ img.style.display = 'none'; img.src=''; return; }
-    const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutSelectedSpecies, accId), refSize, refSize);
+    const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutTuningKey(), accId), refSize, refSize);
     img.src = acc.img;
     img.style.display = 'block';
     img.style.width = v.w+'px';
@@ -5198,7 +5260,7 @@ function selectAccInPicker(accId){
   const hueSlider = document.getElementById('acc-hue-slider');
   const rotSlider = document.getElementById('acc-rotate-slider');
   const scaleSlider = document.getElementById('acc-scale-slider');
-  const custom = accTuning(c, loadoutSelectedSpecies, accId);
+  const custom = accTuning(c, loadoutTuningKey(), accId);
   hueSlider.value = custom.hue||0;
   rotSlider.value = custom.rotate||0;
   scaleSlider.value = custom.scale||100;
@@ -5207,19 +5269,19 @@ function selectAccInPicker(accId){
   document.getElementById('acc-scale-val').innerText = custom.scale||100;
   hueSlider.oninput = () => {
     document.getElementById('acc-hue-val').innerText = hueSlider.value;
-    updateAccTuning(loadoutSelectedSpecies, accId, { hue: parseInt(hueSlider.value) });
+    updateAccTuning(loadoutTuningKey(), accId, { hue: parseInt(hueSlider.value) });
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
   rotSlider.oninput = () => {
     document.getElementById('acc-rotate-val').innerText = rotSlider.value;
-    updateAccTuning(loadoutSelectedSpecies, accId, { rotate: parseInt(rotSlider.value) });
+    updateAccTuning(loadoutTuningKey(), accId, { rotate: parseInt(rotSlider.value) });
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
   scaleSlider.oninput = () => {
     document.getElementById('acc-scale-val').innerText = scaleSlider.value;
-    updateAccTuning(loadoutSelectedSpecies, accId, { scale: parseInt(scaleSlider.value) });
+    updateAccTuning(loadoutTuningKey(), accId, { scale: parseInt(scaleSlider.value) });
     renderAccPickerPreview(accId);
     renderLoadoutPreview();
   };
@@ -5232,13 +5294,10 @@ function selectAccInPicker(accId){
 const ACC_PICKER_PREVIEW_REF = ACC_PREVIEW_REF;
 function renderAccPickerPreview(accId){
   const c = loadCosmetics();
-  const sp = SPECIES[loadoutSelectedSpecies];
-  const skinId = c.equippedSkin[loadoutSelectedSpecies];
-  const skin = skinId ? findSkinById(skinId) : null;
-  document.getElementById('acc-picker-preview-img').src = skin ? skin.img : sp.img;
+  document.getElementById('acc-picker-preview-img').src = loadoutPreviewImg();
   const acc = ACCESSORIES.find(a=>a.id===accId);
   if(!acc) return;
-  const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutSelectedSpecies, accId), ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
+  const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutTuningKey(), accId), ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
   const img = document.getElementById('acc-picker-preview-acc');
   img.src = acc.img;
   img.style.width = v.w+'px';
@@ -5302,8 +5361,8 @@ function setupAccPad(accId){
     lastT = now;
     if(dt > 0 && (vx !== 0 || vy !== 0)){
       const c = loadCosmetics();
-      const cur = accTuning(c, loadoutSelectedSpecies, accId);
-      updateAccTuning(loadoutSelectedSpecies, accId, {
+      const cur = accTuning(c, loadoutTuningKey(), accId);
+      updateAccTuning(loadoutTuningKey(), accId, {
         offsetXPct: Math.round(clamp((cur.offsetXPct||0) + vx*dt, ACC_PAD_LIMIT)*10)/10,
         offsetYPct: Math.round(clamp((cur.offsetYPct||0) + vy*dt, ACC_PAD_LIMIT)*10)/10,
       });
@@ -5354,7 +5413,7 @@ function setupAccDrag(accId){
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX; startY = pt.clientY;
     const c = loadCosmetics();
-    const custom = accTuning(c, loadoutSelectedSpecies, accId);
+    const custom = accTuning(c, loadoutTuningKey(), accId);
     startOffsetXPct = custom.offsetXPct||0; startOffsetYPct = custom.offsetYPct||0;
     e.preventDefault();
   }
@@ -5365,7 +5424,7 @@ function setupAccDrag(accId){
     // ドラッグしたピクセル量を、プレビュー基準サイズに対する%に変換して保存する(表示先のサイズが変わっても比率が保たれる)
     const dxPct = dx / ACC_PICKER_PREVIEW_REF * 100;
     const dyPct = dy / ACC_PICKER_PREVIEW_REF * 100;
-    updateAccTuning(loadoutSelectedSpecies, accId, {
+    updateAccTuning(loadoutTuningKey(), accId, {
       offsetXPct: Math.round((startOffsetXPct + dxPct)*10)/10,
       offsetYPct: Math.round((startOffsetYPct + dyPct)*10)/10,
     });
@@ -5389,7 +5448,7 @@ function resetAccPosition(){
   const c = loadCosmetics();
   const accId = accSlots(c, loadoutSelectedSpecies)[accPickerCategory];
   if(!accId) return;
-  updateAccTuning(loadoutSelectedSpecies, accId, { offsetXPct:0, offsetYPct:0, scale:100 });
+  updateAccTuning(loadoutTuningKey(), accId, { offsetXPct:0, offsetYPct:0, scale:100 });
   document.getElementById('acc-scale-slider').value = 100;
   document.getElementById('acc-scale-val').innerText = 100;
   renderAccPickerPreview(accId);
@@ -5594,11 +5653,9 @@ const GACHA_TIER_LABEL = { hazure:'ハズレ', dia150:'大量継承pt', accessor
 // ガチャ画面の一番上に出す「新しく引けるようになったラインナップ」の告知。
 // 次に何か追加したら、ここにidを足すだけで表示に載る(確率は変えていない)。
 const GACHA_PICKUP = {
-  date: '2026/08/05',
-  skins: ['hinotori_ssr_02', 'motchi_ssr_02'],
-  accessories: ['acc_hat_kanzashi','acc_hat_horns','acc_hat_flamehorn',
-                'acc_other_rose','acc_other_scarab','acc_other_sapphire',
-                'acc_weapon_rapier','acc_weapon_dagger','acc_weapon_katana'],
+  date: '2026/08/06',
+  skins: ['kawazumo_ssr_02', 'iblis_ssr_01'],
+  accessories: [],
 };
 // 未所持のものだけ数える。全部そろっていたら「コンプリート」と出す
 function pickupUnownedCount(){
