@@ -3110,8 +3110,9 @@ function relinkEnemyImg(enemy) {
 // 1回で足りているが、途中でタスクキルして復帰した場合はDOMが真っ新な状態から始まる。
 // 復帰処理でここを通らないと、キャラが消えたまま(種族名が「---」のまま)戦闘が始まる。
 // いま出すべきキャラ絵。スキン > 形態ちがい > 素の絵 の順。
-// 【重要】スキンを装備しているときは形態ちがいの絵を出さないこと。
-// スキンは1枚しか用意されていないので、天使型になった瞬間だけスキンが消えて見える。
+// 【重要】スキンを装備しているときは、素の形態ちがいの絵を出さないこと。
+// スキン側に imgAngel が無ければ1枚で通す(getEquippedSkinImg がその判断をしている)。
+// ここで素の天使型の絵に落とすと、天使型になった瞬間だけスキンが消えて見えてしまう。
 function currentPlayerImg(spec){
   const skinImg = (typeof getEquippedSkinImg==='function') ? getEquippedSkinImg(spec.id) : null;
   if(skinImg) return skinImg;
@@ -3403,7 +3404,7 @@ function showAdminBody(){
     }, 'primary');
     btn(row, 'SSRスキンだけ解放', ()=>{
       const x = loadCosmetics();
-      allSkinsOfRarity('SSR').forEach(s=>{ if(!x.ownedSkins.includes(s.id)) x.ownedSkins.push(s.id); });
+      allSkinsOfRarity('SSR', true).forEach(s=>{ if(!x.ownedSkins.includes(s.id)) x.ownedSkins.push(s.id); });   // 未公開ぶんも配る
       saveCosmetics(x); toast('SSRスキンを解放しました'); redraw();
     });
     btn(row, '所持を全部消す', ()=>{
@@ -4629,7 +4630,12 @@ function getEquippedSkinImg(speciesId){
   const skinId = c.equippedSkin[speciesId];
   if(!skinId) return null;
   const skin = findSkinById(skinId);
-  return skin ? skin.img : null;
+  if(!skin) return null;
+  // 形態を持つ種族(イブリース)のスキンは、スキン側にも形態ちがいの絵を用意できる。
+  // 用意されていなければ1枚で通す(形態が変わっても絵は変わらない)。
+  if(skin.imgAngel && typeof isIblis === 'function' && isIblis()
+     && state.player.species.id === speciesId && state.player.form === 'angel') return skin.imgAngel;
+  return skin.img;
 }
 // アクセサリの座標は「キャラの表示サイズに対する%」で持っているので、
 // 実際に表示されているスプライトの幅・高さを測ってから位置を計算する(装備画面でもバトルでも同じロジックで正しくスケールする)
@@ -4840,7 +4846,9 @@ function renderLoadoutSkinGrid(){
   noneBtn.innerHTML = `<img src="${SPECIES[loadoutSelectedSpecies].img}" class="w-3/4 h-3/4 object-contain">`;
   noneBtn.onclick = () => { c.equippedSkin[loadoutSelectedSpecies] = null; saveCosmetics(c); renderLoadoutScene(); };
   el.appendChild(noneBtn);
-  const skins = SKINS[loadoutSelectedSpecies] || [];
+  // 未公開スキン(hidden)は、持っているときだけ並べる。
+  // 持っていないものまで並べると「まだ出していないスキン」の存在が見えてしまう
+  const skins = (SKINS[loadoutSelectedSpecies] || []).filter(s => !isSkinHidden(s) || c.ownedSkins.includes(s.id));
   skins.forEach(skin=>{
     const owned = c.ownedSkins.includes(skin.id);
     const equipped = c.equippedSkin[loadoutSelectedSpecies] === skin.id;
@@ -5365,9 +5373,19 @@ function rollGachaTier(rareOrBetterOnly){
   return Object.keys(rates)[0];
 }
 function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-function allSkinsOfRarity(rarity){
+// ==== まだ公開していないスキン ====
+// スキンに hidden:true を付けると、ガチャ・提供割合・100連の「選んで入手」に出なくなる。
+// 【重要】ガチャまわりは全部この関数を通っているので、ここで弾けば一箇所で済む。
+// 装備画面には「持っていれば」出す(管理者ページで配って試せるようにするため)。
+// 公開するときは hidden を消すだけ。
+function isSkinHidden(s){ return !!(s && s.hidden); }
+function allSkinsOfRarity(rarity, includeHidden){
   const out = [];
-  for(const sp in SKINS){ SKINS[sp].forEach(s=>{ if(s.rarity===rarity) out.push(s); }); }
+  for(const sp in SKINS){ SKINS[sp].forEach(s=>{
+    if(s.rarity!==rarity) return;
+    if(!includeHidden && isSkinHidden(s)) return;
+    out.push(s);
+  }); }
   return out;
 }
 // ==== ピックアップ(確率アップ) ====
@@ -6946,12 +6964,27 @@ function onEnemyFormChange(e, formIdx){
   if(formIdx > 0) playFormChangeFx(e, formIdx);
   else if(e.formImgs && e.formImgs[0]) e.img = e.formImgs[0];
 }
+// 形態を持つボスの「その形態を倒したぶん」のスコア。
+// 【重要】61階以降の一律ボーナス(winBattle)と二重に入らないよう、
+// formScores を持つ敵はそちらの計算から外してある。
+function awardFormScore(e, formIdx){
+  if(!e || !e.formScores) return 0;
+  const v = e.formScores[formIdx] || 0;
+  if(v > 0){
+    state.score += v;
+    if(typeof showFloatingText === 'function' && ui && ui.enemyNode){
+      showFloatingText(`+${v.toLocaleString()}`, 'heal', ui.enemyNode);
+    }
+  }
+  return v;
+}
 function tryEnemyRevive(){
   const e = state.enemy;
   if(!e || !e.revive) return false;
   const max = e.reviveMax || 1;
   const done = e._reviveCount || 0;
   if(done >= max) return false;
+  awardFormScore(e, done);   // いま倒した形態(0始まり)のぶん
   e._reviveCount = done + 1;
   e._revived = true;              // 旧フラグも残す(他の判定が見ている可能性への保険)
   e.hp = e.maxHp;
@@ -8363,6 +8396,8 @@ if(state.enemy.mode==='boss') {
 // 二重付与されてしまう不具合があったため、撃破時にまとめて付与するよう変更)
 const floorBonus={15:5000,30:10000,45:20000,47:30000,49:50000,50:80000,52:100000,54:100000,56:100000,58:125000,60:170000};
 if(floorBonus[state.floor]) state.score+=floorBonus[state.floor];
+// 形態ごとにスコアを持つボス(創造神テクモクレイン)は、そちらで数えるので一律ボーナスは付けない
+else if(state.enemy.formScores){ awardFormScore(state.enemy, state.enemy._reviveCount || 0); }
 else if(state.floor>=61){ state.score += 500000 + (state.floor-61)*100000; }
 const tc=state.enemy.turnCount; let b=0;
 if(tc<=3)b=50000; else if(tc<=5)b=30000; else if(tc<=10)b=15000; else if(tc<=15)b=10000; else if(tc<=20)b=5000;
