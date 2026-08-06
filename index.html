@@ -1918,7 +1918,7 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
         <li><b>ノーマル</b>：スコア等倍</li>
         <li><b>ハード</b>：敵の攻撃1.12倍 / HP1.05倍 / スコア1.2倍</li>
         <li><b>エキスパート</b>：敵の攻撃1.2倍 / HP1.1倍 / スコア1.5倍</li>
-        <li><b>ベリーハード</b>：敵の攻撃1.28倍 / HP1.15倍 / スコア1.75倍 / 63階のレジェンドボスラッシュ解放</li>
+        <li><b>ベリーハード</b>：敵の攻撃1.28倍 / HP1.15倍 / スコア1.75倍 / 65階までのレジェンドボスラッシュ解放</li>
         <li><b>レジェンド</b>：敵の攻撃1.4倍 / HP1.4倍 / スコア2.25倍。初期デッキに取り除けない「呪い」が入り、ボスラッシュの必殺技で受けるケガが「大ケガ」（手札に残したままターンを終えると自傷）になります</li>
       </ul>
       <p class="mt-1 text-zinc-400">※ボスだけは別の倍率です（エキスパート以上でHP1.2〜1.5倍・攻撃1.25〜1.5倍）。</p>
@@ -3508,8 +3508,8 @@ function showAdminBody(){
   {
     const inRun = !!(state && state.player && state.player.species);
     const c = card('🌌 創造神と戦う',
-      `冒険にはまだ出していない65階のボスです（出すには CREATOR_BOSS_ENABLED を true に）。`
-      + `<br>いま冒険に出せる状態: <b>${(typeof CREATOR_BOSS_ENABLED!=='undefined' && CREATOR_BOSS_ENABLED) ? 'はい' : 'いいえ'}</b>`
+      `65階のラスボスです（出す・出さないは CREATOR_BOSS_ENABLED で切り替え）。`
+      + `<br>いま冒険に出ている: <b>${(typeof CREATOR_BOSS_ENABLED!=='undefined' && CREATOR_BOSS_ENABLED) ? 'はい' : 'いいえ'}</b>`
       + (inRun ? '' : '<br>冒険中ではないので、モッチーで冒険を始めてから65階へ飛びます。'));
     const row = btnRow(c);
     const fight = (diff, boost) => {
@@ -4079,6 +4079,14 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'65階に新たなラスボスが登場', items:[
+    'レジェンドボスラッシュが65階まで伸びました',
+    '64階は最後の支度をする場所です。休息所・修行・ショップから選べます',
+    '65階のボスは3つの形態を持ち、倒すたびに姿と技を変えて立ち上がってきます',
+    '常時発動の特殊能力を2つ持っています。1ターンに使えるカードが制限され、こちらの丈夫さも一部無視してきます',
+    '内容は戦闘中に✨アイコンをタップすると読めます',
+    '形態を倒すごとにスコアが入ります',
+  ]},
   { date:'2026/08/06', title:'ゴジョモッチーに専用の技セットを追加', items:[
     'SSRスキン「ゴジョモッチー」に、5枚のカードが専用の技に入れ替わる技セットを追加しました',
     '「大丈夫僕最強だから」「術式順転「蒼」」「術式反転「赫」」「虚式「茈」」「領域展開「無量空処」」の5枚です',
@@ -6277,7 +6285,10 @@ if(state.floor>1) { state.score+=fs; }
 const sp={46:'camp',47:'boss',48:'camp',49:'boss',50:'boss',51:'camp',52:'boss',53:'camp',54:'boss',55:'camp',56:'boss',57:'camp',58:'boss',59:'camp',60:'boss'};
 const restFloors = [46, 48, 51, 53, 55, 57, 59];
 let types;
-if (restFloors.includes(state.floor)) {
+// 64階はラスボス(65階)の直前の最後の支度。ここだけ休息所・修行・ショップの3つ全部から選べる
+if (state.floor === 64) {
+types = ['camp', 'training', 'shop'];
+} else if (restFloors.includes(state.floor)) {
 types = ['camp', Math.random()<0.5?'training':'shop'];
 } else if(sp[state.floor]) {
 types = [sp[state.floor]];
@@ -7305,7 +7316,7 @@ function setEnemyIntent() {
 // 創造神(65階)を冒険に出すかどうか。
 // false のあいだは 63階でボスラッシュが終わり、65階には行けない(データだけ入っている状態)。
 // true にすると 64階=休息所 / 65階=創造神 になる。
-const CREATOR_BOSS_ENABLED = false;
+const CREATOR_BOSS_ENABLED = true;
 function setEnemyIntentBase() {
 const e=state.enemy, r=Math.random();
 
@@ -8559,7 +8570,8 @@ if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
 if (state.difficulty === 'legend') s = Math.floor(s * 2.25);
 return s;
 }
-function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全63階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();stopSceneBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();}; }
+function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const lastFloor = CREATOR_BOSS_ENABLED ? 65 : 63;
+  const msg = (state.legendRush ? `レジェンドボスラッシュ制覇！\n全${lastFloor}階踏破おめでとう！\n最終スコア: ${s}` : `全60階踏破おめでとう！\n最終スコア: ${s}`) + `\n継承ポイント +${mpt}pt\n💎ダイヤ +${dia}`; showModal("殿堂入り",msg); ui.modalBtn.classList.remove('hidden'); ui.modalBtn.onclick=()=>{ui.modal.classList.add('hidden');ui.topBar.classList.add('hidden');ui.nameScene.classList.remove('hidden');stopBattleBGM();stopVictoryBGM();stopSceneBGM();playMenuBGM();showGlobalVolumeBtn();updateTitleDiaDisplay();}; }
 function gameOver(){
   if(state.battleEnded) return;
   // ヒノトリ種族特性: ライフ0になった時、1冒険につき1度だけ最大ライフの半分で復活する
