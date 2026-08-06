@@ -3176,10 +3176,12 @@ function startAdminRun(speciesId, diff){
 //   ステータス … startBattle が regenEnergy を0に戻したあと(=戦闘開始の後)
 // 逆にすると「毎ターンのガッツ回復50」が戦闘開始で消える(実際に一度そうなった)。
 function adminBoostStats(){
-  state.player.maxHp += 500; state.player.hp = state.player.maxHp;
-  state.player.atkBase += 50; state.player.blockBase += 50;
+  // 【重要】足し算ではなく「その値にする」。毎回同じ条件で測れるようにするため。
+  // 数値は65階まで来た人の実際の到達値に寄せてある(継承ショップ+遺物+ボス遺物で力丈90超まで行く)。
+  state.player.maxHp = 300; state.player.hp = state.player.maxHp;
+  state.player.atkBase = 75; state.player.blockBase = 75;
   state.player.maxEnergy += 100;
-  state.player.regenEnergy = 50;   // 足すのではなく50に固定する
+  state.player.regenEnergy = 50;
 }
 // 管理者ページ用のデッキ組み替え。
 // 抜くもの: 初期デッキの基本攻撃(isStarter かつ N の攻撃カード=b1/b2)と「防御」。
@@ -3409,7 +3411,7 @@ function showAdminBody(){
     const row2 = document.createElement('div'); row2.className='flex flex-wrap gap-1.5 mt-1.5'; c.appendChild(row2);
     btn(row2, '強化してから戦う', ()=>fight(inRun ? state.difficulty : 'normal', true));
     { const d = document.createElement('div'); d.className='text-[9px] text-zinc-500 mt-1 leading-relaxed';
-      d.innerHTML = 'ライフ+500 力丈+50 ガッツ上限+100 毎ターンのガッツ回復50<br>'
+      d.innerHTML = 'ライフ300 力丈75 ガッツ上限+100 毎ターンのガッツ回復50<br>'
         + 'デッキは初期の基本攻撃と「防御」を抜いて、その種族のSSR・MRを全部入れます。';
       c.appendChild(d); }
     btn(row2, '第2形態にする', ()=>{ if(state.enemy&&state.enemy.trait==='creator'){ state.enemy.hp=1; toast('あと1ダメージで第2形態'); updateUI(); } else toast('創造神と戦っていません'); });
@@ -7589,7 +7591,7 @@ if(state.player.species.id==='kolope')dmg=Math.max(0,dmg-4);
 if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) dmg=Math.floor(dmg*0.9);
 if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_enkaku')) dmg=Math.floor(dmg*0.9);
 if(state.enemy.bleed>0 && state.player.relics.some(r=>r.id==='z_kuroi_houseki')) dmg=Math.floor(dmg*0.9);
-const def=state.player.blockBase + state.player.blockBattle; dmg=Math.max(0,dmg-def);
+const def=effectivePlayerDef(); dmg=Math.max(0,dmg-def);   // 貫通ぶんを引いた丈夫さ(予告も同じ関数)
 if(state.player.block>=dmg){ state.player.block-=dmg; showFloatingText(0,'block',ui.playerNode); }
 else {
 let d=dmg-state.player.block;
@@ -7823,6 +7825,24 @@ function toggleExhaustPick(idx){
 // 手札を無限に回す戦法を止めるためのもの。枚数は敵データの cardPlayLimit で決まる。
 // 残り枚数は画面に出す(#card-limit-badge)。理由が分からず使えなくなる事故を防ぐため。
 const CARD_LIMIT_DEFAULT = 7;
+
+// ==== ラスボスのパッシブ「理を無視する」: プレイヤーの丈夫さを一定割合だけ無視する ====
+// 【なぜ要るか】丈夫さは「1発ごとに」引かれるので、連撃技ほど丈夫さに弱い。
+// 65階では丈夫さ90超が普通で、そのままだと連撃技のダメージが0になってしまう。
+// さらに攻弱(×0.75)は丈夫さを引く前にかかるので、攻弱を撒くだけで技が無力化されていた。
+// (丈夫さ92のとき、攻弱を付けるだけで5つの技が0ダメージになっていた)
+function enemyDefPierce(){
+  const e = state.enemy;
+  return (e && e.defPierce) ? e.defPierce : 0;   // 0 = 貫通なし
+}
+// 敵の攻撃に対して実際に効く丈夫さ。
+// 【重要】実処理(敵の攻撃ループ)と予告(updateUI)の両方で必ずこれを使うこと。
+// 片方だけだと「予告120なのに150くらう」というズレになる。
+function effectivePlayerDef(){
+  const def = (state.player.blockBase||0) + (state.player.blockBattle||0);
+  const pierce = enemyDefPierce();
+  return pierce ? Math.floor(def * (1 - pierce)) : def;
+}
 function cardPlayLimit(){
   const e = state.enemy;
   return (e && e.cardPlayLimit) ? e.cardPlayLimit : 0;   // 0 = 制限なし
@@ -8314,6 +8334,7 @@ window.game.showBossEffectInfo = function() {
   if(state.enemy.legendaryAura) lines.push('✨ 伝説のオーラ\nバトル開始時と3ターン目に、こちらのデッキへ強制的に「ケガ」を2枚追加する。');
   if(state.enemy.legendaryWhim) lines.push('🌀 伝説のきまぐれ\nこちらの連撃(複数ヒット)攻撃のダメージが半減する代わりに、連撃のない通常攻撃のダメージが2倍になる。');
   if(state.enemy.cardPlayLimit) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${state.enemy.cardPlayLimit}枚までに制限される。残り枚数は手札の上に出る。`);
+  if(state.enemy.defPierce) lines.push(`🌀 理を無視する\nこちらの丈夫さを${Math.round(state.enemy.defPierce*100)}%無視して攻撃してくる。丈夫さを積んでも受けるダメージが減りきらない。`);
   if(lines.length===0) return;
   showModal('特殊効果', lines.join('\n\n'));
   ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText='閉じる'; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');
@@ -9915,7 +9936,7 @@ const totalMaxE = state.player.maxEnergy + (state.player.maxEnergyBattle||0);
 if(totalMaxE > 99) ui.playerStatuses.innerHTML+=ps('bg-fuchsia-900','border-fuchsia-400/50','text-fuchsia-200','📈',`G上限${totalMaxE}`);
 if(state.enemy){
 ui.enemyHpBar.style.width=`${(state.enemy.hp/state.enemy.maxHp)*100}%`; ui.enemyHpText.innerText=`${state.enemy.hp}/${state.enemy.maxHp}`;
-if(state.enemy.legendaryAura || state.enemy.legendaryWhim || state.enemy.cardPlayLimit){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
+if(state.enemy.legendaryAura || state.enemy.legendaryWhim || state.enemy.cardPlayLimit || state.enemy.defPierce){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
 if(state.enemy.isRareElite){
   ui.enemyName.innerHTML=`<span style="background:linear-gradient(90deg,#ffd700,#ff8c00,#ffd700,#fff700,#ffd700);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:lr-border 1s linear infinite;font-weight:900;filter:drop-shadow(0 0 4px #ffd700);">★ ${state.enemy.name} ★</span>`;
 } else {
@@ -9945,7 +9966,7 @@ if(state.player.species.id === 'kolope') dmgVal = Math.max(0, dmgVal - 4);
 if(state.enemy.freeze>0 && state.player.relics.some(r=>r.id==='ga_hyouketsu')) dmgVal = Math.floor(dmgVal * 0.9);
 if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_enkaku')) dmgVal = Math.floor(dmgVal * 0.9);
 if(state.enemy.bleed>0 && state.player.relics.some(r=>r.id==='z_kuroi_houseki')) dmgVal = Math.floor(dmgVal * 0.9);
-const playerDef = (state.player.blockBase || 0) + (state.player.blockBattle || 0);
+const playerDef = effectivePlayerDef();   // 実処理(敵の攻撃ループ)と必ず同じにすること
 dmgVal = Math.max(0, dmgVal - playerDef);
 }
 // buff型は数値非表示、力アップ量を表示
