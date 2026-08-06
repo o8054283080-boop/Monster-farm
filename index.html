@@ -4164,6 +4164,12 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'65階ラスボスの特殊効果を調整', items:[
+    '「伝説のきまぐれ」で連撃のない攻撃に乗る倍率を、65階のラスボスだけ 2倍 → 1.3倍 にしました',
+    '連撃が半減するのは今までどおりです。単発と連撃の差がかなり縮まります',
+    '「理を無視する」で無視される丈夫さの割合を減らしました。積んだ丈夫さが今までより効きます',
+    '61〜63階のボスは今までどおりです',
+  ]},
   { date:'2026/08/06', title:'新種族「イブリース」が登場', items:[
     'モンスター選択にイブリースが並ぶようになりました',
     '戦闘中に🌑通常形態と👼天使型を行き来する種族です',
@@ -7277,7 +7283,7 @@ state.enemy={...t,maxHp:t.hp,mode:mode,weak:0,vuln:0,burn:0,freeze:0,shock:0,blo
 // 61階以降のボスには「伝説の特殊効果」を付与する
 if(mode==='boss' && state.floor>=61){
   state.enemy.legendaryAura = true;   // 伝説のオーラ: バトル開始時・3ターン目にケガを2枚強制追加
-  state.enemy.legendaryWhim = true;   // 伝説のきまぐれ: 連撃ダメージ半減、連撃のないダメージ2倍
+  state.enemy.legendaryWhim = true;   // 伝説のきまぐれ: 連撃ダメージ半減、連撃のないダメージ増(倍率は whimSingleMult。既定2倍)
 }
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null; __exhaustPick=null; updateExhaustPickBar();
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
@@ -8211,6 +8217,13 @@ const CARD_LIMIT_DEFAULT = 7;
 // 65階では丈夫さ90超が普通で、そのままだと連撃技のダメージが0になってしまう。
 // さらに攻弱(×0.75)は丈夫さを引く前にかかるので、攻弱を撒くだけで技が無力化されていた。
 // (丈夫さ92のとき、攻弱を付けるだけで5つの技が0ダメージになっていた)
+// 「伝説のきまぐれ」で単発攻撃に乗る倍率。敵ごとに変えられる(既定は2倍)。
+// 連撃の半減は共通のまま。ラスボスだけこの値を下げて、単発一撃で溶けないようにしてある。
+// 【重要】playCard と calcPreviewDmg の両方でここを使うこと
+function whimSingleMult(){
+  const e = state.enemy;
+  return (e && e.whimSingleMult) ? e.whimSingleMult : 2;
+}
 function enemyDefPierce(){
   const e = state.enemy;
   return (e && e.defPierce) ? e.defPierce : 0;   // 0 = 貫通なし
@@ -8335,7 +8348,7 @@ if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
 if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
 if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m*=1.5;
 if(c.selfDmg && state.player.selfDmgCardsDoubled) m*=SELF_DMG_CARD_MULT;
-if(state.enemy.legendaryWhim) m *= (h>1 ? 0.5 : 2);
+if(state.enemy.legendaryWhim) m *= (h>1 ? 0.5 : whimSingleMult());
 if(c.executeBelow && state.enemy.hp <= state.enemy.maxHp*c.executeBelow) m*=(c.executeMult||2);
 if(state.player.ikkiIssin && !(h>1)) m*=3; // 一撃入魂: 連撃のないカードのダメージ3倍
 if((state.player.permDmgMultBonus||0) > 0) m *= (1+state.player.permDmgMultBonus);
@@ -8724,7 +8737,7 @@ window.game.showBossEffectInfo = function() {
   if(!state.enemy) return;
   let lines = [];
   if(state.enemy.legendaryAura) lines.push('✨ 伝説のオーラ\nバトル開始時と3ターン目に、こちらのデッキへ強制的に「ケガ」を2枚追加する。');
-  if(state.enemy.legendaryWhim) lines.push('🌀 伝説のきまぐれ\nこちらの連撃(複数ヒット)攻撃のダメージが半減する代わりに、連撃のない通常攻撃のダメージが2倍になる。');
+  if(state.enemy.legendaryWhim) lines.push(`🌀 伝説のきまぐれ\nこちらの連撃(複数ヒット)攻撃のダメージが半減する代わりに、連撃のない通常攻撃のダメージが${whimSingleMult()}倍になる。`);
   if(state.enemy.cardPlayLimit) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${state.enemy.cardPlayLimit}枚までに制限される。残り枚数は手札の上に出る。`);
   if(state.enemy.defPierce) lines.push(`🌀 理を無視する\nこちらの丈夫さを${Math.round(state.enemy.defPierce*100)}%無視して攻撃してくる。丈夫さを積んでも受けるダメージが減りきらない。`);
   if(lines.length===0) return;
@@ -10435,7 +10448,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m *= 1.5;
     if(c.selfDmg && state.player.relics.some(r=>r.id==='br_k_explosivesoul')) m *= 1.5;
     if(c.selfDmg && state.player.selfDmgCardsDoubled) m *= SELF_DMG_CARD_MULT;
-    if(state.enemy && state.enemy.legendaryWhim) m *= (hits>1 ? 0.5 : 2);
+    if(state.enemy && state.enemy.legendaryWhim) m *= (hits>1 ? 0.5 : whimSingleMult());   // 実処理(playCard)と必ず同じにすること
     if(c.executeBelow && state.enemy && state.enemy.hp <= state.enemy.maxHp*c.executeBelow) m *= (c.executeMult||2);
     if(state.player.ikkiIssin && !(hits>1)) m *= 3;
     if((state.player.permDmgMultBonus||0) > 0) m *= (1+state.player.permDmgMultBonus);

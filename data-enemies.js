@@ -210,7 +210,9 @@ const BOSS_DATA = {
 // HPが0になるたび復活して形態が変わる(reviveMax:2 で3形態ぶん)。
 // 復活する敵なのでHPは1形態ぶんの数値。実質は ×3(レジェンドなら 6000×3=18000)。
 65:{name:"創造神テクモクレイン",icon:"🌌",hp:4000,dmg:120,trait:'creator',revive:true,reviveMax:2,reviveAtkBuff:10,
-   cardPlayLimit:7,defPierce:0.35,
+   // 丈夫さ貫通は25%。伝説のきまぐれの単発ぶんも、ここだけ2倍→1.3倍にしてある
+   // (単発一撃で溶ける戦いにしないため。連撃の半減は共通のまま)
+   cardPlayLimit:7,defPierce:0.25,whimSingleMult:1.3,
    // 形態ごとの撃破スコア。61階以降の一律ボーナスの代わりに使う(index.htmlのwinBattle参照)
    formScores:[300000,600000,1000000],
    formNames:['秩序','混沌','創造'],
