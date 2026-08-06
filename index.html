@@ -1591,6 +1591,18 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
   background: radial-gradient(circle, rgba(254,202,202,0.5) 0%, rgba(239,68,68,0.35) 40%, transparent 70%);
   animation: aura-breathe 1.5s ease-in-out infinite alternate;
 }
+
+/* タイトルの「新スキン」の帯。ガチャのボタンの真上に置いて、そこへ誘導する */
+.new-skin-banner {
+  background: linear-gradient(90deg, rgba(120,53,15,0.85) 0%, rgba(88,28,135,0.85) 100%);
+  border: 1px solid rgba(251,191,36,0.55);
+  animation: new-skin-glow 1.8s ease-in-out infinite alternate;
+}
+@keyframes new-skin-glow {
+  from { box-shadow: 0 0 0 rgba(251,191,36,0); }
+  to   { box-shadow: 0 0 12px rgba(251,191,36,0.55); }
+}
+.new-skin-banner img { image-rendering: auto; }
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -1738,6 +1750,16 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 </select>
 
 <button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
+<!-- ガチャに新しいスキンが入ったことを知らせる帯。まだ持っていないぶんだけ絵と名前を出す。
+     全部そろうと消える。中身は NEW_GACHA_SKIN_IDS で決まる -->
+<button id="new-skin-banner" onclick="window.game.showGacha()" style="display:none" class="new-skin-banner w-full items-center gap-2 px-2 py-1.5 rounded-sm transition-all active:scale-95">
+  <span class="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white tracking-wider">NEW</span>
+  <span id="new-skin-thumbs" class="flex items-center gap-1 shrink-0"></span>
+  <span class="text-left leading-tight min-w-0">
+    <span id="new-skin-names" class="block text-[11px] font-bold text-amber-100 truncate"></span>
+    <span class="block text-[9px] text-amber-200/70">ガチャに新登場！</span>
+  </span>
+</button>
 <button onclick="window.game.showGacha()" class="w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 bg-gradient-to-r from-cyan-700 to-blue-700 border border-cyan-400 text-cyan-50">💎 ガチャ</button>
 <div class="grid grid-cols-2 gap-2">
 <button onclick="document.getElementById('howto-modal').classList.remove('hidden')" class="ornate-panel w-full py-2 text-zinc-300 text-xs font-bold rounded-sm transition-all active:scale-95">📖 遊び方</button>
@@ -3613,6 +3635,43 @@ function showAdminBody(){
   }catch(e){ console.warn('管理者ページを開けませんでした', e); }
 })();
 
+// ==== ガチャの新スキンを、タイトルで知らせる ====
+// ここに id を並べておくと、ガチャのボタンの真上に「NEW」の帯が出る。
+// 帯は「並べたスキンを全部手に入れたら」自動で消えるので、消す作業はいらない。
+// 次に新スキンを出すときは、この配列の中身を入れ替えるだけでよい。
+const NEW_GACHA_SKIN_IDS = ['kawazumo_ssr_02', 'iblis_ssr_01'];
+function unownedNewGachaSkins(){
+  if(typeof SKINS === 'undefined' || typeof findSkinById !== 'function') return [];
+  const owned = (loadCosmetics().ownedSkins) || [];
+  return NEW_GACHA_SKIN_IDS
+    .map(id => findSkinById(id))
+    .filter(s => s && !s.hidden && !owned.includes(s.id));
+}
+// 【重要】読み込みの途中では描かない。
+// loadCosmetics() は中で ACC_SLOT_KEYS(const)を使うので、スクリプトを読み終える前に呼ぶと
+// TDZ の ReferenceError になる。updateTitleDiaDisplay() は読み込み直後のログインボーナス処理からも
+// 呼ばれるため、そこを素通りさせて、読み終えてから1回だけ描く。
+let __newSkinBannerReady = false;
+if(document.readyState === 'complete'){ __newSkinBannerReady = true; }
+else window.addEventListener('load', () => { __newSkinBannerReady = true; renderNewSkinBanner(); });
+function renderNewSkinBanner(){
+  if(!__newSkinBannerReady) return;
+  const el = document.getElementById('new-skin-banner');
+  if(!el) return;
+  let list = [];
+  try { list = unownedNewGachaSkins(); }
+  catch(e){ console.warn('新スキンの帯を作れませんでした', e); }
+  // 【重要】Tailwindのhiddenとflexはどちらも表示指定なので、勝ち負けが読みにくい。
+  // ここは素直にstyleで出し入れする
+  if(!list.length){ el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  const thumbs = document.getElementById('new-skin-thumbs');
+  const names  = document.getElementById('new-skin-names');
+  if(thumbs) thumbs.innerHTML = list.map(s =>
+    `<img src="${s.img}" alt="" class="w-9 h-9 object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">`).join('');
+  if(names) names.innerText = list.map(s => s.name).join('・');
+}
+
 // 汎用トースト通知(ログインボーナスなど、画面を邪魔せず一時的に知らせたい時に使う)
 function showDiaToast(html){
   const d = document.createElement('div');
@@ -3639,8 +3698,9 @@ function showDiaToast(html){
 
 // 大型アップデート記念の配布。フラグを見て1端末につき1回だけ配る。
 // 次回また配るときは、キーの日付部分を変えて金額を書き換えるだけでよい。
-const UPDATE_GIFT_KEY = 'mf_update_gift_20260805';
-const UPDATE_GIFT_AMOUNT = 200;
+const UPDATE_GIFT_KEY = 'mf_update_gift_20260806';
+const UPDATE_GIFT_AMOUNT = 135;
+const UPDATE_GIFT_TITLE = '新スキン追加記念';
 (function(){
   try{
     if(localStorage.getItem(UPDATE_GIFT_KEY)) return;
@@ -3651,7 +3711,7 @@ const UPDATE_GIFT_AMOUNT = 200;
     updateTitleDiaDisplay();
     // ログインボーナスのトーストと重ならないよう、少し遅らせて出す
     setTimeout(()=>{
-      showDiaToast(`🎉 <b>ガチャ確率アップ記念</b><br>💎+${UPDATE_GIFT_AMOUNT}<br><span style="font-size:10px;color:#a8a29e;">左下の「最終アップデート」から更新内容を見られます</span>`);
+      showDiaToast(`🎉 <b>${UPDATE_GIFT_TITLE}</b><br>💎+${UPDATE_GIFT_AMOUNT}<br><span style="font-size:10px;color:#a8a29e;">左下の「最終アップデート」から更新内容を見られます</span>`);
     }, 900);
   }catch(e){ console.warn('アップデート記念配布の処理に失敗しました', e); }
 })();
@@ -3954,7 +4014,9 @@ function getDiaBalance(){ return loadDiaProgress().dia; }
 function updateTitleDiaDisplay(){
   const el = document.getElementById('title-dia-display');
   if(el) el.innerText = `💎 ${getDiaBalance()}`;
+  renderNewSkinBanner();   // タイトルに戻ってくる場所は全部ここを通っている
 }
+
 
 // ---- ログインボーナス: 毎日15pt、5日ごとに+50pt。初回ログイン限定で+300ptのウェルカムボーナス ----
 function checkDiaLoginBonus(){
@@ -4100,6 +4162,8 @@ const CHANGELOG = [
     '溜まっている呪霊の数は画面のバッジで分かります。タップすると仕組みを読めます',
     'ライオネルには専用の看板技「獅子と熾天」が付いています。通常形態では守って昇り、天使型では殴って降ります',
     'ライオネルは通常形態と天使型で絵が変わります',
+    'タイトルのガチャの上に、まだ持っていない新スキンが並ぶようになりました。タップするとガチャへ行けます',
+    '追加記念に 💎135 をお配りしました',
   ]},
   { date:'2026/08/06', title:'継承ショップに強化枠を追加', items:[
     '「開始チカラ・極」「開始丈夫さ・極」を追加しました。どちらも10段階です',
