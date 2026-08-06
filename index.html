@@ -1555,6 +1555,11 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 <button onclick="window.game.showDeckList()" title="デッキ一覧" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🎴</button>
 <button id="sound-toggle-btn" onclick="window.game.toggleVolumePanel()" title="音量設定" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🔊</button>
 <button onclick="window.game.confirmGiveUp()" title="冒険をあきらめる" class="shrink-0 cursor-pointer bg-zinc-800 hover:bg-red-950 border border-zinc-700 hover:border-red-800 text-zinc-500 hover:text-red-300 rounded w-7 h-7 flex items-center justify-center text-xs transition">🏳️</button>
+<!-- 冒険中の管理者ページの入口。合言葉を通したタブでだけ出す。
+     【重要】表示/非表示は style で切り替える。Tailwind(CDN)が届かないと hidden が効かず、
+     普通に遊んでいる人にも見えてしまう -->
+<button id="admin-topbar-btn" onclick="window.game.openAdmin()" title="管理者ページ"
+  style="display:none;flex:none;width:1.75rem;height:1.75rem;align-items:center;justify-content:center;font-size:0.75rem;border-radius:0.25rem;background:#27272a;border:1px solid #3f3f46;color:#a1a1aa;">🛠️</button>
 </div>
 </header>
 
@@ -2989,6 +2994,16 @@ window.game.openAdmin = function(){
   try { unlocked = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch(e) {}
   if(unlocked) showAdminBody(); else showAdminGate();
 };
+// 【重要】入口のボタンはタイトル画面(#name-scene)の中にあるので、冒険が始まると一緒に消える。
+// それだけだと冒険中に管理者ページを二度と開けず、「冒険中でないと使えない」項目に永久に届かない。
+// 合言葉を通したタブでは、トップバーにも入口を出しておくこと。
+function refreshAdminTopbarBtn(){
+  const b = document.getElementById('admin-topbar-btn');
+  if(!b) return;
+  let unlocked = false;
+  try { unlocked = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch(e) {}
+  b.style.display = unlocked ? 'flex' : 'none';
+}
 function showAdminGate(){
   document.getElementById('admin-gate').classList.remove('hidden');
   document.getElementById('admin-body').classList.add('hidden');
@@ -3002,6 +3017,7 @@ function showAdminGate(){
     if(h === ADMIN_PASS_HASH){
       try { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); } catch(e) {}
       inp.value = '';
+      refreshAdminTopbarBtn();
       showAdminBody();
     } else {
       msg.textContent = '合言葉が違います';
@@ -3010,6 +3026,23 @@ function showAdminGate(){
   document.getElementById('admin-unlock-btn').onclick = tryUnlock;
   inp.onkeydown = (e) => { if(e.key === 'Enter') tryUnlock(); };
   setTimeout(()=>inp.focus(), 50);
+}
+// 管理者ページから、指定の種族・難易度で冒険を始める。
+// タイトル画面の「名前を決める→種族を選ぶ」流れをそのまま通すので、
+// 普通に始めたときと同じ状態になる(ここを自前で組み立てると初期化もれが出る)。
+function startAdminRun(speciesId, diff){
+  const nameEl = document.getElementById('player-name-input');
+  if(nameEl && !nameEl.value.trim()) nameEl.value = 'テスト';
+  if(ui && ui.diffInput && diff) ui.diffInput.value = diff;
+  window.game.confirmName();
+  window.game.selectMonster(speciesId);
+}
+// 動作確認用にプレイヤーを底上げする(強いボスを素のデッキで試しても何も分からないため)
+function adminBoostPlayer(){
+  state.player.maxHp += 500; state.player.hp = state.player.maxHp;
+  state.player.atkBase += 50; state.player.blockBase += 50;
+  state.player.maxEnergy += 100;
+  state.player.regenEnergy = (state.player.regenEnergy||0) + 30;
 }
 // 管理者ページの中身。押すたびに作り直すので、数値の表示は常に最新になる
 function showAdminBody(){
@@ -3180,12 +3213,7 @@ function showAdminBody(){
     if(inRun){
       const row = btnRow(c);
       btn(row, 'ライフ全回復', ()=>{ state.player.hp = state.player.maxHp; updateUI(); toast('全回復'); });
-      btn(row, 'ステータス盛り', ()=>{
-        state.player.maxHp += 500; state.player.hp = state.player.maxHp;
-        state.player.atkBase += 50; state.player.blockBase += 50;
-        state.player.regenEnergy = (state.player.regenEnergy||0) + 30;
-        updateUI(); toast('強くしました');
-      });
+      btn(row, 'ステータス盛り', ()=>{ adminBoostPlayer(); updateUI(); toast('強くしました'); });
       btn(row, 'ガッツ満タン', ()=>{ state.player.energy = state.player.maxEnergy + (state.player.maxEnergyBattle||0); updateUI(); });
       btn(row, '敵を瀕死に', ()=>{ if(state.enemy){ state.enemy.hp = 1; updateUI(); toast('敵を瀕死にしました'); } });
       btn(row, 'デッキを全強化', ()=>{ state.deck.forEach(x=>{ if(!x.upgraded) upgradeCard(x); }); toast('デッキを全部強化しました'); });
@@ -3201,34 +3229,33 @@ function showAdminBody(){
     const inRun = !!(state && state.player && state.player.species);
     const c = card('🌌 創造神と戦う',
       `冒険にはまだ出していない65階のボスです（出すには CREATOR_BOSS_ENABLED を true に）。`
-      + `<br>いま冒険に出せる状態: <b>${(typeof CREATOR_BOSS_ENABLED!=='undefined' && CREATOR_BOSS_ENABLED) ? 'はい' : 'いいえ'}</b>`);
-    if(!inRun){
-      const d = document.createElement('div');
-      d.className = 'text-[10px] text-zinc-500';
-      d.textContent = '冒険中ではありません。ゲームを始めてから開いてください。';
-      c.appendChild(d);
-    } else {
-      const row = btnRow(c);
-      const fight = (diff) => {
-        state.difficulty = diff;
-        state.floor = 65; state.legendRush = true; state.battleEnded = false;
-        window.game.closeAdmin();
-        startBattle('boss');
-        toast(`創造神（${diff}）と戦います`);
-      };
-      btn(row, 'ノーマルで戦う', ()=>fight('normal'), 'primary');
-      btn(row, 'レジェンドで戦う', ()=>fight('legend'), 'primary');
-      const row2 = document.createElement('div'); row2.className='flex flex-wrap gap-1.5 mt-1.5'; c.appendChild(row2);
-      btn(row2, '第2形態にする', ()=>{ if(state.enemy&&state.enemy.trait==='creator'){ state.enemy.hp=1; toast('あと1ダメージで第2形態'); updateUI(); } });
-      btn(row2, '今の形態を見る', ()=>{
-        const e=state.enemy;
-        if(!e||e.trait!=='creator'){ toast('創造神と戦っていません'); return; }
-        showModal('創造神の状態',
-          `${e.name}\n形態 ${(e._reviveCount||0)+1} / 3\nHP ${e.hp}/${e.maxHp}\n`
-          + `ターン ${e.turnCount}\nカット ${e._dmgCutPct||0}%(残${e._dmgCutTurns||0}T)\n`
-          + `反射 ${e._thorns||0}(残${e._thornsTurns||0}T)\n1ターンのカード制限 ${e.cardPlayLimit||'なし'}`);
-      });
-    }
+      + `<br>いま冒険に出せる状態: <b>${(typeof CREATOR_BOSS_ENABLED!=='undefined' && CREATOR_BOSS_ENABLED) ? 'はい' : 'いいえ'}</b>`
+      + (inRun ? '' : '<br>冒険中ではないので、モッチーで冒険を始めてから65階へ飛びます。'));
+    const row = btnRow(c);
+    const fight = (diff, boost) => {
+      // 冒険中でなければ、ここで冒険を始めてしまう。
+      // (入口ボタンがタイトル画面にしか無かった頃、この欄は永久に押せなかった)
+      if(!inRun) startAdminRun('motchi', diff);
+      state.difficulty = diff;
+      if(boost) adminBoostPlayer();
+      state.floor = 65; state.legendRush = true; state.battleEnded = false;
+      window.game.closeAdmin();
+      startBattle('boss');
+      toast(`創造神（${diff}）と戦います`);
+    };
+    btn(row, 'ノーマルで戦う', ()=>fight('normal'), 'primary');
+    btn(row, 'レジェンドで戦う', ()=>fight('legend'), 'primary');
+    const row2 = document.createElement('div'); row2.className='flex flex-wrap gap-1.5 mt-1.5'; c.appendChild(row2);
+    btn(row2, '強化してから戦う', ()=>fight(inRun ? state.difficulty : 'normal', true));
+    btn(row2, '第2形態にする', ()=>{ if(state.enemy&&state.enemy.trait==='creator'){ state.enemy.hp=1; toast('あと1ダメージで第2形態'); updateUI(); } else toast('創造神と戦っていません'); });
+    btn(row2, '今の形態を見る', ()=>{
+      const e=state.enemy;
+      if(!e||e.trait!=='creator'){ toast('創造神と戦っていません'); return; }
+      showModal('創造神の状態',
+        `${e.name}\n形態 ${(e._reviveCount||0)+1} / 3\nHP ${e.hp}/${e.maxHp}\n`
+        + `ターン ${e.turnCount}\nカット ${e._dmgCutPct||0}%(残${e._dmgCutTurns||0}T)\n`
+        + `反射 ${e._thorns||0}(残${e._thornsTurns||0}T)\n1ターンのカード制限 ${e.cardPlayLimit||'なし'}`);
+    });
   }
 
   // ---- 👼 イブリース(まだ選択画面に出していない種族) ----
@@ -3241,12 +3268,8 @@ function showAdminBody(){
       + '<br>👼 天使型 … 与ダメ1.2倍 / 被ダメ1.1倍');
     const row = btnRow(c);
     const start = (diff) => {
-      const nameEl = document.getElementById('player-name-input');
-      if(nameEl && !nameEl.value.trim()) nameEl.value = 'テスト';
-      if(ui && ui.diffInput) ui.diffInput.value = diff;
       window.game.closeAdmin();
-      window.game.confirmName();       // 名前入力→種族選択の流れをそのまま通す
-      window.game.selectMonster('iblis');
+      startAdminRun('iblis', diff);
       toast(`イブリース（${diff}）で冒険を始めます`);
     };
     if(inRun){
@@ -3285,10 +3308,16 @@ function showAdminBody(){
       toast('全部消しました。読み込み直します');
       setTimeout(()=>location.reload(), 600);
     }, 'danger');
-    btn(row, '合言葉を忘れる', ()=>{ try{ sessionStorage.removeItem(ADMIN_SESSION_KEY); }catch(e){} window.game.closeAdmin(); });
+    btn(row, '合言葉を忘れる', ()=>{ try{ sessionStorage.removeItem(ADMIN_SESSION_KEY); }catch(e){} refreshAdminTopbarBtn(); window.game.closeAdmin(); });
   }
 }
 // ?admin=1 で開く。読み込みが全部終わってから呼ぶこと(データの関数を使うため)
+(function(){
+  try{
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refreshAdminTopbarBtn);
+    else refreshAdminTopbarBtn();
+  }catch(e){}
+})();
 (function(){
   try{
     if(new URLSearchParams(window.location.search).get('admin') !== '1') return;
@@ -5929,7 +5958,7 @@ if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = hand
 state = {
 playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
 difficulty: ui.diffInput.value,
-player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false, form:'normal'},
+player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false, form:'normal', dmgCutPct:0, dmgCutTurns:0},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false,
 // 使っているスキン専用技セットのスキンid。selectMonster()で焼き付けて冒険中は変えない
@@ -6564,7 +6593,7 @@ if(mode==='boss' && state.floor>=61){
 }
 state.drawPile=shuffle([...state.deck]); state.discardPile=[]; state.exhaustPile=[]; state.hand=[]; state.selectedCardIndex=null; __exhaustPick=null; updateExhaustPickBar();
 state.player.block=0; state.player.atkBattle=0; state.player.blockBattle=0; state.player.maxEnergyBattle=0; state.player.weak=0; state.player.vuln=0; state.player.regenHp=0; state.player.regenEnergy=0; state.player.nextTurnDrain=0; state.player.nextTurnHandReduce=0; state.player.regenBlock=0; state.player.regenDraw=0; state.player.nextTurnDouble=false; state.player.doubleAtk=false; state.player.currentTurnDouble=false; state.player.currentTurnBlockDouble=false; state.player.nextDmgMult=1; state.player.nextBlockMult=1; state.player.nextTurnEnergy=0; state.player.costUpTurns=0; state.player.costUpPct=0; state.player.bleed=0; state.player.bleedOnHit=0; state.player.zeroCostTurn=false;
-state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
+state.player.kiaiTurns=0; state.player.critDmgBoostTurns=0; state.player.drainReduceTurns=0; state.player.drainReduceAmt=0; state.player.dmgCutPct=0; state.player.dmgCutTurns=0; state.player.regenAtk=0; state.player.permDmgMultBonus=0; state.player.costReducePct=0; state.player.statusImmuneCharges=0; state.player.evasion=0; state.player.selfDmgCardsDoubled=false; state.player.godCoreActive=false; state.player.godCoreStacks=0; state.player.godCoreDmgBonus=0; state.player.enoOhActive=false; state.player.ikkiIssin=false; state.player.blockPersists=false; state.player.godMiracleCostDown=false;
 resetCardPlayLimit();   // 「創造の律」の残り枚数を戦闘開始時に戻す(制限が無ければ何も出ない)
 // イブリースの形態は戦闘ごとに通常形態へ戻す(atkBattle等と同じ扱い。冒険をまたいで持ち越さない)
 state.player.form = IBLIS_DEFAULT_FORM; applyFormVisual();
@@ -6667,6 +6696,7 @@ let rec = 0;
 if(state.enemy.turnCount > 1) {
   rec = state.player.species.energyRate + formEnergyBonus() + state.player.nextTurnEnergy + state.player.regenEnergy;
   if(isIblis() && state.player.form==='normal' && state.player.relics.some(r=>r.id==='br_ib_yomi_core')) rec+=10;
+  if(isIblis() && state.player.form==='angel'  && state.player.relics.some(r=>r.id==='ib_tenshi_no_wa'))  rec+=10;
   if(state.player.relics.some(r=>r.id==='beans')) rec+=2;
   if(state.player.relics.some(r=>r.id==='candy')) rec+=5;
   if(state.player.relics.some(r=>r.id==='angel_wing')) rec+=8;
@@ -6689,6 +6719,7 @@ if(state.enemy.weak>0)state.enemy.weak--; if(state.enemy.vuln>0)state.enemy.vuln
 if(state.player.kiaiTurns>0) state.player.kiaiTurns--;
 if(state.player.critDmgBoostTurns>0) state.player.critDmgBoostTurns--;
 if(state.player.drainReduceTurns>0){ state.player.drainReduceTurns--; if(state.player.drainReduceTurns<=0) state.player.drainReduceAmt=0; }
+if((state.player.dmgCutTurns||0)>0){ state.player.dmgCutTurns--; if(state.player.dmgCutTurns<=0) state.player.dmgCutPct=0; }
 if(state.player.costUpTurns>0){ state.player.costUpTurns--; if(state.player.costUpTurns<=0)state.player.costUpPct=0; }
 if(state.player.bleed>0){ const bleedDmg=state.player.bleed*2; state.player.hp=Math.max(0,state.player.hp-bleedDmg); showFloatingText(bleedDmg,'dmg',ui.playerNode); state.player.bleed=Math.max(0,state.player.bleed-2); if(state.player.hp<=0){ gameOver(); if(state.battleEnded) return; } checkHpThresholdRelics(); }
 // 創造神のカット・反射の残りターンを進める
@@ -7237,7 +7268,8 @@ if((state.player.evasion||0) > 0) { state.player.evasion--; dmg=0; evadedThisAtt
 if(state.player.species.id==='monolith')dmg=Math.floor(dmg*0.85);
 if(state.player.species.id==='gali')dmg=Math.floor(dmg*0.95);
 if(isIblis())dmg=Math.floor(dmg*formTakenMult());   // 通常0.9 / 天使1.1(予告の計算にも同じ行がある)
-if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='ib_tenshi_no_wa')) dmg=Math.max(0,dmg-8);
+// 被ダメージ%カット(カード由来。残りターン数はstartPlayerTurnで減る)
+if((state.player.dmgCutTurns||0)>0 && (state.player.dmgCutPct||0)>0) dmg=Math.floor(dmg*(1-state.player.dmgCutPct/100));
 if(state.player.species.id==='suezo')dmg=Math.max(0,dmg-3);
 if(state.player.species.id==='ham')dmg=Math.max(0,dmg-3);
 if(state.player.species.id==='kolope')dmg=Math.max(0,dmg-4);
@@ -7582,7 +7614,7 @@ let m=state.player.nextDmgMult;
 if(state.player.species.id==='golem')m*= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
 if(state.player.species.id==='gali')m*=1.1;
 if(isIblis())m*=formDealtMult();   // 天使型1.2(calcPreviewDmgにも同じ行がある)
-if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='br_ib_seiten')) m*=1.1;
+if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='br_ib_seiten')) m*=1.3;
 if(state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m*=1.15;
 if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m*=1.1;
 if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m*=1.5;
@@ -7717,6 +7749,9 @@ state.player.nextBlockMult=1;
 try {
 if(c.draw)drawCards(c.draw); if(c.nextTurnEnergy)state.player.nextTurnEnergy+=c.nextTurnEnergy;
 if(c.zeroCostHand){ state.player.zeroCostTurn=true; }
+// 被ダメージ%カット。「2ターン」なら、使ったターンの敵の攻撃と次のターンの敵の攻撃の
+// 計2回ぶんに効く(残りターン数は次の自分のターンの頭で1減る)。+1して数えないこと
+if(c.dmgCutPct){ state.player.dmgCutPct=c.dmgCutPct; state.player.dmgCutTurns=(c.dmgCutTurns||2); showFloatingText(`ダメージ${c.dmgCutPct}%カット`,'block',ui.playerNode); }
 if(c.instantEnergy)state.player.energy=Math.min(state.player.maxEnergy + (state.player.maxEnergyBattle||0), state.player.energy+c.instantEnergy);
 if(c.nextTurnDouble)state.player.doubleAtk=true; if(c.currentTurnDouble)state.player.currentTurnDouble=true; if(c.currentTurnBlockDouble)state.player.currentTurnBlockDouble=true;
 if(c.atkBattle||c.blockBattle||c.maxEnergyBattle||c.nextAtkBonusMult||c.kiaiTurns||c.permDmgMultBonus) playCardMotion('buf', c);
@@ -8112,6 +8147,29 @@ state.deck.forEach((c,i)=>{ if(c.upgraded||c.noRemove)return; const el=createCar
 }
 function upgradeCard(c) {
 c.upgraded=true;
+// 【重要】イブリースのカードは formEff の中にも「その形態のときの数値」を持っている。
+// ここを一緒に上げないと、強化しても片方の形態だけ据え置きになる(見た目上は強化されているのに弱い)。
+// 元データを壊さないよう、必ずコピーを作ってから書き換えること。
+if(c.formEff){
+  const up = {};
+  Object.keys(c.formEff).forEach(fk => {
+    const e = Object.assign({}, c.formEff[fk]);
+    if(e.val)   e.val   = Math.floor(e.val*1.25);
+    if(e.block) e.block = Math.floor(e.block*1.25);
+    if(e.heal)  e.heal  = Math.floor(e.heal*1.25);
+    if(e.nextTurnEnergy) e.nextTurnEnergy = Math.floor(e.nextTurnEnergy*1.25);
+    if(e.regenEnergy)    e.regenEnergy    = Math.floor(e.regenEnergy*1.25);
+    if(e.regenBlock)     e.regenBlock     = Math.floor(e.regenBlock*1.25);
+    if(e.atkBattle)      e.atkBattle      = Math.floor(e.atkBattle*1.25);
+    if(e.blockBattle)    e.blockBattle    = Math.floor(e.blockBattle*1.25);
+    if(e.weak)  e.weak  += 1;
+    if(e.vuln)  e.vuln  += 1;
+    if(e.burn)  e.burn  += 1;
+    if(e.crit){const cg=['G','F','E','D','C','B','A','S'];const ci=cg.indexOf(e.crit);if(ci>-1&&ci<cg.length-1)e.crit=cg[ci+1];}
+    up[fk] = e;
+  });
+  c.formEff = up;
+}
 if(c.cost>0)c.cost=Math.max(0,Math.floor(c.cost*0.75));
 if(c.val)c.val=Math.floor(c.val*1.25);
 if(c.block)c.block=Math.floor(c.block*1.25);
@@ -8209,6 +8267,7 @@ if(c.discardTwo)parts.push(`手札を2枚捨てる`);
 if(c.tempUpgradeHand)parts.push(`手札の他のカードを強化(戦闘終了時に解除)`);
 if(c.cureDebuffs)parts.push(`自身の弱体効果を全て解除`);
 if(c.grantEvasion)parts.push(`回避${c.grantEvasion}を付与`);
+if(c.dmgCutPct)parts.push(`${c.dmgCutTurns||2}ターン受けるダメージ${c.dmgCutPct}%カット`);
 // 効果キーを持たず、カード名で分岐している数枚ぶん(playCardの該当箇所を参照)。
 // キーが無いのでここに書かないと、強化した瞬間に説明から消えてしまう
 if(c.name==='いじわる')parts.push(`守弱時ガッツ10回復`);
@@ -8219,7 +8278,9 @@ if(c.crit)parts.push(`会心:${c.crit}`);
 // 効果のキーを足したらここにも足すこと。書き忘れると、強化した瞬間に
 // その効果の説明だけが説明文から消えてしまう(「消滅」も長らく抜けていた)。
 if(c.remove || c.exhaust)parts.push(`消滅`);
-if(parts.length>0)c.desc=parts.join(' ');
+// 【重要】イブリースの技は説明に「【天】/【通】」で両方の形態ぶんを書いてある。
+// ここで作り直すと今の形態ぶんしか残らないので、元の説明をそのまま残す。
+if(parts.length>0 && !c.formEff)c.desc=parts.join(' ');
 }
 function upgradeRandomCards(n) {
 let candidates = state.deck.filter(c => !c.upgraded && !c.noRemove);
@@ -8356,8 +8417,8 @@ br_zan_scroll:()=>{
 },
 // ボス遺物（イブリース限定）。形態にかかわる効果は setPlayerForm / startPlayerTurn 側にある
 br_ib_balance:()=>{state.player.atkBase+=6;state.player.blockBase+=6},
-br_ib_seiten:()=>{state.player.maxHp+=30;state.player.hp+=30},
-br_ib_yomi_core:()=>{}
+br_ib_seiten:()=>{state.player.maxHp+=50;state.player.hp+=50;state.player.atkBase+=5},
+br_ib_yomi_core:()=>{state.player.blockBase+=5}
 };
 if(m[r.id])m[r.id]();
 
@@ -9433,6 +9494,7 @@ const STATUS_DESCS = {
   enoOh:    { icon:'🔥', name:'炎王', desc:'炎上している敵にダメージを与えるたび、ライフが2回復します。さらに相手の炎上が5を超えていると追加で100ダメージ、15を超えているとさらに100ダメージを与えます。この戦闘の間ずっと続きます。' },
   ikkiIssin:{ icon:'🗡️', name:'一撃入魂', desc:'連撃を持たないカードの与えるダメージが3倍になります。連撃カードには効きません。この戦闘の間ずっと続きます。' },
   blockPersists:{ icon:'🧱', name:'絶対防御', desc:'通常はターン開始時にブロックが0に戻りますが、これがあると戻らずに積み上がっていきます。この戦闘の間ずっと続きます。' },
+  dmgCut:   { icon:'🛡️', name:'被ダメージカット', desc:'敵から受けるダメージが表示された割合だけ減ります。ブロックを引く前に減るので、丈夫さやブロックと重ねて効きます。残りターン数が0になると切れます。' },
   evasion:  { icon:'💨', name:'回避', desc:'敵の攻撃を1発ぶん完全に無効化します。連撃なら1発ごとに1つ消費します。' },
   statusImmune:{ icon:'✨', name:'状態異常無効', desc:'敵から受ける攻弱・守弱などの弱体効果を1回ぶん打ち消します。使うたびに残り回数が1減ります。' },
   weak:     { icon:'💢', name:'攻弱', desc:'自分の与えるダメージが25%下がります。ターンが進むと1ずつ減っていきます。' },
@@ -9463,6 +9525,10 @@ ui.playerHp.innerText=`${Math.ceil(state.player.hp)}/${state.player.maxHp}`; ui.
 let maxE=state.player.maxEnergy + (state.player.maxEnergyBattle||0); ui.energyVal.innerText=state.player.energy; ui.energyMax.innerText=`/${maxE}`;
 ui.pAtkStat.innerText=`力${state.player.atkBase + state.player.atkBattle}`; ui.pDefStat.innerText=`丈${state.player.blockBase + state.player.blockBattle}`; ui.scoreDisplay.innerText=`${state.score}`; ui.goldDisplay.innerText=`${(state.gold||0).toLocaleString()}`;
 let rec=state.player.species.energyRate + formEnergyBonus() + state.player.nextTurnEnergy + state.player.regenEnergy;
+// 【重要】ここは「毎ターン +○○」の表示。実際に回復させている startPlayerTurn と
+// 必ず同じ足し算にすること。片方だけ足すと、表示と実際の回復量がズレる
+if(isIblis() && state.player.form==='normal' && state.player.relics.some(r=>r.id==='br_ib_yomi_core'))rec+=10;
+if(isIblis() && state.player.form==='angel'  && state.player.relics.some(r=>r.id==='ib_tenshi_no_wa')) rec+=10;
 if(state.player.relics.some(r=>r.id==='beans'))rec+=2;
 if(state.player.relics.some(r=>r.id==='candy'))rec+=5;
 if(state.player.relics.some(r=>r.id==='angel_wing'))rec+=8;
@@ -9497,6 +9563,7 @@ if(state.player.blockBattle!==0)ui.playerStatuses.innerHTML+=ps('bg-blue-900','b
 if(state.player.weak>0)ui.playerStatuses.innerHTML+=ps('bg-zinc-700','border-zinc-400/30','text-zinc-300','💢',`攻弱${state.player.weak}`,'weak');
 if(state.player.vuln>0)ui.playerStatuses.innerHTML+=ps('bg-orange-900','border-orange-400/30','text-orange-200','🩹',`守弱${state.player.vuln}`,'vuln');
 if((state.player.bleed||0)>0)ui.playerStatuses.innerHTML+=ps('bg-red-950','border-red-500/50','text-red-300','🩸',`出血${state.player.bleed}`,'bleed');
+if((state.player.dmgCutTurns||0)>0&&(state.player.dmgCutPct||0)>0)ui.playerStatuses.innerHTML+=ps('bg-cyan-950','border-cyan-400/50','text-cyan-200','🛡️',`被ダメ-${state.player.dmgCutPct}%(${state.player.dmgCutTurns}T)`,'dmgCut');
 if((state.player.costUpTurns||0)>0)ui.playerStatuses.innerHTML+=ps('bg-sky-950','border-sky-400/50','text-sky-200','🥶',`消費+${state.player.costUpPct}%(${state.player.costUpTurns}T)`);
 if(state.player.nextTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-900','border-yellow-400/50','text-yellow-200','💥','次ダメ×2');
 if(state.player.currentTurnDouble)ui.playerStatuses.innerHTML+=ps('bg-yellow-700','border-yellow-300/50','text-yellow-100','💥','ダメ×2');
@@ -9556,8 +9623,8 @@ if(state.enemy.weak > 0) dmgVal = Math.floor(dmgVal * 0.75);
 if(state.player.vuln > 0) dmgVal = Math.floor(dmgVal * 1.5);
 if(state.player.species.id === 'monolith') dmgVal = Math.floor(dmgVal * 0.85);
 if(state.player.species.id === 'gali') dmgVal = Math.floor(dmgVal * 0.95);
-if(isIblis()) dmgVal = Math.floor(dmgVal * formTakenMult());   // 実処理(applyEnemyIntent)と必ず同じにすること
-if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='ib_tenshi_no_wa')) dmgVal = Math.max(0, dmgVal - 8);
+if(isIblis()) dmgVal = Math.floor(dmgVal * formTakenMult());   // 実処理(敵の攻撃ループ)と必ず同じにすること
+if((state.player.dmgCutTurns||0)>0 && (state.player.dmgCutPct||0)>0) dmgVal = Math.floor(dmgVal*(1-state.player.dmgCutPct/100));
 if(state.player.species.id === 'suezo') dmgVal = Math.max(0, dmgVal - 3);
 if(state.player.species.id === 'ham') dmgVal = Math.max(0, dmgVal - 3);
 if(state.player.species.id === 'kolope') dmgVal = Math.max(0, dmgVal - 4);
@@ -9623,7 +9690,7 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(state.player.species && state.player.species.id==='golem') m *= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
     if(state.player.species && state.player.species.id==='gali')  m *= 1.1;
     if(isIblis()) m *= formDealtMult();   // 実処理(playCard)と必ず同じにすること
-    if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='br_ib_seiten')) m *= 1.1;
+    if(isIblis() && state.player.form==='angel' && state.player.relics.some(r=>r.id==='br_ib_seiten')) m *= 1.3;
     if(state.enemy && state.enemy.burn>0 && state.player.relics.some(r=>r.id==='h_honoo_houseki')) m *= 1.15;
     if(state.player.relics.some(r=>r.id==='z_eiri_no_ha')) m *= 1.1;
     if(state.player.relics.some(r=>r.id==='g_stone_monument') && state.player.hp <= state.player.maxHp*0.5) m *= 1.5;

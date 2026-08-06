@@ -67,7 +67,7 @@ const ALL_RELICS = [
 // イブリース専用通常遺物（実装中の種族）
 {id:'ib_kagami', mid:'iblis', name:'反転の鏡', icon:'🪞', desc:'形態が変わったときガッツ回復10'},
 {id:'ib_yomi_no_kubbi', mid:'iblis', name:'黄泉のくびき', icon:'⛓️', desc:'通常形態のあいだ毎ターンブロック10'},
-{id:'ib_tenshi_no_wa', mid:'iblis', name:'天使の輪', icon:'💫', desc:'天使型のあいだ受けるダメージ-8'}
+{id:'ib_tenshi_no_wa', mid:'iblis', name:'天使の輪', icon:'💫', desc:'天使型のあいだ毎ターンガッツ回復10'}
 ];
 
 // ボス遺物（15F/30F/45Fのボス撃破時のみ、3つから1つ選択して獲得）
@@ -119,7 +119,7 @@ const BOSS_RELICS_SPECIES = {
   ],
   iblis: [
     {id:'br_ib_balance', name:'二律の天秤', icon:'⚖️', desc:'力+6 丈夫さ+6 形態が変わったとき1枚ドロー'},
-    {id:'br_ib_seiten', name:'聖天の冠', icon:'👑', desc:'ライフ+30 天使型のあいだ与えるダメージ1.1倍'},
-    {id:'br_ib_yomi_core', name:'黄泉の核', icon:'🕳️', desc:'通常形態のあいだ毎ターンガッツ回復10 毎ターンライフ回復4'}
+    {id:'br_ib_seiten', name:'聖天の冠', icon:'👑', desc:'ライフ+50 力+5 天使型のあいだ与えるダメージ1.3倍'},
+    {id:'br_ib_yomi_core', name:'黄泉の核', icon:'🕳️', desc:'丈夫さ+5 通常形態のあいだ毎ターンガッツ回復10 毎ターンライフ回復4'}
   ]
 };
