@@ -345,6 +345,18 @@ background: linear-gradient(135deg, #300000, #3f2e00);
 /* 上端を固定して下へ伸ばす(ラスボス用)。足元が下のUIに重なるので、
    タップの邪魔をしないよう pointer-events は切る */
 .enemy-sprite-img[data-anchor="top"] { transform-origin: top center; pointer-events: none; }
+/* 大きいボスは絵を上へ引き上げる。
+   敵の枠は「攻撃予告 → HPパネル → 絵」の縦並びなので、そのままだと絵が下に押し出され、
+   上半分が空いて「ボスが下にいる」見た目になった。
+   【重要】margin ではなく position:relative + top で動かすこと。
+   敵の枠は下端そろえなので、marginで縮めると「絵が上がる」のではなく「パネルが下がる」だけになる。
+   また .monster-sprite は idle アニメで transform を使っているので、transform も使わない。 */
+#enemy-visual.sprite-lifted { position: relative; top: var(--elift, -190px); }
+/* 大きいボスのときは、攻撃予告とHPパネルを下へずらして「顔の前」から退かす。
+   絵を持ち上げただけだと、この2つがちょうどボスの頭を覆ってしまう。
+   ずらした先はボスの裾のあたり。パネルは半透明の黒なので読みやすさは保てる。 */
+#enemy-monster-node.boss-hud > #enemy-intent,
+#enemy-monster-node.boss-hud > #enemy-hp-panel { position: relative; top: var(--ehud, 96px); z-index: 20; }
 .enemy-sprite-icon { font-size: 4rem; }
 /* 画面が低い端末(ホームボタン付きなど)向け：戦闘画面を自動でコンパクト化し、
    攻撃予告や各種UIが上部バーと重なったり画面外に出たりしないようにする */
@@ -1959,7 +1971,9 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 <span id="intent-desc" class="text-[9px] text-zinc-300 font-bold leading-tight break-words min-w-0 flex-1">攻撃</span>
 <span id="intent-value" class="text-base font-black text-red-400 pixel-font leading-none shrink-0">0</span>
 </div>
-<div class="mb-1.5 w-36 bg-zinc-900/90 p-2 rounded-lg border border-zinc-600 shadow-xl backdrop-blur-sm">
+<!-- relative z-20 は必須。大きいボスの絵を上へ持ち上げると、
+     絵(.monster-sprite は z-index:10)がこのパネルを覆い隠してしまう -->
+<div id="enemy-hp-panel" class="relative z-20 mb-1.5 w-36 bg-zinc-900/90 p-2 rounded-lg border border-zinc-600 shadow-xl backdrop-blur-sm">
 <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden mb-1 border border-zinc-700">
 <div id="enemy-hp-bar" class="bg-gradient-to-r from-red-600 to-orange-500 h-full transition-all" style="width: 100%"></div>
 </div>
@@ -3003,6 +3017,7 @@ function renderBattleSprites() {
     if(t.isRareElite) ui.enemyVisual.className='monster-sprite aura-gold';
     else if(t.visual) ui.enemyVisual.className=`monster-sprite ${t.visual}`;
     else ui.enemyVisual.className='monster-sprite';
+    applyEnemyLift(t);
     if(t.img){ ui.enemyVisual.innerHTML = `<img src="${t.img}" class="enemy-sprite-img"${enemySpriteAttr(t)}>`; }
     else { ui.enemyVisual.innerHTML = `<span class="enemy-sprite-icon">${t.icon||''}</span>`; }
   }
@@ -6661,8 +6676,16 @@ const FORM_CHANGE_THEME = [
   { color:'#f0abfc', tag:'最 終 形 態' },   // 創造 … 桃紫
 ];
 // 敵の絵を今のstateから描き直す。形態が変わったときに使う
+// 大きく出す敵かどうか。絵を上へ持ち上げるクラスの付け外しに使う
+function applyEnemyLift(t){
+  if(!ui || !ui.enemyVisual) return;
+  const big = !!(t && ENEMY_SPRITE_ANCHOR_TOP.has(t.trait));
+  ui.enemyVisual.classList.toggle('sprite-lifted', big);
+  if(ui.enemyNode) ui.enemyNode.classList.toggle('boss-hud', big);
+}
 function redrawEnemySprite(e){
   if(!ui || !ui.enemyVisual || !e) return null;
+  applyEnemyLift(e);
   if(e.img){
     ui.enemyVisual.innerHTML = `<img src="${e.img}" class="enemy-sprite-img"${enemySpriteAttr(e)}>`;
     return ui.enemyVisual.querySelector('img');
@@ -6899,6 +6922,7 @@ else ui.enemyVisual.className='monster-sprite';
 // 形態を持つ敵は、戦闘開始の時点で第1形態の名前を付けておく
 // (これが無いと「創造神テクモクレイン」→「〜・混沌」と、1形態目だけ呼び名が違ってしまう)
 if(state.enemy.formNames) onEnemyFormChange(state.enemy, 0);
+applyEnemyLift(state.enemy);
 if(state.enemy.img){
   ui.enemyVisual.innerHTML=`<img src="${state.enemy.img}" class="enemy-sprite-img"${enemySpriteAttr(state.enemy)}>`;
 } else {
