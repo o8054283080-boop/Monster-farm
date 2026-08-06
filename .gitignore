@@ -1,0 +1,4 @@
+# 検証用に作る一時ファイル。CDNのTailwindをローカル生成のCSSに差し替えたindex.htmlの複製。
+# サンドボックスではCDNに出られず、そのままだとレイアウトが崩れた画面しか撮れないため。
+# scratchpad/mkpreview.js が作る。コミットしないこと。
+__preview.html
