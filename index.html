@@ -7643,9 +7643,9 @@ function toggleExhaustPick(idx){
 }
 // ==== パッシブ「創造の律」: 1ターンに使えるカードの枚数制限 ====
 // 【重要】これは「伝説のオーラ」「伝説のきまぐれ」と同じ、ボス固有の常時パッシブ。
-// 手札を無限に回す戦法だけを止めるためのもので、10枚は普通のデッキならまず届かない。
+// 手札を無限に回す戦法を止めるためのもの。枚数は敵データの cardPlayLimit で決まる。
 // 残り枚数は画面に出す(#card-limit-badge)。理由が分からず使えなくなる事故を防ぐため。
-const CARD_LIMIT_DEFAULT = 10;
+const CARD_LIMIT_DEFAULT = 7;
 function cardPlayLimit(){
   const e = state.enemy;
   return (e && e.cardPlayLimit) ? e.cardPlayLimit : 0;   // 0 = 制限なし
