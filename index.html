@@ -4184,10 +4184,12 @@ const CHANGELOG = [
     'ガチャのピックアップをこの2体に入れ替えました。確率アップの対象です',
     '追加記念に 💎135 をお配りしました',
   ]},
-  { date:'2026/08/06', title:'ランキングを30位まで表示', items:[
+  { date:'2026/08/06', title:'ランキングを30位まで表示・自分の記録を見られるように', items:[
     'これまで10位までだったランキングを、30位まで見られるようにしました',
     '相棒で絞り込んだときも30位まで並びます',
     '専用技セットを使って残した記録には「技」の印が付きます。表の上に読み方を置きました',
+    '「📱 自分」のタブを追加しました。順位に関係なく、この端末で遊んだ記録を全部見られます',
+    'ランキング本体は全プレイヤーの上位だけを載せているため、そこに届いていない記録はこちらから確認してください',
   ]},
   { date:'2026/08/06', title:'イブリースのアクセサリを形態ごとに置けるように', items:[
     'イブリースは通常形態と天使型で体つきが大きく変わるため、同じ位置だと片方で必ず浮いていました',
@@ -6255,7 +6257,17 @@ showStarterRelicChoice(proceedToAdventure);
 };
 
 let allRankingData = [];
+// この端末に残っている自分の記録。オンラインの一覧とは別に持つ。
+// 【なぜ要るか】オンラインは全プレイヤーの上位300件しか読まない。自分の記録がそこに届いていないと
+// 一覧にも相棒のタブにも一切出てこず、「遊んだのに載っていない」状態になる(実際にそうなった)。
+// 「📱 自分」のタブから、順位に関係なく自分の記録を見られるようにしてある。
+let localRankingData = [];
+let rankingIsOnline = false;
 let currentRankingFilter = 'all';
+function loadLocalRanking(){
+  try { const raw = localStorage.getItem('mf_rankings'); return raw ? JSON.parse(raw) : []; }
+  catch(e){ console.warn('端末内ランキングの読み込みに失敗しました', e); return []; }
+}
 // ランキングに出す件数。端末内の保存件数は、絞り込んでも30位まで並ぶよう多めに持つ
 const RANKING_SHOW_MAX = 30;
 const RANKING_STORE_MAX = 120;
@@ -6269,16 +6281,24 @@ function rankingCardSetBadge(r){
   const label = skin ? skin.name : '専用技セット';
   return `<span class="ranking-set-badge" title="${label}の専用技セットを使用">技</span>`;
 }
+function setRankingTypeLabel(){
+  const el = document.getElementById('ranking-type');
+  if(!el) return;
+  if(currentRankingFilter === 'me') el.innerText = '(この端末・自分の記録)';
+  else el.innerText = rankingIsOnline ? '(オンライン・全プレイヤー)' : '(この端末)';
+}
 window.game.showRanking = async function() {
-const list = document.getElementById('ranking-list'); const typeLabel = document.getElementById('ranking-type');
+const list = document.getElementById('ranking-list');
 document.getElementById('ranking-modal').classList.remove('hidden');
 list.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-zinc-500">Loading...</td></tr>';
 currentRankingFilter = 'all';
+localRankingData = loadLocalRanking();
 if (useFirebase && db) {
-  typeLabel.innerText = "(オンライン・全プレイヤー)";
   try {
     const snap = await db.collection('rankings').orderBy('score', 'desc').limit(RANKING_FETCH_MAX).get();
     allRankingData = snap.docs.map(d => d.data());
+    rankingIsOnline = true;
+    setRankingTypeLabel();
     renderRankingTabs();
     renderRankingList(allRankingData.slice(0, RANKING_SHOW_MAX));
     return;
@@ -6286,17 +6306,12 @@ if (useFirebase && db) {
     console.warn('オンラインランキング取得に失敗。端末内ランキングを表示します。', e);
   }
 }
-typeLabel.innerText = "(この端末)";
-try {
-  const raw = localStorage.getItem('mf_rankings');
-  allRankingData = raw ? JSON.parse(raw) : [];
-  renderRankingTabs();
-  renderRankingList(allRankingData.slice(0, RANKING_SHOW_MAX));
-} catch(e) {
-  allRankingData = [];
-  renderRankingTabs();
-  list.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-zinc-500">データなし</td></tr>';
-}
+rankingIsOnline = false;
+allRankingData = localRankingData;
+setRankingTypeLabel();
+renderRankingTabs();
+if(allRankingData.length) renderRankingList(allRankingData.slice(0, RANKING_SHOW_MAX));
+else list.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-zinc-500">データなし</td></tr>';
 };
 function renderRankingTabs() {
 const tabs = document.getElementById('ranking-tabs');
@@ -6304,6 +6319,11 @@ if(!tabs) return;
 const usedIds = [...new Set(allRankingData.map(r=>r.monsterId).filter(Boolean))];
 const speciesList = usedIds.map(id=>SPECIES[id]).filter(Boolean);
 let html = `<button data-filter="all" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border ${currentRankingFilter==='all'?'bg-amber-600 border-amber-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-400'}">全体</button>`;
+// オンラインを見ているときだけ「自分」を出す。端末内表示のときは全体がそのまま自分の記録なので要らない
+if(rankingIsOnline && localRankingData.length){
+  const on = currentRankingFilter==='me';
+  html += `<button data-filter="me" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border ${on?'bg-cyan-600 border-cyan-300 text-white':'bg-zinc-800 border-cyan-800 text-cyan-300'}">📱 自分</button>`;
+}
 speciesList.forEach(sp=>{
   const active = currentRankingFilter===sp.id;
   html += `<button data-filter="${sp.id}" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 ${active?'bg-amber-600 border-amber-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-400'}">${sp.img?`<img src="${sp.img}" class="w-4 h-4 object-contain">`:sp.icon} ${sp.name}</button>`;
@@ -6313,7 +6333,11 @@ tabs.querySelectorAll('.ranking-tab-btn').forEach(btn=>{
   btn.onclick = () => {
     currentRankingFilter = btn.dataset.filter;
     renderRankingTabs();
-    const filtered = currentRankingFilter==='all' ? allRankingData : allRankingData.filter(r=>r.monsterId===currentRankingFilter);
+    setRankingTypeLabel();
+    let filtered;
+    if(currentRankingFilter==='me') filtered = localRankingData;
+    else if(currentRankingFilter==='all') filtered = allRankingData;
+    else filtered = allRankingData.filter(r=>r.monsterId===currentRankingFilter);
     renderRankingList(filtered.slice(0, RANKING_SHOW_MAX));
   };
 });
