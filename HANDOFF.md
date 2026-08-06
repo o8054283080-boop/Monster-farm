@@ -1492,7 +1492,9 @@ formEff: { normal:{...}, angel:{...} }   // その形態で「使ったとき」
 
 ### データ
 
-- 種族: `data-species.js`の`iblis`(ライフ80 / ガッツ回復22 / `hidden:true`)。絵は63階ボスのPNGを流用
+- 種族: `data-species.js`の`iblis`(ライフ80 / ガッツ回復22 / `hidden:true`)。
+  絵は通常形態(`img` 353x300)と天使型(`imgAngel` 320x231)の2枚。どちらも256色PNGで20KB前後。
+  **63階ボスのイブリース(`data-enemies.js`)とは別の絵**なので、片方を直してももう片方は変わらない
 - カード: `data-cards.js`の`iblis_b1〜b3`(初期デッキ)と`ib_*`32枚(N6/R7/SR7/SSR7/MR5)
 - 遺物: `data-relics.js`の`ib_*`3種と`BOSS_RELICS_SPECIES.iblis`3種。
   形態に反応するぶんの処理は`setPlayerForm`(形態が変わった瞬間)と`startPlayerTurn`(毎ターン)に入っている。
@@ -1502,8 +1504,7 @@ formEff: { normal:{...}, angel:{...} }   // その形態で「使ったとき」
 
 ### 形態ごとのキャラ絵と、変身の演出
 
-- 天使型の絵は`data-species.js`の**`imgAngel`**(320x231のPNG・256色・19KB)。
-  差し替えは`applyFormVisual()`が行う
+- 通常形態は`img`、天使型は**`imgAngel`**(どちらも`data-species.js`)。差し替えは`applyFormVisual()`が行う
 - **⚠️ スキンを装備しているときは`imgAngel`を出さないこと**(`currentPlayerImg()`が優先順を持つ)。
   スキンは1枚しか用意されていないので、天使型になった瞬間だけスキンが消えて見えてしまう
 - 変身の演出は`playPlayerFormFx()`。白く飛ばす(0.18秒)→絵を差し替え→戻ってくる(0.44秒)、
