@@ -25,16 +25,48 @@
 
 | ファイル名 | 役割 |
 |---|---|
-| `index.html` | ゲーム本体(HTML/CSS/ロジック)。メインファイル。約1.4MB |
-| `data-species.js` | 種族(自分のモンスター)データ。画像base64込み |
-| `data-cards.js` | カードデータ |
-| `data-relics.js` | 遺物データ(`isRare:true`フラグ付きのレア遺物が56種中10種) |
-| `data-enemies.js` | 敵・ボスデータ(画像込み) |
-| `data-skins.js` | **新規** スキンデータ(SR21体+SSR9体=30体)。約7.2MB |
-| `data-accessories.js` | **新規** アクセサリデータ(23種)。約0.75MB |
-| `data-auras.js` | **新規** オーラのメタデータ(5種、見た目は未実装) |
+| `index.html` | ゲーム本体(HTML/CSS/ロジック)。メインファイル。約0.65MB |
+| `data-species.js` | 種族(自分のモンスター)データ。約4KB |
+| `data-cards.js` | カードデータ。約56KB |
+| `data-relics.js` | 遺物データ(`isRare:true`フラグ付きのレア遺物が56種中10種)。約14KB |
+| `data-enemies.js` | 敵・ボスデータ。約13KB |
+| `data-skins.js` | スキンデータ(SR21体+SSR9体=30体)。約5KB |
+| `data-accessories.js` | アクセサリデータ(23種)。約15KB |
+| `data-auras.js` | オーラのメタデータ(5種) |
+| `img/` | **画像は全部ここ。** データファイルはパスを持つだけ(下記) |
 
-### 音声・画像(リポジトリ直下)
+### 画像は `img/` の外部ファイル
+
+**以前は全ての画像がbase64でJSやCSSに埋め込まれていたが、2026/08/06に外に出した。**
+データファイルは `img:'img/skins/xxx.png'` のようにパスを持つだけになっている。
+
+| 場所 | 中身 | 出どころ |
+|---|---|---|
+| `img/skins/` | スキン35枚 | `data-skins.js` の `img` / `imgAngel` |
+| `img/species/` | 種族9枚 | `data-species.js` |
+| `img/enemies/` | 敵・ボス44枚(`creator_formImgs1〜3`は形態ごと) | `data-enemies.js` の `img` / `formImgs` |
+| `img/accessories/` | アクセサリ23枚 | `data-accessories.js` |
+| `img/cards/` | カードの絵5枚 | `data-cards.js` |
+| `img/relics/` | 遺物1枚 | `data-relics.js` |
+| `img/bg/` | 背景13枚(jpg) | `index.html` のCSS `.bg-*::before` |
+
+**なぜ出したか**
+- テキストの合計が **12.1MB → 0.77MB**。読み書きが桁違いに軽くなった
+- 起動時に12MBのJSを読んで解釈する必要が無くなり、**画像は実際に映るものだけ取りに行く**
+- スマホのツールからGitHub API経由で書き込めるようになった(1MB超のファイルは簡単なAPIで扱えない)
+
+**触るときの注意**
+- **ファイル名はデータ側の識別子と揃えること。** スキンは`id`、敵は`trait`、アクセは`id`、
+  カード・遺物はオブジェクトのキー。`img/<種類>/<識別子>.<拡張子>`
+- **絵を差し替えるだけならデータファイルを触らなくていい。** 同じ名前で上書きするだけ
+- 自動セーブは元から`img`を落として保存し、復帰時に`relinkEnemyImg()`で貼り直している。
+  パスになっても仕組みは同じ(むしろ`formImgs`が軽くなったぶん保存が小さくなった)
+- **⚠️ 完全にオフラインでは動かなくなった。** 以前は1ファイルで完結していたが、
+  いまは画像を取りに行く。GitHub Pagesで動かす前提なら問題ない
+- **⚠️ 初めて映るものは一瞬遅れることがある。** 気になるようなら、冒険開始時に
+  自分のキャラとアクセだけ先読みするのが素直(いまは何もしていない)
+
+### 音声(リポジトリ直下)
 
 - BGM: `bgm-menu.mp3` / `bgm-battle-normal.mp3` / `bgm-battle-elite.mp3` / `bgm-battle-elite2.mp3` / `bgm-boss-mid.mp3` / `bgm-boss-rush-1〜3.mp3` / `bgm-victory.mp3`
 - BGM(タイトル配下の各画面): `bgm-select.mp3`(モンスター選択) / `bgm-gacha.mp3`(ガチャ) / `bgm-shop.mp3`(継承ショップ・カスタム装備)
