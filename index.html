@@ -2154,7 +2154,7 @@ const IBLIS_FORMS = {
 };
 const IBLIS_DEFAULT_FORM = 'normal';   // 戦闘は必ず通常形態から始まる
 // true にすると種族の選択画面にイブリースが並ぶ。false のあいだは管理者ページからだけ試せる。
-const IBLIS_ENABLED = false;
+const IBLIS_ENABLED = true;
 
 function isIblis(){ return !!(state && state.player && state.player.species && state.player.species.id === 'iblis'); }
 function currentForm(){ return isIblis() ? (IBLIS_FORMS[state.player.form] || IBLIS_FORMS[IBLIS_DEFAULT_FORM]) : null; }
@@ -3544,11 +3544,11 @@ function showAdminBody(){
     });
   }
 
-  // ---- 👼 イブリース(まだ選択画面に出していない種族) ----
+  // ---- 👼 イブリース ----
   {
     const inRun = !!(state && state.player && state.player.species);
     const c = card('👼 イブリースを試す',
-      '実装中の新種族です（選択画面に並べるには IBLIS_ENABLED を true に）。'
+      '形態を行き来する種族です（選択画面への表示は IBLIS_ENABLED で切り替え）。'
       + `<br>いま選択画面に出ている: <b>${(typeof IBLIS_ENABLED!=='undefined' && IBLIS_ENABLED) ? 'はい' : 'いいえ'}</b>`
       + '<br>🌑 通常形態 … 被ダメ0.9倍 / 毎ターンのガッツ回復+6'
       + '<br>👼 天使型 … 与ダメ1.2倍 / 被ダメ1.1倍');
@@ -3688,6 +3688,11 @@ const META_SHOP_ITEMS = [
   { key:'startGold', label:'初期ゴールド', type:'stat', maxLevel:10, perLevel:15, costs:[50,75,100,300,500,800,1100,1400,1700,2000] },
   { key:'goldGain', label:'取得ゴールドアップ', type:'percent', maxLevel:5, totalPct:[0,5,10,15,20,25], costs:[500,1000,1500,2000,2500] },
   { key:'handSize', label:'初期手札+1', type:'stat', maxLevel:1, perLevel:1, costs:[3000] },
+  // 全部買い切ってしまった人のための、終わりのない受け皿。
+  // 1段階あたり+1しか伸びないかわりに10段階あり、価格はどの段階も一律10000pt。
+  // 上の「開始チカラ/開始丈夫さ」とは別枠なので、両方買える。
+  { key:'powEx', label:'開始チカラ・極', type:'stat', maxLevel:10, perLevel:1, costs:[10000,10000,10000,10000,10000,10000,10000,10000,10000,10000] },
+  { key:'defEx', label:'開始丈夫さ・極', type:'stat', maxLevel:10, perLevel:1, costs:[10000,10000,10000,10000,10000,10000,10000,10000,10000,10000] },
 ];
 const META_RELIC_UNLOCK_COST = 1000;
 // 不屈: 1冒険につき1度だけ、ライフ0になっても最大ライフの30%で復活する買い切り。
@@ -3723,7 +3728,7 @@ function getStarterRelicPool(){
 }
 
 function loadMetaProgress(){
-  const fallback = { points:0, levels:{life:0,pow:0,def:0,gutsRegen:0,gutsCap:0,ssr:0,mr:0,rareRelic:0,startGold:0,goldGain:0,handSize:0}, relicUnlocked:false, fukutsuUnlocked:false };
+  const fallback = { points:0, levels:{life:0,pow:0,def:0,gutsRegen:0,gutsCap:0,ssr:0,mr:0,rareRelic:0,startGold:0,goldGain:0,handSize:0,powEx:0,defEx:0}, relicUnlocked:false, fukutsuUnlocked:false };
   try{
     const raw = localStorage.getItem(META_STORAGE_KEY);
     if(!raw) return fallback;
@@ -3768,8 +3773,8 @@ function applyMetaShopBonuses(){
   const lv = mp.levels;
   state.player.maxHp += (lv.life||0) * 5;
   state.player.hp = state.player.maxHp;
-  state.player.atkBase += (lv.pow||0) * 3;
-  state.player.blockBase += (lv.def||0) * 3;
+  state.player.atkBase += (lv.pow||0) * 3 + (lv.powEx||0) * 1;
+  state.player.blockBase += (lv.def||0) * 3 + (lv.defEx||0) * 1;
   // regenEnergyは戦闘開始時に0へリセットされるので、恒久値を別に保持しておき
   // 戦闘開始時に毎回足し直す（startBattle側で metaRegenEnergy を加算している）
   state.player.metaRegenEnergy = (lv.gutsRegen||0) * 1;
@@ -4079,6 +4084,28 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/06', title:'新種族「イブリース」が登場', items:[
+    'モンスター選択にイブリースが並ぶようになりました',
+    '戦闘中に🌑通常形態と👼天使型を行き来する種族です',
+    '通常形態は受けるダメージが減り、毎ターンのガッツ回復が増えます',
+    '天使型は与えるダメージが増えるかわりに、受けるダメージも増えます',
+    '形態が変わるのはカードの効果が全部出たあとです。相手の攻撃予告を見てから、どちらの形態でターンを終えるかを選べます',
+    '形態で効果が変わるカードがあります。カードの説明の【通】【天】がその形態のときの数値です',
+    '専用の遺物とボス遺物も追加しました',
+    'いまどちらの形態かは画面のバッジで分かります。タップすると仕組みを読めます',
+  ]},
+  { date:'2026/08/06', title:'SSRスキンを2種追加', items:[
+    'ガチャに「ゲコウスグル」(カワズモー)と「ライオネル」(イブリース)を追加しました',
+    'ゲコウスグルには5枚の技セットが付いています。呪霊を溜めて、極ノ番「うずまき」で一気に放つ組み立てです',
+    '溜まっている呪霊の数は画面のバッジで分かります。タップすると仕組みを読めます',
+    'ライオネルには専用の看板技「獅子と熾天」が付いています。通常形態では守って昇り、天使型では殴って降ります',
+    'ライオネルは通常形態と天使型で絵が変わります',
+  ]},
+  { date:'2026/08/06', title:'継承ショップに強化枠を追加', items:[
+    '「開始チカラ・極」「開始丈夫さ・極」を追加しました。どちらも10段階です',
+    '既にある「開始チカラ」「開始丈夫さ」とは別枠なので、両方買えます',
+    '1段階10000ptと高価です。買うものが無くなった人のための受け皿として用意しました',
+  ]},
   { date:'2026/08/06', title:'65階に新たなラスボスが登場', items:[
     'レジェンドボスラッシュが65階まで伸びました',
     '64階は最後の支度をする場所です。休息所・修行・ショップから選べます',

@@ -48,6 +48,12 @@ zan_b3_skin:{mid:'zan',id:'zan_b3_skin',name:'溶岩の型',cost:13,burn:2,selfB
 hinotori_b3_skin2:{mid:'hinotori',id:'hinotori_b3_skin2',name:'ハデスフレア',cost:21,val:29,burn:2,bleed:3,crit:'B',rarity:'SR',desc:'攻29 炎上2 出血3',isStarter:true,skinCardOf:'hinotori_ssr_02',replaces:'hinotori_b3'},
 motchi_b3_skin2:{mid:'motchi',id:'motchi_b3_skin2',name:'無下限呪術',cost:9,val:14,block:25,weak:2,crit:'A',rarity:'SR',desc:'攻14 防25 攻弱2',isStarter:true,skinCardOf:'motchi_ssr_02',replaces:'motchi_b3'},
 k_b3_skin2:{mid:'kawazumo',id:'k_b3_skin2',name:'呪霊操術',cost:16,val:18,vuln:1,curse:3,crit:'C',rarity:'SR',desc:'攻18 守弱1 呪霊+3',isStarter:true,skinCardOf:'kawazumo_ssr_02',replaces:'k_b3'},
+// ライオネル(iblis_ssr_01)の看板技。反転の型と同じ往復札だが、
+// 通常形態=守って昇る / 天使型=殴って降りる と、形態で役割が変わる。
+// 【重要】初期デッキで通常形態に戻れるのはこの1枚だけ。formTo:'toggle' を外さないこと。
+iblis_b3_skin:{mid:'iblis',id:'iblis_b3_skin',name:'獅子と熾天',cost:12,val:12,block:22,crit:'D',formTo:'toggle',
+  formEff:{angel:{val:28,block:6,crit:'C'}},rarity:'SR',
+  desc:'攻12 防22 使用後 形態が入れ替わる 【天】攻28 防6',isStarter:true,skinCardOf:'iblis_ssr_01',replaces:'iblis_b3'},
 };
 const CARDS = {
 hinotori_b1:{mid:'hinotori',id:'hinotori_b1',name:'くちばし',cost:11,val:16,crit:'D',rarity:'N',desc:'攻16',isStarter:true},
