@@ -1592,6 +1592,16 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
   animation: aura-breathe 1.5s ease-in-out infinite alternate;
 }
 
+/* ランキングの「技」の印。専用技セットを使って残した記録に付く */
+.ranking-set-badge {
+  display: inline-block; vertical-align: middle; margin-left: 2px;
+  font-size: 8px; font-weight: 900; line-height: 1;
+  padding: 2px 3px; border-radius: 3px;
+  background: linear-gradient(135deg, #a21caf, #6d28d9);
+  color: #fae8ff; border: 1px solid rgba(240,171,252,0.6);
+  box-shadow: 0 0 5px rgba(192,38,211,0.5);
+}
+
 /* タイトルの「新スキン」の帯。ガチャのボタンの真上に置いて、そこへ誘導する */
 .new-skin-banner {
   background: linear-gradient(90deg, rgba(120,53,15,0.85) 0%, rgba(88,28,135,0.85) 100%);
@@ -2088,8 +2098,10 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
 <!-- MODALS -->
 <div id="ranking-modal" class="fixed inset-0 bg-black/95 hidden flex flex-col items-center justify-center z-[200] p-6 backdrop-blur-md">
 <h2 class="text-2xl font-black text-amber-500 mb-3 pixel-font">歴代ブリーダーランキング <span id="ranking-type" class="text-xs text-zinc-500"></span></h2>
-<div id="ranking-tabs" class="flex flex-wrap gap-1.5 justify-center mb-3 max-w-sm"></div>
-<div class="bg-zinc-900 border border-zinc-700 w-full max-w-sm rounded-lg p-4 h-96 overflow-y-auto shadow-2xl">
+<div id="ranking-tabs" class="flex flex-wrap gap-1.5 justify-center mb-2 max-w-sm"></div>
+<!-- 「技」の印だけでは意味が伝わらないので、表の上に読み方を置く -->
+<p class="text-[9px] text-zinc-500 mb-2"><span class="ranking-set-badge">技</span> = 専用技セットを使って残した記録</p>
+<div class="bg-zinc-900 border border-zinc-700 w-full max-w-sm rounded-lg p-4 h-[58vh] max-h-[560px] min-h-[280px] overflow-y-auto shadow-2xl">
 <table class="w-full text-xs text-left">
 <thead><tr class="text-zinc-500 border-b border-zinc-700"><th class="pb-2 pl-2">順位</th><th class="pb-2">名前</th><th class="pb-2 text-center">相棒</th><th class="pb-2 text-right pr-2">スコア</th></tr></thead>
 <tbody id="ranking-list" class="divide-y divide-zinc-800"><tr><td colspan="4" class="text-center py-4 text-zinc-500">Loading...</td></tr></tbody>
@@ -4172,6 +4184,11 @@ const CHANGELOG = [
     'ガチャのピックアップをこの2体に入れ替えました。確率アップの対象です',
     '追加記念に 💎135 をお配りしました',
   ]},
+  { date:'2026/08/06', title:'ランキングを30位まで表示', items:[
+    'これまで10位までだったランキングを、30位まで見られるようにしました',
+    '相棒で絞り込んだときも30位まで並びます',
+    '専用技セットを使って残した記録には「技」の印が付きます。表の上に読み方を置きました',
+  ]},
   { date:'2026/08/06', title:'イブリースのアクセサリを形態ごとに置けるように', items:[
     'イブリースは通常形態と天使型で体つきが大きく変わるため、同じ位置だと片方で必ず浮いていました',
     'アクセサリの位置・角度・大きさ・色を、形態ごとに別々に保存できるようにしました',
@@ -6239,6 +6256,19 @@ showStarterRelicChoice(proceedToAdventure);
 
 let allRankingData = [];
 let currentRankingFilter = 'all';
+// ランキングに出す件数。端末内の保存件数は、絞り込んでも30位まで並ぶよう多めに持つ
+const RANKING_SHOW_MAX = 30;
+const RANKING_STORE_MAX = 120;
+// オンラインから読む件数。相棒で絞り込んでも30位まで並ぶよう、種族数ぶんの余裕を持たせている。
+// 増やすとFirestoreの読み取り回数がそのまま増えるので、やみくもに上げないこと
+const RANKING_FETCH_MAX = 300;
+// 技セットを使って残した記録には印を付ける。スキンが分かれば名前も出す
+function rankingCardSetBadge(r){
+  if(!r || !r.cardSet) return '';
+  const skin = (typeof findSkinById === 'function') ? findSkinById(r.cardSet) : null;
+  const label = skin ? skin.name : '専用技セット';
+  return `<span class="ranking-set-badge" title="${label}の専用技セットを使用">技</span>`;
+}
 window.game.showRanking = async function() {
 const list = document.getElementById('ranking-list'); const typeLabel = document.getElementById('ranking-type');
 document.getElementById('ranking-modal').classList.remove('hidden');
@@ -6247,10 +6277,10 @@ currentRankingFilter = 'all';
 if (useFirebase && db) {
   typeLabel.innerText = "(オンライン・全プレイヤー)";
   try {
-    const snap = await db.collection('rankings').orderBy('score', 'desc').limit(100).get();
+    const snap = await db.collection('rankings').orderBy('score', 'desc').limit(RANKING_FETCH_MAX).get();
     allRankingData = snap.docs.map(d => d.data());
     renderRankingTabs();
-    renderRankingList(allRankingData.slice(0, 10));
+    renderRankingList(allRankingData.slice(0, RANKING_SHOW_MAX));
     return;
   } catch(e) {
     console.warn('オンラインランキング取得に失敗。端末内ランキングを表示します。', e);
@@ -6261,7 +6291,7 @@ try {
   const raw = localStorage.getItem('mf_rankings');
   allRankingData = raw ? JSON.parse(raw) : [];
   renderRankingTabs();
-  renderRankingList(allRankingData.slice(0, 10));
+  renderRankingList(allRankingData.slice(0, RANKING_SHOW_MAX));
 } catch(e) {
   allRankingData = [];
   renderRankingTabs();
@@ -6284,7 +6314,7 @@ tabs.querySelectorAll('.ranking-tab-btn').forEach(btn=>{
     currentRankingFilter = btn.dataset.filter;
     renderRankingTabs();
     const filtered = currentRankingFilter==='all' ? allRankingData : allRankingData.filter(r=>r.monsterId===currentRankingFilter);
-    renderRankingList(filtered.slice(0,10));
+    renderRankingList(filtered.slice(0, RANKING_SHOW_MAX));
   };
 });
 }
@@ -6297,7 +6327,7 @@ if(r.monsterId && SPECIES[r.monsterId]) {
 const sp = SPECIES[r.monsterId];
 mIcon = sp.img ? `<img src="${sp.img}" class="w-7 h-7 object-contain inline-block align-middle">` : `<div class="w-5 h-5 inline-block align-middle text-lg">${sp.icon}</div>`;
 }
-list.innerHTML += `<tr class="text-zinc-300"><td class="py-2 pl-2 text-amber-500 font-bold">${i + 1}</td><td>${r.name}</td><td class="text-center">${mIcon}</td><td class="text-right pr-2 text-amber-400 font-mono">${r.score}</td></tr>`;
+list.innerHTML += `<tr class="text-zinc-300"><td class="py-2 pl-2 text-amber-500 font-bold">${i + 1}</td><td>${r.name}</td><td class="text-center whitespace-nowrap">${mIcon}${rankingCardSetBadge(r)}</td><td class="text-right pr-2 text-amber-400 font-mono">${r.score}</td></tr>`;
 });
 }
 async function saveScore(s) {
@@ -6305,6 +6335,8 @@ const data = {
 name: state.playerName,
 score: s,
 monsterId: state.player.species ? state.player.species.id : null,
+// 専用技セットを使った冒険なら、そのスキンidを残す(一覧に「技」の印が付く)
+cardSet: state.skinCardSet || null,
 date: new Date().toLocaleDateString()
 };
 // 端末内ランキング（常に保存。オフライン時のバックアップにもなる）
@@ -6313,7 +6345,7 @@ try {
   let ranking = raw ? JSON.parse(raw) : [];
   ranking.push(data);
   ranking.sort((a,b) => b.score - a.score);
-  ranking = ranking.slice(0, 50);
+  ranking = ranking.slice(0, RANKING_STORE_MAX);
   localStorage.setItem('mf_rankings', JSON.stringify(ranking));
 } catch(e) { console.warn('ranking save failed', e); }
 // オンラインランキング（Firebaseが設定されている場合のみ）
@@ -6323,6 +6355,7 @@ if (useFirebase && db) {
       name: data.name,
       score: data.score,
       monsterId: data.monsterId,
+      cardSet: data.cardSet,
       date: data.date,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
