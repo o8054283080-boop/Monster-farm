@@ -4616,6 +4616,12 @@ function accTuningKey(speciesId, formKey){
   return (speciesId === ACC_FORM_TUNED_SPECIES && formKey === 'angel') ? speciesId + '@angel' : speciesId;
 }
 function hasFormTuning(speciesId){ return speciesId === ACC_FORM_TUNED_SPECIES; }
+// アクセサリの基準位置。data-accessories.js 側に形態ぶんの座標(例: 'iblis@angel')があればそれを使う。
+// 無ければ種族のぶんに落とす。プレイヤーの調整値は、この基準位置からのずれとして上に乗る
+function accPos(acc, tuningKey, speciesId){
+  if(!acc || !acc.pos) return null;
+  return acc.pos[tuningKey] || acc.pos[speciesId] || null;
+}
 // その種族(形態)・そのアクセサリの調整値(無ければ既定値)。
 // speciesId には accTuningKey() が返すキーを渡すこと
 function accTuning(c, speciesId, accId){
@@ -4806,9 +4812,10 @@ function renderBattleAccessories(speciesId){
     if(!accId || spriteW<=0 || spriteH<=0){ img.style.display = 'none'; img.src=''; return; }
     const acc = (typeof ACCESSORIES!=='undefined') ? ACCESSORIES.find(a=>a.id===accId) : null;
     if(!acc){ img.style.display = 'none'; img.src=''; return; }
-    const pos = acc.pos[speciesId];
-    // 形態を持つ種族は、いまの形態の調整値を使う(applyFormVisualから呼び直している)
-    const custom = accTuning(c, accTuningKey(speciesId, state.player && state.player.form), accId);
+    // 形態を持つ種族は、いまの形態の基準位置と調整値を使う(applyFormVisualから呼び直している)
+    const key = accTuningKey(speciesId, state.player && state.player.form);
+    const pos = accPos(acc, key, speciesId);
+    const custom = accTuning(c, key, accId);
     const v = computeAccVisual(pos, custom, spriteW, spriteH);
     img.src = acc.img;
     img.style.display = 'block';
@@ -4985,7 +4992,7 @@ function renderLoadoutPreview(){
     if(!accId){ img.style.display = 'none'; img.src=''; return; }
     const acc = ACCESSORIES.find(a=>a.id===accId);
     if(!acc){ img.style.display = 'none'; img.src=''; return; }
-    const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutTuningKey(), accId), refSize, refSize);
+    const v = computeAccVisual(accPos(acc, loadoutTuningKey(), loadoutSelectedSpecies), accTuning(c, loadoutTuningKey(), accId), refSize, refSize);
     img.src = acc.img;
     img.style.display = 'block';
     img.style.width = v.w+'px';
@@ -5297,7 +5304,7 @@ function renderAccPickerPreview(accId){
   document.getElementById('acc-picker-preview-img').src = loadoutPreviewImg();
   const acc = ACCESSORIES.find(a=>a.id===accId);
   if(!acc) return;
-  const v = computeAccVisual(acc.pos[loadoutSelectedSpecies], accTuning(c, loadoutTuningKey(), accId), ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
+  const v = computeAccVisual(accPos(acc, loadoutTuningKey(), loadoutSelectedSpecies), accTuning(c, loadoutTuningKey(), accId), ACC_PICKER_PREVIEW_REF, ACC_PICKER_PREVIEW_REF);
   const img = document.getElementById('acc-picker-preview-acc');
   img.src = acc.img;
   img.style.width = v.w+'px';
