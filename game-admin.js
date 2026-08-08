@@ -79,6 +79,8 @@ function startAdminRun(speciesId, diff){
   const nameEl = document.getElementById('player-name-input');
   if(nameEl && !nameEl.value.trim()) nameEl.value = 'テスト';
   if(ui && ui.diffInput && diff) ui.diffInput.value = diff;
+  // 動作確認は素の状態で行う。前に選んだ「すっぴん」を引きずらせない
+  if(typeof runStyle !== 'undefined') runStyle = 'normal';
   window.game.confirmName();
   window.game.selectMonster(speciesId);
 }

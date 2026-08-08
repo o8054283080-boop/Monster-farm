@@ -1582,6 +1582,16 @@ html.fx-off #special-move-banner.is-on .plate::after{display:none}
   box-shadow: 0 0 5px rgba(192,38,211,0.5);
 }
 
+/* ランキングの「素」の印。すっぴん(継承ショップの強化と専用技セットなし)で残した記録に付く */
+.ranking-naked-badge {
+  display: inline-block; vertical-align: middle; margin-left: 2px;
+  font-size: 8px; font-weight: 900; line-height: 1;
+  padding: 2px 3px; border-radius: 3px;
+  background: linear-gradient(135deg, #0369a1, #075985);
+  color: #e0f2fe; border: 1px solid rgba(125,211,252,0.6);
+  box-shadow: 0 0 5px rgba(14,165,233,0.5);
+}
+
 /* タイトルの「新スキン」の帯。ガチャのボタンの真上に置いて、そこへ誘導する */
 .new-skin-banner {
   background: linear-gradient(90deg, rgba(120,53,15,0.85) 0%, rgba(88,28,135,0.85) 100%);

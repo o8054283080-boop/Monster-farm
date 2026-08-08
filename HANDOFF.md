@@ -1,6 +1,6 @@
 # モンスターファーム デッキサバイバル - 開発引き継ぎメモ
 
-最終更新: 2026/08/03
+最終更新: 2026/08/08
 このメモは Claude Code (claude.ai/code のクラウドセッション) に開発を移行するための引き継ぎ資料です。
 新しいセッションの冒頭でこのファイルを参照させれば、経緯を再説明せずに再開できます。
 
@@ -14,8 +14,10 @@
 - GitHubリポジトリ: `o8054283080-boop/Monster-farm`
 - ホスティング: GitHub Pages(ホーム画面に追加して利用)
 - 難易度: ノーマル / ハード / エキスパート / ベリーハード / レジェンド の5段階
+  - その上に **やり込みの「試練」1〜10**(レジェンド + 不利益が積み上がる。→ 0.6)
+- 遊び方: **通常 / すっぴん** を開始時に選ぶ(すっぴん = 継承ショップの底上げと専用技セットなし。→ 0.6)
 - 階層: 60階(ベリーハードのみ63階のレジェンドボスラッシュあり)
-- プレイヤー種族: 7種族(モッチー / ゴーレム / モノリス / カワズモー / ガリ / ヒノトリ / ザン)
+- プレイヤー種族: 8種族(モッチー / ゴーレム / モノリス / カワズモー / ガリ / ヒノトリ / ザン / イブリース)
 
 ---
 
@@ -36,6 +38,57 @@
 | `data-accessories.js` | アクセサリデータ(23種)。約15KB |
 | `data-auras.js` | オーラのメタデータ(5種) |
 | `img/` | **画像は全部ここ。** データファイルはパスを持つだけ(下記) |
+
+## 0.6 試練 と すっぴん (`game-meta.js`)
+
+**2026/08/08に追加した2つのやり込み。どちらも「普通の冒険に何かを足す/引く」だけで、別モードは作っていない。**
+
+### 試練(1〜10)
+- 保存: `mf_trial_progress` = `{cleared: 突破済みの最大番号, name: 試練ランキングの固定名}`
+- 挑めるのは `cleared + 1` まで。試練1は最初から挑める。上限10
+- **⚠ `state.difficulty` は試練でも `'legend'` のままにしてある。**
+  こうしないと「初期デッキの呪い」「レジェンドボスラッシュ解放」「大ケガ」など、
+  レジェンドの処理が全部素通りする。試練の番号は **`state.trial`(0〜10)** で別に持つ
+- 不利益は `TRIALS` の上から積み上がる(試練5なら1〜5が全部かかる)。
+  **効かせる場所は6つの入口に集めてある** — 増やすときもここを通すこと:
+
+  | 入口 | 場所 | かかる試練 |
+  |---|---|---|
+  | `trialEnemyToughness()` | `playCard` と **`calcPreviewDmg`** | 1(+5) / 10(+10) |
+  | `trialBossPierce()` | `enemyDefPierce()` | 10 |
+  | `trialEnemyDmgMult()` / `trialEnemyRage()` | `setEnemyIntent()` | 3 / 8 |
+  | `trialEnemyHpMult()` | `startBattle()` の難易度倍率のところ | 6 |
+  | `trialHandMinus()` / `trialBattleInjury()` | `startBattle()` | 2 / 9 |
+  | `trialRestMult()` / `trialGoldMult()` / `trialEnergyCapMinus()` | 休息所・`gainGold()`・`applyTrialPenalties()` | 4 / 5 / 7 |
+
+- **⚠ 敵の丈夫さは `playCard` と `calcPreviewDmg` の両方に同じ行がある。**
+  片方だけ直すと「予告と実ダメージが食い違う」というこの土地の定番の不具合になる。
+  検証は `scratchpad/preview_check.js`(実際に手札をドラッグして予告の数字を読む)
+- 突破の判定は `nextFloor()` の「60階を抜けたところ」1か所だけ。
+  ここで `markTrialCleared()` を呼び、`showTrialClearNotice()` を出してから
+  **本来の流れ(ボスラッシュの選択 or 冒険終了)へ必ず戻す**
+- スコアと継承ポイントの倍率は `trialScoreMult(n) = 2.25 + 0.25n`。
+  レジェンドの2.25倍と**二重にかけない**こと(`calculateFinalScore` は else if にしてある)
+- **名前の固定**: 初めて試練を始めるとき `confirmTrialStart()` が必ず止めて確認する。
+  「挑む」を押した瞬間に `mf_trial_progress.name` へ焼き付ける。以後の試練の記録は全部この名前
+
+### すっぴん
+- `state.naked`。開始画面の「通常 / すっぴん」で決める(`runStyle` → `startRun()`)
+- やらないことは2つだけ: **継承ショップの底上げ**(`applyMetaShopBonuses` を丸ごと飛ばす)と
+  **スキンの専用技セット**(`state.skinCardSet = null` / `applyStarterCardChoice` を即return)
+- 見た目(スキン・アクセサリ・オーラ・モーション)は普通に使える。強さに関係しないため
+- **⚠ すっぴんは `applyMetaShopBonuses()` を飛ばすので、試練の不利益をあの中に書かないこと。**
+  すっぴん＋試練を同時に選べるので、片方が素通りする。`applyTrialPenalties()` を外に置いてある
+
+### ランキング
+- 記録に `trial` / `trialCleared` / `naked` / `floor` が増えた。**古い記録には無い**ので
+  `undefined` を「使っていない」として扱うこと
+- タブは `RANKING_MODE_TABS`(全体 / 技なし / すっぴん / ⚔ 試練)。試練だけ番号→スコアの順で並べる
+- **色は class 名をそのまま書くこと。** `bg-${色}-600` と組み立てると Tailwind が拾えず色が付かない
+- **15階を突破していない記録は保存しない**(`rankingEligible()`)。端末内・オンラインとも
+- 検証: `scratchpad/trial_verify.js`(32項目)。
+  **⚠ テストで `#difficulty-input.value = 'trial4'` とする前に `renderTrialOptions()` を呼ぶこと。**
+  選択肢が無いと value が入らず、前の値のまま静かに走る(実際にこれで全部「試練1」を測っていた)
 
 ## 0.4 敵の行動の決まり方(2通りある)
 

@@ -157,6 +157,8 @@ function getSelectedStarterCard(speciesId){
 }
 // 初期デッキの看板技を、選択中のスキン専用技に差し替える
 function applyStarterCardChoice(speciesId){
+  // すっぴんは「スキンで変えられるカード」を一切使わない。看板技も種族そのままにする
+  if(state && state.naked) return;
   let card = getSelectedStarterCard(speciesId);
   // 技セットを使う冒険では、看板技もそのセットの一部として必ず差し替える。
   // 装備画面の操作に頼らずここで揃えることで、どう選ばれていても食い違わない
