@@ -661,7 +661,12 @@ window.game.selectMonster = function(key) {
   stopSceneBGM();   // 選択画面のBGMをここで止める(この先はマップ/バトルのBGM)
 const spec = SPECIES[key];
 state.player.species=spec; state.player.maxHp=spec.hp; state.player.hp=spec.hp;
-applyMetaShopBonuses();
+// すっぴんは継承ショップの底上げを一切載せない。
+// 【重要】試練の不利益(applyTrialPenalties)はこの外で必ず効かせること。
+// すっぴん＋試練を同時に選べるので、中に混ぜると片方が素通りする
+if(!state.naked) applyMetaShopBonuses();
+else { state.goldGainMult = 1; state.player.metaExtraHand = 0; state.player.metaRegenEnergy = 0; state.player.fukutsuAvailable = false; }
+applyTrialPenalties();
 // 回数報酬は今まで無言でダイヤが増えるだけだったので、何回目の挑戦で
 // いくら貰えたのかをトーストで知らせる(節目でない回は通知しない)
 {
@@ -672,7 +677,8 @@ applyMetaShopBonuses();
   }
 }
 // 技セットは冒険を始めるこの瞬間に決めて、途中では変えない(セーブにも載る)
-state.skinCardSet = getSelectedCardSet(spec.id);
+// すっぴんは専用技セットを使わない(見た目のスキンはそのまま使える)
+state.skinCardSet = state.naked ? null : getSelectedCardSet(spec.id);
 state.deck = spec.deck.map(id => mkDeckCard(BASE_CARDS[id]));
 applyStarterCardChoice(spec.id); // スキン専用の初期技を選んでいれば看板技を差し替える
 // レジェンド難易度は初期デッキに「呪い」を1枚背負って始める
@@ -753,6 +759,30 @@ function rankingCardSetBadge(r){
   const label = skin ? skin.name : '専用技セット';
   return `<span class="ranking-set-badge" title="${label}の専用技セットを使用">技</span>`;
 }
+// すっぴん(継承ショップの底上げとスキンの技を使わない)で残した記録の印
+function rankingNakedBadge(r){
+  if(!r || !r.naked) return '';
+  return `<span class="ranking-naked-badge" title="すっぴん(継承ショップの強化と専用技セットなし)">素</span>`;
+}
+// ---- ランキングの絞り込み ----
+// 種族での絞り込みとは別に、遊び方での絞り込みを4つ持つ。
+// 【重要】昔の記録には trial / naked が入っていない。undefined を「使っていない」として扱うこと
+// 【重要】色は class 名をそのまま書くこと。`bg-${色}-600` のように組み立てると
+// Tailwind が拾えず、色が付かないタブができる
+const RANKING_MODE_TABS = [
+  // 【重要】どのタブも自分で並べ替える。端末内の記録は保存時に並んでいるが、
+  // オンラインぶんや古い記録が混ざったときに順位が入れ替わって見えるのを防ぐ
+  { key:'all',   label:'全体',     on:'bg-amber-600 border-amber-400 text-white', off:'bg-zinc-800 border-zinc-700 text-zinc-400',
+    pick:(rs)=>rs.slice().sort((a,b)=>b.score-a.score) },
+  { key:'noset', label:'技なし',   on:'bg-lime-600 border-lime-400 text-white',   off:'bg-zinc-800 border-lime-900 text-lime-300',
+    pick:(rs)=>rs.filter(r=>!r.cardSet).sort((a,b)=>b.score-a.score) },
+  { key:'naked', label:'すっぴん', on:'bg-sky-600 border-sky-400 text-white',     off:'bg-zinc-800 border-sky-900 text-sky-300',
+    pick:(rs)=>rs.filter(r=>!!r.naked).sort((a,b)=>b.score-a.score) },
+  // 試練は「突破した記録」だけを、試練の番号が大きい順 → スコア順に並べる
+  { key:'trial', label:'⚔ 試練',  on:'bg-rose-600 border-rose-400 text-white',   off:'bg-zinc-800 border-rose-900 text-rose-300',
+    pick:(rs)=>rs.filter(r=>r.trialCleared && r.trial>0).slice().sort((a,b)=> (b.trial-a.trial) || (b.score-a.score)) },
+];
+function rankingModeTab(key){ return RANKING_MODE_TABS.find(t=>t.key===key); }
 function setRankingTypeLabel(){
   const el = document.getElementById('ranking-type');
   if(!el) return;
@@ -790,7 +820,12 @@ const tabs = document.getElementById('ranking-tabs');
 if(!tabs) return;
 const usedIds = [...new Set(allRankingData.map(r=>r.monsterId).filter(Boolean))];
 const speciesList = usedIds.map(id=>SPECIES[id]).filter(Boolean);
-let html = `<button data-filter="all" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border ${currentRankingFilter==='all'?'bg-amber-600 border-amber-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-400'}">全体</button>`;
+let html = '';
+// 遊び方での絞り込み(全体 / 技なし / すっぴん / 試練)
+RANKING_MODE_TABS.forEach(t=>{
+  const on = currentRankingFilter===t.key;
+  html += `<button data-filter="${t.key}" class="ranking-tab-btn px-3 py-1 rounded-full text-[10px] font-bold border ${on?t.on:t.off}">${t.label}</button>`;
+});
 // オンラインを見ているときだけ「自分」を出す。端末内表示のときは全体がそのまま自分の記録なので要らない
 if(rankingIsOnline && localRankingData.length){
   const on = currentRankingFilter==='me';
@@ -806,13 +841,16 @@ tabs.querySelectorAll('.ranking-tab-btn').forEach(btn=>{
     currentRankingFilter = btn.dataset.filter;
     renderRankingTabs();
     setRankingTypeLabel();
-    let filtered;
-    if(currentRankingFilter==='me') filtered = localRankingData;
-    else if(currentRankingFilter==='all') filtered = allRankingData;
-    else filtered = allRankingData.filter(r=>r.monsterId===currentRankingFilter);
-    renderRankingList(filtered.slice(0, RANKING_SHOW_MAX));
+    renderRankingList(rankingFiltered().slice(0, RANKING_SHOW_MAX));
   };
 });
+}
+// いま選んでいる絞り込みに合う一覧を返す。並べ替えも各タブが持っている
+function rankingFiltered(){
+  if(currentRankingFilter==='me') return localRankingData;
+  const mode = rankingModeTab(currentRankingFilter);
+  if(mode) return mode.pick(allRankingData);
+  return allRankingData.filter(r=>r.monsterId===currentRankingFilter);
 }
 function renderRankingList(rk) {
 const list = document.getElementById('ranking-list'); list.innerHTML = '';
@@ -823,16 +861,32 @@ if(r.monsterId && SPECIES[r.monsterId]) {
 const sp = SPECIES[r.monsterId];
 mIcon = sp.img ? `<img src="${sp.img}" class="w-7 h-7 object-contain inline-block align-middle">` : `<div class="w-5 h-5 inline-block align-middle text-lg">${sp.icon}</div>`;
 }
-list.innerHTML += `<tr class="text-zinc-300"><td class="py-2 pl-2 text-amber-500 font-bold">${i + 1}</td><td>${r.name}</td><td class="text-center whitespace-nowrap">${mIcon}${rankingCardSetBadge(r)}</td><td class="text-right pr-2 text-amber-400 font-mono">${r.score}</td></tr>`;
+// 試練のタブでは「名前 試練Nクリア」の形で出す
+const trialTag = (currentRankingFilter==='trial' && r.trial)
+  ? `<div class="text-[9px] text-rose-300 font-bold leading-tight">試練${r.trial}クリア</div>` : '';
+list.innerHTML += `<tr class="text-zinc-300"><td class="py-2 pl-2 text-amber-500 font-bold">${i + 1}</td><td>${r.name}${trialTag}</td><td class="text-center whitespace-nowrap">${mIcon}${rankingCardSetBadge(r)}${rankingNakedBadge(r)}</td><td class="text-right pr-2 text-amber-400 font-mono">${r.score}</td></tr>`;
 });
 }
+// ランキングに載る最低ライン。ここに届かない記録は残さない。
+// 【なぜ】1〜2階でやめた記録が並ぶと、順位表としても、すっぴん・試練の比べ合いとしても意味がなくなる
+const RANKING_MIN_FLOOR = 15;
+function rankingEligible(){ return (state.floor || 1) >= RANKING_MIN_FLOOR; }
 async function saveScore(s) {
+// 15階(最初のボス)を突破していない記録は、端末にもオンラインにも残さない
+if(!rankingEligible()) return;
 const data = {
-name: state.playerName,
+// 試練の名前は最初に決めたものに固定する(冒険中の名前ではなく、こちらを使う)
+name: (state.trial > 0 && loadTrialProgress().name) ? loadTrialProgress().name : state.playerName,
 score: s,
 monsterId: state.player.species ? state.player.species.id : null,
 // 専用技セットを使った冒険なら、そのスキンidを残す(一覧に「技」の印が付く)
 cardSet: state.skinCardSet || null,
+// 試練の番号と、60階を踏破したか。試練ランキングはこの2つで並べる
+trial: state.trial || 0,
+trialCleared: !!state.trialCleared,
+// すっぴん(継承ショップの底上げとスキンの技を使わない)で残した記録か
+naked: !!state.naked,
+floor: state.floor || 1,
 date: new Date().toLocaleDateString()
 };
 // 端末内ランキング（常に保存。オフライン時のバックアップにもなる）
@@ -852,6 +906,10 @@ if (useFirebase && db) {
       score: data.score,
       monsterId: data.monsterId,
       cardSet: data.cardSet,
+      trial: data.trial,
+      trialCleared: data.trialCleared,
+      naked: data.naked,
+      floor: data.floor,
       date: data.date,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -952,10 +1010,16 @@ __autosaveDisabled = false; // 新しい冒険が始まるので自動セーブ�
 if(ui.endTurnBtn) { ui.endTurnBtn.disabled = false; ui.endTurnBtn.onclick = handleEndTurn; }
 state = {
 playerName:name, score:0, gold:0, totalDmgDealt:0, totalDmgTaken:0,
-difficulty: ui.diffInput.value,
+// 【重要】試練(trialN)を選んでいても difficulty は 'legend' にする。
+// こうしないと初期デッキの呪い・大ケガ・ボスラッシュ解放など、レジェンドの処理が全部素通りする
+difficulty: (typeof trialNumberOf === 'function' && trialNumberOf(ui.diffInput.value)) ? 'legend' : ui.diffInput.value,
 player:{species:null, hp:0, maxHp:0, block:0, energy:0, maxEnergy:99, relics:[], atkBase:0, blockBase:0, atkBattle:0, blockBattle:0, regenHp:0, regenEnergy:0, metaRegenEnergy:0, nextTurnEnergy:0, nextTurnDrain:0, nextTurnHandReduce:0, nextDmgMult:1, nextBlockMult:1, nextAtkBonus:0, weak:0, vuln:0, bleedOnHit:0, zeroCostTurn:false, doubleAtk:false, currentTurnDouble:false, currentTurnBlockDouble:false, _revived:false, form:'normal', dmgCutPct:0, dmgCutTurns:0},
 enemy:{hp:0, maxHp:0, dmg:0, block:0, intent:{type:'atk',val:0}, weak:0, vuln:0, burn:0, freeze:0, shock:0, turnCount:0},
 deck:[], hand:[], drawPile:[], discardPile:[], exhaustPile:[], floor:1, isPlayerTurn:false, mapActionTaken:false, selectedCardIndex:null, legendRush:false,
+// 試練の番号(0=試練ではない)。難易度は 'legend' のままで、ここに不利益を足していく
+trial:0,
+// すっぴん。継承ショップの底上げと専用技セットを使わない
+naked:false,
 // 使っているスキン専用技セットのスキンid。selectMonster()で焼き付けて冒険中は変えない
 skinCardSet:null
 };
@@ -1030,18 +1094,21 @@ n.onclick=()=>{if(!state.mapActionTaken){state.mapActionTaken=true;a();}}; retur
 window.game.showCamp = function() {
 showModal("休息所","休んで英気を養いましょう");
 const b=document.createElement('button'); b.className="w-full p-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl mb-2 text-sm font-bold border border-zinc-700 shadow";
-b.innerText="休む (ライフ 50%回復)"; b.onclick=()=>{state.player.hp=Math.min(state.player.maxHp,state.player.hp + Math.floor(state.player.maxHp*0.5)); nextFloor();};
+// 試練4では戻る量が半分になる。ボタンの文字も実際の割合に合わせる
+const campPct = Math.round(50 * trialRestMult());
+b.innerText=`休む (ライフ ${campPct}%回復)`; b.onclick=()=>{state.player.hp=Math.min(state.player.maxHp,state.player.hp + Math.floor(state.player.maxHp*campPct/100)); nextFloor();};
 ui.rewardList.appendChild(b);
 };
 window.game.showRest = function() {
-const healAmt = Math.floor(state.player.maxHp * 0.35);
+const restPct = 35 * trialRestMult();   // 試練4: 半分
+const healAmt = Math.floor(state.player.maxHp * restPct / 100);
 const newHp = Math.min(state.player.maxHp, state.player.hp + healAmt);
 const actual = newHp - state.player.hp;
 state.player.hp = newHp;
 showModal("🏕️ 休憩所","焚き火のそばで一息つく…");
 const info = document.createElement('div');
 info.className = "w-full p-4 bg-green-950 border border-green-700 rounded-xl mb-2 text-center";
-info.innerHTML = `<div class="text-4xl mb-2">🏕️</div><div class="text-green-300 font-bold text-sm">ライフが <span class="text-green-200 text-xl font-black">+${actual}</span> 回復した</div><div class="text-zinc-400 text-xs mt-1">(最大HP の 35%)</div>`;
+info.innerHTML = `<div class="text-4xl mb-2">🏕️</div><div class="text-green-300 font-bold text-sm">ライフが <span class="text-green-200 text-xl font-black">+${actual}</span> 回復した</div><div class="text-zinc-400 text-xs mt-1">(最大HP の ${restPct}%)</div>`;
 ui.rewardList.appendChild(info);
 const btn = document.createElement('button');
 btn.className = "w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded-full text-sm mt-2 active:scale-95 transition-all";

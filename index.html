@@ -161,7 +161,17 @@
 <option value="expert">難易度：エキスパート (敵の攻撃 1.2倍 / HP 1.1倍 / 最終スコア 1.5倍)</option>
 <option value="veryhard">難易度：ベリーハード (敵の攻撃 1.28倍 / HP 1.15倍 / 最終スコア 1.75倍 / レジェンドボスラッシュ解放)</option>
 <option value="legend">難易度：レジェンド (敵の攻撃 1.4倍 / HP 1.4倍 / 最終スコア 2.25倍 / 初期デッキに呪い / 大ケガ)</option>
+<!-- 解放済みの試練は起動時にここへ足される(renderTrialOptions) -->
 </select>
+<!-- 試練を選んだときだけ、その試練で増える不利益をここに並べる -->
+<div id="trial-note" class="hidden ornate-panel w-full p-3 text-left rounded-sm"></div>
+
+<!-- 通常 / すっぴん。すっぴんは継承ショップの底上げと専用技セットを使わない挑戦 -->
+<div class="flex gap-2">
+  <button id="style-normal" onclick="window.game.setRunStyle('normal')" class="run-style-btn flex-1 py-2 rounded-sm text-xs font-bold border transition-all active:scale-95">通常</button>
+  <button id="style-naked" onclick="window.game.setRunStyle('naked')" class="run-style-btn flex-1 py-2 rounded-sm text-xs font-bold border transition-all active:scale-95">すっぴん</button>
+</div>
+<p id="run-style-note" class="text-[10px] text-zinc-500 leading-relaxed -mt-2"></p>
 
 <button onclick="window.game.confirmName()" class="ornate-gold-btn w-full py-3 font-bold rounded-sm shadow-lg transition-all active:scale-95 pixel-font">ゲーム開始</button>
 <!-- ガチャに新しいスキンが入ったことを知らせる帯。まだ持っていないぶんだけ絵と名前を出す。
@@ -504,7 +514,7 @@
 <h2 class="text-2xl font-black text-amber-500 mb-3 pixel-font">歴代ブリーダーランキング <span id="ranking-type" class="text-xs text-zinc-500"></span></h2>
 <div id="ranking-tabs" class="flex flex-wrap gap-1.5 justify-center mb-2 max-w-sm"></div>
 <!-- 「技」の印だけでは意味が伝わらないので、表の上に読み方を置く -->
-<p class="text-[9px] text-zinc-500 mb-2"><span class="ranking-set-badge">技</span> = 専用技セットを使って残した記録</p>
+<p class="text-[9px] text-zinc-500 mb-2"><span class="ranking-set-badge">技</span> = 専用技セット使用　<span class="ranking-naked-badge">素</span> = すっぴん(継承強化・専用技セットなし)　※15階を突破した記録だけが載ります</p>
 <div class="bg-zinc-900 border border-zinc-700 w-full max-w-sm rounded-lg p-4 h-[58vh] max-h-[560px] min-h-[280px] overflow-y-auto shadow-2xl">
 <table class="w-full text-xs text-left">
 <thead><tr class="text-zinc-500 border-b border-zinc-700"><th class="pb-2 pl-2">順位</th><th class="pb-2">名前</th><th class="pb-2 text-center">相棒</th><th class="pb-2 text-right pr-2">スコア</th></tr></thead>

@@ -249,7 +249,7 @@ if(t.isRareElite && t.trait!=='narikillog') {
 //  ここで倍率をかけても被ダメージは1も変わらない。表示の辻褄合わせで揃えてある)
 {
 const dm = diffMultFor(mode === 'boss');
-t.hp = Math.floor(t.hp * dm.hp);
+t.hp = Math.floor(t.hp * dm.hp * trialEnemyHpMult());   // 試練6: さらに+25%
 t.dmg = Math.floor(t.dmg * dm.dmg);
 t.maxHp = t.hp;
 }
@@ -269,6 +269,8 @@ resetCardPlayLimit();   // 「創造の律」の残り枚数を戦闘開始時�
 // イブリースの形態は戦闘ごとに通常形態へ戻す(atkBattle等と同じ扱い。冒険をまたいで持ち越さない)
 state.player.form = IBLIS_DEFAULT_FORM; applyFormVisual();
 if(state.enemy.legendaryAura){ addInjuryCards(2); showFloatingText('ケガ×2','drain',ui.playerNode); }
+// 試練9: 戦うたびにケガが1枚混ざる
+if(trialBattleInjury()){ addInjuryCards(trialBattleInjury()); showFloatingText('ケガ','drain',ui.playerNode); }
 // 初期ガッツ: 50固定 + 遺物ボーナス
 let initEnergy = 50;
 if(state.player.relics.some(r=>r.id==='pixy_wing')) initEnergy+=10;
@@ -403,7 +405,7 @@ if((state.enemy._dmgCutTurns||0) > 0){ state.enemy._dmgCutTurns--; if(state.enem
 if((state.enemy._thornsTurns||0) > 0){ state.enemy._thornsTurns--; if(state.enemy._thornsTurns<=0) state.enemy._thorns=0; }
 resetCardPlayLimit();   // パッシブ「創造の律」の残り枚数を戻す
 state.drawsThisTurn = 0;
-drawCards(5); setEnemyIntent(); updateUI(); renderHand();
+drawCards(Math.max(1, 5 - trialHandMinus())); setEnemyIntent(); updateUI(); renderHand();   // 試練2: 初期手札-1
 // 手札-N（ドロー後に処理）
 if((state.player.nextTurnHandReduce||0)>0){
   const nr=state.player.nextTurnHandReduce;
@@ -504,8 +506,10 @@ function setEnemyIntent() {
   if(e.intent.val > 0 && isEliteBoosted(e.mode, state.floor, e)){
     e.intent.val = Math.floor(e.intent.val * ELITE_LATE_DMG_MULT);
   }
-  const mult = diffMultFor(e.mode === 'boss').dmg;
+  const mult = diffMultFor(e.mode === 'boss').dmg * trialEnemyDmgMult();   // 試練3: さらに+15%
   if(mult !== 1 && e.intent.val > 0) e.intent.val = Math.floor(e.intent.val * mult);
+  // 試練8「敵の怒り」。3ターンごとに攻撃が5ずつ上がる。倍率のあとに足す
+  if(e.intent.val > 0) e.intent.val += trialEnemyRage();
 }
 // 敵の行動を決める本体。ここでは難易度倍率をかけず、素の数値を入れる。
 // 倍率は呼び出し口の setEnemyIntent() で一括してかける(かけ忘れ防止のため)。

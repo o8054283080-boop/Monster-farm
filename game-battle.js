@@ -77,7 +77,8 @@ function whimMultiMult(){
 }
 function enemyDefPierce(){
   const e = state.enemy;
-  return (e && e.defPierce) ? e.defPierce : 0;   // 0 = 貫通なし
+  // 試練10のボスにも貫通が付く。元から持っている敵は、強い方を採る(二重にはかけない)
+  return Math.max((e && e.defPierce) ? e.defPierce : 0, trialBossPierce());   // 0 = 貫通なし
 }
 // 敵の攻撃に対して実際に効く丈夫さ。
 // 【重要】実処理(敵の攻撃ループ)と予告(updateUI)の両方で必ずこれを使うこと。
@@ -227,6 +228,9 @@ let tot=Math.floor(b*m*cr);
 if((state.enemy._dmgCutTurns||0) > 0 && (state.enemy._dmgCutPct||0) > 0){
   tot = Math.floor(tot * (1 - state.enemy._dmgCutPct/100));
 }
+// 試練の「敵の丈夫さ」。攻撃1発ごとに固定値を引く。
+// 【重要】calcPreviewDmg にも同じ行がある。片方だけ直すと、予告と実ダメージが食い違う
+tot = Math.max(0, tot - trialEnemyToughness());
 if(state.enemy.evasion>0){ state.enemy.evasion--; tot=0; showFloatingText('回避!','drain',ui.enemyNode); }
 state.totalDmgDealt+=tot;
 state.score += (tot * 5);
@@ -597,6 +601,10 @@ window.game.showBossEffectInfo = function() {
   }
   if(state.enemy.cardPlayLimit) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${state.enemy.cardPlayLimit}枚までに制限される。残り枚数は手札の上に出る。`);
   if(state.enemy.defPierce) lines.push(`🌀 理を無視する\nこちらの丈夫さを${Math.round(state.enemy.defPierce*100)}%無視して攻撃してくる。丈夫さを積んでも受けるダメージが減りきらない。`);
+  // 試練でかかっている不利益も、戦闘中にここから読めるようにしておく
+  if(currentTrial() > 0){
+    lines.push(`⚔ 試練${currentTrial()}\n` + trialsOf(currentTrial()).map(t=>`・${t.label} — ${t.desc}`).join('\n'));
+  }
   if(lines.length===0) return;
   showModal('特殊効果', lines.join('\n\n'));
   ui.modalConfirm.classList.remove('hidden'); ui.modalConfirm.innerText='閉じる'; ui.modalConfirm.onclick=()=>ui.modal.classList.add('hidden');
@@ -647,6 +655,10 @@ function nextFloor() {
   ui.modal.classList.add('hidden');
   stopVictoryBGM();
   if (state.floor === 60 && !state.legendRush) {
+    // 【重要】試練の突破はここで確定させる。60階ボスを倒した時点で突破扱いにして、
+    // このあとボスラッシュへ進んでも、ここで終えても、どちらでも記録が残るようにする
+    const unlocked = markTrialCleared();
+    if (unlocked) { showTrialClearNotice(unlocked); return; }
     if (state.difficulty === 'veryhard' || state.difficulty === 'legend') { showLegendRushChoice(); return; }
     gameClear(); return;
   }
@@ -657,12 +669,45 @@ function nextFloor() {
   const maxFloor = state.legendRush ? (CREATOR_BOSS_ENABLED ? 65 : 63) : 60;
   if(state.floor>maxFloor) gameClear(); else initMap();
 }
+// 試練を突破したときの知らせ。次の試練が解放されたことをここで伝える。
+// 【重要】閉じたあとは、本来の流れ(ボスラッシュの選択 or 冒険終了)へ必ず戻すこと
+function showTrialClearNotice(n){
+  const next = (n < TRIAL_MAX) ? TRIALS[n] : null;
+  showModal(`⚔ 試練${n} 突破`, '60階を踏破しました');
+  const box = document.createElement('div');
+  box.className = 'w-full flex flex-col gap-3';
+  box.innerHTML = `
+    <div class="p-4 rounded-xl bg-amber-950 border-2 border-amber-500 text-center">
+      <div class="text-3xl mb-1">🏆</div>
+      <div class="text-amber-200 font-black text-sm">試練${n} 突破</div>
+      <div class="text-[10px] text-zinc-300 mt-1">試練ランキングに <b>${loadTrialProgress().name || state.playerName}</b> の名前で残ります</div>
+    </div>`
+    + (next
+      ? `<div class="p-3 rounded-xl bg-zinc-900 border border-rose-800 text-left">
+           <div class="text-xs font-bold text-rose-300 mb-1">試練${n+1} が解放されました</div>
+           <div class="text-[10px] text-zinc-300">さらに増える不利益: <b>${next.label}</b> — ${next.desc}</div>
+         </div>`
+      : `<div class="p-3 rounded-xl bg-zinc-900 border border-amber-700 text-center text-[11px] text-amber-200">
+           全ての試練を突破しました。おめでとうございます。
+         </div>`);
+  ui.rewardList.appendChild(box);
+  ui.modalBtn.classList.add('hidden');
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = '進む';
+  ui.modalConfirm.onclick = () => {
+    ui.modal.classList.add('hidden');
+    if (state.difficulty === 'veryhard' || state.difficulty === 'legend') { showLegendRushChoice(); return; }
+    gameClear();
+  };
+}
 function calculateFinalScore() {
 let s = Math.max(0, state.score);
 if (state.difficulty === 'hard') s = Math.floor(s * 1.2);
 if (state.difficulty === 'expert') s = Math.floor(s * 1.5);
 if (state.difficulty === 'veryhard') s = Math.floor(s * 1.75);
-if (state.difficulty === 'legend') s = Math.floor(s * 2.25);
+// 試練はレジェンドの上乗せなので、レジェンドの2.25倍とは二重にかけない
+if (state.trial > 0) s = Math.floor(s * trialScoreMult(state.trial));
+else if (state.difficulty === 'legend') s = Math.floor(s * 2.25);
 return s;
 }
 function gameClear(){ clearAutosave(); const s=calculateFinalScore(); saveScore(s); const mpt=awardMetaPoints(); const dia=awardDiaRewards(); const lastFloor = CREATOR_BOSS_ENABLED ? 65 : 63;
@@ -2209,7 +2254,7 @@ const totalMaxE = state.player.maxEnergy + (state.player.maxEnergyBattle||0);
 if(totalMaxE > 99) ui.playerStatuses.innerHTML+=ps('bg-fuchsia-900','border-fuchsia-400/50','text-fuchsia-200','📈',`G上限${totalMaxE}`);
 if(state.enemy){
 ui.enemyHpBar.style.width=`${(state.enemy.hp/state.enemy.maxHp)*100}%`; ui.enemyHpText.innerText=`${state.enemy.hp}/${state.enemy.maxHp}`;
-if(state.enemy.legendaryAura || state.enemy.legendaryWhim || state.enemy.cardPlayLimit || state.enemy.defPierce){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
+if(state.enemy.legendaryAura || state.enemy.legendaryWhim || state.enemy.cardPlayLimit || state.enemy.defPierce || currentTrial() > 0){ ui.bossEffectIcon.classList.remove('hidden'); } else if(ui.bossEffectIcon){ ui.bossEffectIcon.classList.add('hidden'); }
 if(state.enemy.isRareElite){
   ui.enemyName.innerHTML=`<span style="background:linear-gradient(90deg,#ffd700,#ff8c00,#ffd700,#fff700,#ffd700);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:lr-border 1s linear infinite;font-weight:900;filter:drop-shadow(0 0 4px #ffd700);">★ ${state.enemy.name} ★</span>`;
 } else {
@@ -2313,7 +2358,8 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(state.player.currentTurnDouble) m *= 2;
     if(state.enemy && state.enemy.vuln>0) m *= 1.5;
     if(state.player.weak>0) m *= 0.75;
-    const raw = Math.floor(b*m);
+    // 試練の「敵の丈夫さ」。実処理(playCard)と必ず同じにすること
+    const raw = Math.max(0, Math.floor(b*m) - trialEnemyToughness());
     const blk = (state.enemy && state.enemy.block)||0;
     return { raw, net: Math.max(0,raw-blk), block: blk };
   }

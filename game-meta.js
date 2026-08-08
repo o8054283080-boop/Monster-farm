@@ -64,9 +64,9 @@ function showDiaToast(html){
 
 // 大型アップデート記念の配布。フラグを見て1端末につき1回だけ配る。
 // 次回また配るときは、キーの日付部分を変えて金額を書き換えるだけでよい。
-const UPDATE_GIFT_KEY = 'mf_update_gift_20260806';
-const UPDATE_GIFT_AMOUNT = 135;
-const UPDATE_GIFT_TITLE = '新スキン追加記念';
+const UPDATE_GIFT_KEY = 'mf_update_gift_20260808';
+const UPDATE_GIFT_AMOUNT = 270;
+const UPDATE_GIFT_TITLE = '不具合修正のお詫び';
 (function(){
   try{
     if(localStorage.getItem(UPDATE_GIFT_KEY)) return;
@@ -82,8 +82,203 @@ const UPDATE_GIFT_TITLE = '新スキン追加記念';
   }catch(e){ console.warn('アップデート記念配布の処理に失敗しました', e); }
 })();
 
+// ==================== 試練(やり込み) ====================
+// レジェンドをそのまま土台にして、試練の数だけ不利益が積み上がっていく挑戦。
+// 【重要】試練でも state.difficulty は 'legend' のまま。
+// こうしておくと、初期デッキの呪い・大ケガ・ボスラッシュ解放など
+// レジェンドの処理が全部そのまま効き、試練側は「足すだけ」で済む。
+// 試練の番号は state.trial(0=試練ではない / 1〜10)で持つ。
+const TRIAL_STORAGE_KEY = 'mf_trial_progress';
+const TRIAL_MAX = 10;
+// 上から順に積み上がる。試練5なら1〜5の全部がかかる。
+const TRIALS = [
+  { n:1,  label:'敵の丈夫さ +5',      desc:'すべての敵が丈夫さ5を持つ。攻撃1発ごとにダメージが5減る' },
+  { n:2,  label:'初期手札 -1',        desc:'戦闘開始時に引く枚数が1枚減る' },
+  { n:3,  label:'敵の攻撃 +15%',      desc:'すべての敵の攻撃が15%上がる' },
+  { n:4,  label:'休息が半分',          desc:'休息所と休憩所で戻るライフが半分になる' },
+  { n:5,  label:'ゴールドが半分',      desc:'手に入るゴールドが半分になる' },
+  { n:6,  label:'敵のライフ +25%',    desc:'すべての敵のライフが25%上がる' },
+  { n:7,  label:'ガッツ上限 -10',      desc:'ガッツの上限が10下がる' },
+  { n:8,  label:'敵の怒り',            desc:'3ターンごとに敵の攻撃が5上がっていく' },
+  { n:9,  label:'戦うたびにケガ',      desc:'戦闘開始時、デッキにケガが1枚混ざる' },
+  { n:10, label:'敵の丈夫さ さらに+10', desc:'丈夫さの合計が15になる。ボスはこちらの丈夫さを25%無視する' },
+];
+function loadTrialProgress(){
+  const fallback = { cleared:0, name:null };
+  try{
+    const raw = localStorage.getItem(TRIAL_STORAGE_KEY);
+    if(!raw) return fallback;
+    const tp = JSON.parse(raw);
+    return { cleared: Math.max(0, Math.min(TRIAL_MAX, tp.cleared|0)), name: tp.name || null };
+  }catch(e){ console.warn('試練データの読み込みに失敗しました', e); return fallback; }
+}
+function saveTrialProgress(tp){
+  try{ localStorage.setItem(TRIAL_STORAGE_KEY, JSON.stringify(tp)); }catch(e){ console.warn('試練データの保存に失敗しました', e); }
+}
+// いま挑める一番上の試練。試練1は最初から挑める
+function trialUnlockedMax(){ return Math.min(TRIAL_MAX, loadTrialProgress().cleared + 1); }
+// 60階を踏破したときに呼ぶ。今回はじめて解放されたなら、その試練の番号を返す(それ以外は0)
+function markTrialCleared(){
+  const n = currentTrial();
+  if(!n) return 0;
+  state.trialCleared = true;   // ランキングに「試練Nクリア」として残すための印
+  const tp = loadTrialProgress();
+  if(tp.cleared >= n) return 0;   // すでに突破済みの試練を、もう一度やっただけ
+  tp.cleared = n;
+  saveTrialProgress(tp);
+  return n;
+}
+// その試練でかかっている不利益の一覧
+function trialsOf(n){ return TRIALS.slice(0, Math.max(0, Math.min(TRIAL_MAX, n||0))); }
+// 冒険中にいま効いている試練の番号(0=試練ではない)
+function currentTrial(){ return (typeof state !== 'undefined' && state && state.trial) ? state.trial : 0; }
+// その不利益がかかっているか。全部の判定をここに通す
+function trialHas(n){ return currentTrial() >= n; }
+// 解放済みのぶんだけ、難易度の選択肢に足す
+function renderTrialOptions(){
+  const sel = ui && ui.diffInput ? ui.diffInput : document.getElementById('difficulty-input');
+  if(!sel) return;
+  Array.from(sel.querySelectorAll('option[data-trial]')).forEach(o => o.remove());
+  const max = trialUnlockedMax();
+  for(let i=1; i<=max; i++){
+    const o = document.createElement('option');
+    o.value = 'trial' + i;
+    o.dataset.trial = String(i);
+    o.innerText = `試練${i} (レジェンド + 不利益${i}つ / 最終スコア ${trialScoreMult(i)}倍)`;
+    sel.appendChild(o);
+  }
+  renderTrialNote();
+}
+// 選択中の試練の中身を、始める前に読めるようにする
+function renderTrialNote(){
+  const box = document.getElementById('trial-note');
+  const sel = ui && ui.diffInput ? ui.diffInput : document.getElementById('difficulty-input');
+  if(!box || !sel) return;
+  const n = trialNumberOf(sel.value);
+  if(!n){ box.classList.add('hidden'); return; }
+  const tp = loadTrialProgress();
+  const nameLine = tp.name
+    ? `<div class="text-[10px] text-cyan-300 mt-2">ランキングには <b>${tp.name}</b> の名前で載ります(変更できません)</div>`
+    : `<div class="text-[10px] text-rose-300 mt-2">⚠ 最初に試練を始めたときの名前が、試練ランキングの名前として<b>ずっと固定</b>されます</div>`;
+  box.innerHTML = `<div class="text-xs font-bold text-rose-300 mb-1">試練${n}でかかる不利益</div>`
+    + `<ul class="text-[10px] text-zinc-300 leading-relaxed list-disc pl-4">`
+    + trialsOf(n).map(t=>`<li><b>${t.label}</b> — ${t.desc}</li>`).join('')
+    + `</ul>` + nameLine;
+  box.classList.remove('hidden');
+}
+// 'trial3' → 3 / それ以外 → 0
+function trialNumberOf(v){
+  const m = /^trial(\d+)$/.exec(v || '');
+  return m ? Math.max(0, Math.min(TRIAL_MAX, parseInt(m[1], 10))) : 0;
+}
+// 試練の最終スコア倍率。レジェンドの2.25倍から、試練1つにつき0.25倍ずつ増える
+function trialScoreMult(n){ return 2.25 + 0.25 * (n||0); }
+
+// ---- ここから下が「実際にかかる不利益」。全部この6つの入口に集めてある ----
+// 試練1で+5、試練10でさらに+10。攻撃1発ごとに引かれる固定値
+function trialEnemyToughness(){
+  let t = 0;
+  if(trialHas(1)) t += 5;
+  if(trialHas(10)) t += 10;
+  return t;
+}
+// 試練10: ボスだけこちらの丈夫さを25%無視する
+function trialBossPierce(){
+  if(!trialHas(10)) return 0;
+  return (typeof state !== 'undefined' && state && state.enemy && state.enemy.mode === 'boss') ? 0.25 : 0;
+}
+// 試練3(+15%)と試練8(怒り: 3ターンごとに+5)。敵のダメージにかける/足す
+function trialEnemyDmgMult(){ return trialHas(3) ? 1.15 : 1; }
+function trialEnemyRage(){
+  if(!trialHas(8)) return 0;
+  const t = (typeof state !== 'undefined' && state && state.enemy) ? (state.enemy.turnCount||0) : 0;
+  return Math.floor(t / 3) * 5;
+}
+function trialEnemyHpMult(){ return trialHas(6) ? 1.25 : 1; }
+function trialHandMinus(){ return trialHas(2) ? 1 : 0; }
+function trialRestMult(){ return trialHas(4) ? 0.5 : 1; }
+function trialGoldMult(){ return trialHas(5) ? 0.5 : 1; }
+function trialEnergyCapMinus(){ return trialHas(7) ? 10 : 0; }
+function trialBattleInjury(){ return trialHas(9) ? 1 : 0; }
+
+// ==================== すっぴん ====================
+// 継承ショップの底上げと、スキンの専用技セットを使わずに挑む遊び方。
+// 【重要】この2つ以外(スキンの見た目・アクセサリ・オーラ・モーション)は普通に使える。
+// 見た目は強さに関係しないので、縛る意味がない。
+let runStyle = 'normal';   // 'normal' | 'naked'
+window.game.setRunStyle = function(v){
+  runStyle = (v === 'naked') ? 'naked' : 'normal';
+  renderRunStyle();
+  if(typeof playSfx === 'function') playSfx('select');
+};
+function renderRunStyle(){
+  const on  = 'ornate-gold-btn text-amber-50 border-amber-400';
+  const off = 'bg-zinc-900 text-zinc-500 border-zinc-700';
+  const n = document.getElementById('style-normal'), k = document.getElementById('style-naked');
+  const note = document.getElementById('run-style-note');
+  if(!n || !k) return;
+  n.className = 'run-style-btn flex-1 py-2 rounded-sm text-xs font-bold border transition-all active:scale-95 ' + (runStyle==='normal'?on:off);
+  k.className = 'run-style-btn flex-1 py-2 rounded-sm text-xs font-bold border transition-all active:scale-95 ' + (runStyle==='naked'?on:off);
+  if(note) note.innerHTML = runStyle==='naked'
+    ? 'すっぴん：継承ショップの底上げと、スキンの専用技セットを<b>使いません</b>。見た目(スキン・アクセ・オーラ)はそのままです。<br>すっぴん専用のランキングに載ります。'
+    : '通常：継承ショップの強化も専用技セットもそのまま使えます。';
+}
+
 window.game.handleGlobalClick = function(e) { if(state && state.selectedCardIndex !== null && !e.target.closest('.card')) { state.selectedCardIndex = null; renderHand(); }};
-window.game.confirmName = function() { const n = ui.nameInput.value.trim() || "ブリーダー"; try{ localStorage.setItem('mf_last_trainer_name', n); }catch(e){} resetGameState(n); ui.nameScene.classList.add('hidden'); ui.select.classList.remove('hidden'); renderSpeciesSelect(); stopMenuBGM(); playSceneBGM(__bgmSelect); };
+window.game.confirmName = function() {
+  const n = ui.nameInput.value.trim() || "ブリーダー";
+  const trial = trialNumberOf(ui.diffInput.value);
+  // 試練は名前が固定されるので、始める前に必ず一度止めて確認する
+  if(trial > 0){ confirmTrialStart(trial, n); return; }
+  startRun(n, 0);
+};
+// 試練を始めるときの確認。1回目は名前が固定されることを、2回目以降は固定済みの名前を出す
+function confirmTrialStart(trial, typedName){
+  const tp = loadTrialProgress();
+  const locked = tp.name;
+  showModal(`⚔ 試練${trial}`, locked ? '試練の記録はこの名前で残ります' : 'この名前で試練の記録が残ります');
+  const box = document.createElement('div');
+  box.className = 'w-full flex flex-col gap-3';
+  box.innerHTML = `
+    <div class="p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-left">
+      <div class="text-[10px] text-zinc-400">試練ランキングに載る名前</div>
+      <div class="text-lg font-black text-amber-300">${locked || typedName}</div>
+      ${locked
+        ? '<div class="text-[10px] text-cyan-300 mt-1">すでに固定されています。今回の入力名では載りません。</div>'
+        : '<div class="text-[10px] text-rose-300 mt-1">⚠ この名前は<b>あとから変えられません</b>。ここで決まった名前が、これから先の試練の記録すべてに使われます。</div>'}
+    </div>
+    <div class="p-3 rounded-xl bg-zinc-900 border border-rose-900 text-left">
+      <div class="text-xs font-bold text-rose-300 mb-1">試練${trial}でかかる不利益</div>
+      <ul class="text-[10px] text-zinc-300 leading-relaxed list-disc pl-4">
+        ${trialsOf(trial).map(t=>`<li><b>${t.label}</b> — ${t.desc}</li>`).join('')}
+      </ul>
+    </div>`;
+  ui.rewardList.appendChild(box);
+  ui.modalConfirm.classList.remove('hidden');
+  ui.modalConfirm.innerText = locked ? '挑む' : 'この名前で挑む';
+  ui.modalConfirm.onclick = () => {
+    ui.modal.classList.add('hidden');
+    ui.modalBtn.innerText = 'タイトルへ戻る';
+    // 【重要】名前を確定させるのはここ。始めた時点で固定する
+    if(!locked){ tp.name = typedName; saveTrialProgress(tp); }
+    startRun(tp.name || typedName, trial);
+  };
+  // modalBtn は本来「タイトルへ戻る」のボタン。ここでは取りやめに使うので、閉じるときに戻す
+  ui.modalBtn.classList.remove('hidden');
+  ui.modalBtn.innerText = 'やめる';
+  ui.modalBtn.onclick = () => { ui.modal.classList.add('hidden'); ui.modalBtn.innerText = 'タイトルへ戻る'; };
+}
+function startRun(name, trial){
+  try{ localStorage.setItem('mf_last_trainer_name', name); }catch(e){}
+  resetGameState(name);
+  state.trial = trial || 0;
+  state.naked = (runStyle === 'naked');
+  ui.nameScene.classList.add('hidden');
+  ui.select.classList.remove('hidden');
+  renderSpeciesSelect();
+  stopMenuBGM();
+  playSceneBGM(__bgmSelect);
+}
 function renderSpeciesSelect(){
   const grid = document.getElementById('select-grid');
   if(!grid) return;
@@ -176,6 +371,7 @@ function metaItemCurrentValue(item, lv){
 }
 // 難易度に応じた継承ポイントの倍率(最終スコアの倍率と揃えてある)
 function getMetaDifficultyMult(){
+  if(state.trial > 0) return trialScoreMult(state.trial);   // 試練はレジェンドの上乗せ
   if(state.difficulty==='legend') return 2.25;
   if(state.difficulty==='veryhard') return 1.75;
   if(state.difficulty==='expert') return 1.5;
@@ -217,9 +413,15 @@ function applyMetaShopBonuses(){
   // 初期遺物は「候補3つから1つ選ぶ」形にしたので、ここでは付与しない
   // (種族選択の直後に showStarterRelicChoice() で選ばせる)
 }
+// 冒険開始時にかける試練の不利益のうち、その場で数値を動かすもの。
+// 【重要】継承ショップの適用(applyMetaShopBonuses)の外に置くこと。
+// すっぴんではあちらを丸ごと飛ばすので、中に書くと試練の不利益まで消える
+function applyTrialPenalties(){
+  state.player.maxEnergy -= trialEnergyCapMinus();   // 試練7: ガッツ上限-10
+}
 // ゴールドの獲得は必ずこれを通す(継承ショップの「取得ゴールドアップ」を一律で反映するため)
 function gainGold(n){
-  const mult = state.goldGainMult || 1;
+  const mult = (state.goldGainMult || 1) * trialGoldMult();   // 試練5: 半分
   state.gold = (state.gold||0) + Math.floor(n * mult);
 }
 // 初期遺物解放を購入済みなら、冒険開始時に候補3つから1つ選ばせる。
@@ -512,6 +714,25 @@ function listDiaPlayMilestones(current){
 // 数値を載せるのは、プレイヤーが操作を変える判断材料になるとき(価格・確率など)だけでよい。
 // 新しいものを配列の先頭に足す。日付が同じなら題名で分ける。
 const CHANGELOG = [
+  { date:'2026/08/08', title:'やり込み「試練」を追加', items:[
+    'レジェンドを土台に、挑むたびに不利益が積み上がっていく「試練」を10段階ぶん追加しました',
+    '難易度の欄から選べます。最初は試練1だけで、突破すると次の試練が開きます',
+    '何がかかるのかは、始める前に一覧で読めます。戦闘中も画面の特殊効果マークから読み返せます',
+    '試練の記録はランキングの「⚔ 試練」に「試練○クリア」として並びます',
+    '⚠ 試練ランキングに載る名前は、最初に試練を始めたときの名前でずっと固定されます。始める前に必ず確認が出ます',
+    '試練は不利益が増えるぶん、最終スコアと継承ポイントの倍率も上がります',
+  ]},
+  { date:'2026/08/08', title:'「すっぴん」と、ランキングの絞り込みを追加', items:[
+    '冒険を始めるときに「通常」か「すっぴん」かを選べるようになりました',
+    'すっぴんは、継承ショップの底上げと、スキンの専用技セットを使わない挑戦です',
+    '見た目(スキン・アクセサリ・オーラ・モーション)はそのまま使えます',
+    'ランキングに「技なし」「すっぴん」「⚔ 試練」の絞り込みを足しました',
+    'すっぴんで残した記録には「素」の印が付きます',
+    '15階を突破していない記録は、ランキングに載らないようにしました',
+  ]},
+  { date:'2026/08/08', title:'不具合修正のお詫び', items:[
+    'お詫びとして 💎270 をお配りしました',
+  ]},
   { date:'2026/08/06', title:'強敵の攻弱・守弱が効かない不具合を修正', items:[
     '強敵の技のうち、攻弱や守弱が付くはずのものが、いままで一切効いていませんでした',
     'プラント・デュラハン・ジョーカー・ドラゴン・ケンタウロス・ヘンガー・ビークロン・ヒノトリの技が対象です',
@@ -898,3 +1119,17 @@ function renderTitlesScreen(){
 }
 // ==================== 称号画面ここまで ====================
 // ==================== ダイヤ通貨システムここまで ====================
+
+// ==================== タイトル画面のはじめの用意 ====================
+// 【重要】読み込みの途中では触らない。TRIALS などの const がまだ初期化されていない(TDZ)。
+// 新スキンの帯と同じく、読み終えてから1回だけ組み立てる。
+function initTitleExtras(){
+  try{
+    renderTrialOptions();
+    renderRunStyle();
+    const sel = ui && ui.diffInput ? ui.diffInput : document.getElementById('difficulty-input');
+    if(sel) sel.addEventListener('change', renderTrialNote);
+  }catch(e){ console.warn('タイトル画面の用意に失敗しました', e); }
+}
+if(document.readyState === 'complete') initTitleExtras();
+else window.addEventListener('load', initTitleExtras);
