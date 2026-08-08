@@ -513,6 +513,51 @@ function setEnemyIntent() {
 // false のあいだは 63階でボスラッシュが終わり、65階には行けない(データだけ入っている状態)。
 // true にすると 64階=休息所 / 65階=創造神 になる。
 const CREATOR_BOSS_ENABLED = true;
+// ===== actions から「今ターンの行動」を組み立てる =====
+// 強敵はもともとこれで動いていた。通常敵も、手書きの行動が用意されていなければここに落ちる。
+// 【重要】攻弱・守弱は weak/vuln の数をそのまま渡す。
+// 昔からある手書きの intent は type の文字列(atk_weak など)で表していて量は一律なので、
+// そちらの効き方は変えない(handleEndTurn 側で fromActions を見て分けている)。
+function intentFromActions(e){
+  const acts = e.actions;
+  // once フラグ済みの技を除外
+  const usable = acts.filter(a => !(a.once && e._usedOnce && e._usedOnce.includes(a.name)));
+  // onHpBelow 条件チェック（激怒系）
+  const urgent = usable.filter(a => a.onHpBelow && e.hp <= a.onHpBelow);
+  let chosen;
+  if(urgent.length > 0 && !e._rageUsed){
+    chosen = urgent[0];
+    e._rageUsed = true;
+  } else {
+    // ランダムに技を選択（onHpBelow技は除外）
+    const normal = usable.filter(a => !a.onHpBelow);
+    chosen = normal[Math.floor(Math.random()*normal.length)];
+  }
+  if(!chosen) chosen = acts[e.turnCount % acts.length];
+  // once技を使用済みに記録
+  if(chosen.once){ e._usedOnce = e._usedOnce||[]; e._usedOnce.push(chosen.name); }
+  // drainBonusを加算
+  const drain = (chosen.drain||0) + (e._drainBonus||0);
+  // intentを構築
+  const type = chosen.dmg>0 ? 'atk' : chosen.heal>0||chosen.atkUp>0||chosen.drainUp>0||chosen.block>0 ? 'buff' : 'buff';
+  e.intent = {
+    fromActions: true,   // handleEndTurn がここを見て、weak/vuln を宣言どおりに効かせる
+    type: chosen.dmg>0 ? 'atk' : 'buff',
+    val: chosen.dmg||0,
+    desc: chosen.name,
+    block: chosen.block||0,
+    drain: drain||0,
+    handMinus: chosen.handMinus||0,
+    weak: chosen.weak||0,
+    vuln: chosen.vuln||0,
+    atkUp: chosen.atkUp||0,
+    drainUp: chosen.drainUp||0,
+    heal: chosen.heal||0,
+    healSelf: chosen.healSelf||0,
+  };
+  return;
+}
+
 function setEnemyIntentBase() {
 const e=state.enemy, r=Math.random();
 
@@ -760,44 +805,7 @@ if(e.trait==='narikillog') {
   return;
 }
 // ===== 強敵 行動ロジック（actionsベース） =====
-if(e.isElite && e.actions && e.actions.length>0){
-  const acts = e.actions;
-  // once フラグ済みの技を除外
-  const usable = acts.filter(a => !(a.once && e._usedOnce && e._usedOnce.includes(a.name)));
-  // onHpBelow 条件チェック（激怒系）
-  const urgent = usable.filter(a => a.onHpBelow && e.hp <= a.onHpBelow);
-  let chosen;
-  if(urgent.length > 0 && !e._rageUsed){
-    chosen = urgent[0];
-    e._rageUsed = true;
-  } else {
-    // ランダムに技を選択（onHpBelow技は除外）
-    const normal = usable.filter(a => !a.onHpBelow);
-    chosen = normal[Math.floor(Math.random()*normal.length)];
-  }
-  if(!chosen) chosen = acts[e.turnCount % acts.length];
-  // once技を使用済みに記録
-  if(chosen.once){ e._usedOnce = e._usedOnce||[]; e._usedOnce.push(chosen.name); }
-  // drainBonusを加算
-  const drain = (chosen.drain||0) + (e._drainBonus||0);
-  // intentを構築
-  const type = chosen.dmg>0 ? 'atk' : chosen.heal>0||chosen.atkUp>0||chosen.drainUp>0||chosen.block>0 ? 'buff' : 'buff';
-  e.intent = {
-    type: chosen.dmg>0 ? 'atk' : 'buff',
-    val: chosen.dmg||0,
-    desc: chosen.name,
-    block: chosen.block||0,
-    drain: drain||0,
-    handMinus: chosen.handMinus||0,
-    weak: chosen.weak||0,
-    vuln: chosen.vuln||0,
-    atkUp: chosen.atkUp||0,
-    drainUp: chosen.drainUp||0,
-    heal: chosen.heal||0,
-    healSelf: chosen.healSelf||0,
-  };
-  return;
-}
+if(e.isElite && e.actions && e.actions.length>0){ intentFromActions(e); return; }
 // fallback elite
 e.intent={type:'atk',val:e.dmg,desc:'攻撃'}; return;
 }
@@ -871,6 +879,9 @@ if(e.trait==='gali_n'){
   const opts=[{type:'atk',val:45,desc:'ナックル'},{type:'atk',val:54,desc:'プレス'},{type:'atk_debuff_both',val:48,weak:2,vuln:2,desc:'ホーリーサンダー'},{type:'atk',val:52,handReduce:2,desc:'ホーリーアイシクル'},{type:'atk_debuff_both',val:61,weak:1,vuln:1,handReduce:1,desc:'ゴッドエレメンタル'}];
   e.intent=opts[Math.floor(Math.random()*opts.length)]; return;
 }
+// ここまで来た敵は、trait ごとの手書きを持っていない。
+// actions があればそれで動く(スタジオから足した敵はこの道を通る)。
+if(e.actions && e.actions.length>0){ intentFromActions(e); return; }
 e.intent=r<0.15?{type:'weak',val:0,desc:'攻弱'}:r<0.30?{type:'vuln',val:0,desc:'守弱'}:{type:'atk',val:e.dmg,desc:'攻撃'};
 }
 
@@ -969,12 +980,26 @@ checkHpThresholdRelics();
 }
 ui.playerVisual.classList.add('shake'); setTimeout(()=>ui.playerVisual.classList.remove('shake'),400);
 }
-let dd=(state.enemy.isElite||state.enemy.mode==='boss')?3:2; if(i.type.includes('both_3'))dd=4;
-if((i.type.includes('weak')||i.type.includes('debuff')||i.type.includes('vuln')) && (state.player.statusImmuneCharges||0) > 0) {
+// 攻弱・守弱をいくつ付けるか。
+// 【重要】2通りある。混ぜないこと。
+//   手書きの intent … type の文字列(atk_weak / atk_debuff_both など)で表し、量は一律
+//                      (通常2 / 強敵・ボス3 / both_3 は4)。数を書いてあっても飾りで、読むと
+//                      22個の技の効き目が勝手に上下する(実測済み)。だから読まない。
+//   actions から作った intent(fromActions) … 技が持っている weak/vuln の数をそのまま使う。
+//                      以前はここが type='atk' になっていたため、宣言しても一切効いていなかった。
+let addWeak, addVuln;
+if(i.fromActions){
+  addWeak = i.weak||0; addVuln = i.vuln||0;
+} else {
+  let dd=(state.enemy.isElite||state.enemy.mode==='boss')?3:2; if(i.type.includes('both_3'))dd=4;
+  addWeak = (i.type.includes('weak')||i.type.includes('debuff')) ? dd : 0;
+  addVuln = (i.type.includes('vuln')||i.type.includes('debuff')) ? dd : 0;
+}
+if((addWeak>0||addVuln>0) && (state.player.statusImmuneCharges||0) > 0) {
   state.player.statusImmuneCharges--; showFloatingText('無効化!','block',ui.playerNode);
 } else {
-  if(i.type.includes('weak')||i.type.includes('debuff')) state.player.weak=(state.player.weak||0)+dd;
-  if(i.type.includes('vuln')||i.type.includes('debuff')) state.player.vuln=(state.player.vuln||0)+dd;
+  if(addWeak>0) state.player.weak=(state.player.weak||0)+addWeak;
+  if(addVuln>0) state.player.vuln=(state.player.vuln||0)+addVuln;
 }
 if(i.block) state.enemy.block=i.block||0;
 if(i.drain) {
