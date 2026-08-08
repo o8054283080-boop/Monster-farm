@@ -276,7 +276,8 @@ let initEnergy = 50;
 if(state.player.relics.some(r=>r.id==='pixy_wing')) initEnergy+=10;
 if(state.player.relics.some(r=>r.id==='grace_wing')) initEnergy+=20;
 if(state.player.relics.some(r=>r.id==='glove')) initEnergy+=5;
-state.player.energy = Math.min(state.player.maxEnergy, initEnergy);
+initEnergy -= trialInitEnergyMinus();   // 試練7: 初期ガッツ-10
+state.player.energy = Math.max(0, Math.min(state.player.maxEnergy, initEnergy));
 state.player._gutsBankUsed = false;
 state.player._hozonshokuUsed = false;
 state.player.nextTurnBlockBonus = 0;

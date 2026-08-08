@@ -95,10 +95,10 @@ const TRIALS = [
   { n:1,  label:'敵の丈夫さ +5',      desc:'すべての敵が丈夫さ5を持つ。攻撃1発ごとにダメージが5減る' },
   { n:2,  label:'初期手札 -1',        desc:'戦闘開始時に引く枚数が1枚減る' },
   { n:3,  label:'敵の攻撃 +15%',      desc:'すべての敵の攻撃が15%上がる' },
-  { n:4,  label:'休息が半分',          desc:'休息所と休憩所で戻るライフが半分になる' },
+  { n:4,  label:'買い物と実験が高い',  desc:'行商人の値段と、怪しい実験場の合成にかかる代金が25%上がる' },
   { n:5,  label:'ゴールドが半分',      desc:'手に入るゴールドが半分になる' },
   { n:6,  label:'敵のライフ +25%',    desc:'すべての敵のライフが25%上がる' },
-  { n:7,  label:'ガッツ上限 -10',      desc:'ガッツの上限が10下がる' },
+  { n:7,  label:'初期ガッツ -10',      desc:'戦闘開始時に持っているガッツが10少なくなる' },
   { n:8,  label:'敵の怒り',            desc:'3ターンごとに敵の攻撃が5上がっていく' },
   { n:9,  label:'戦うたびにケガ',      desc:'戦闘開始時、デッキにケガが1枚混ざる' },
   { n:10, label:'敵の丈夫さ さらに+10', desc:'丈夫さの合計が15になる。ボスはこちらの丈夫さを25%無視する' },
@@ -196,9 +196,11 @@ function trialEnemyRage(){
 }
 function trialEnemyHpMult(){ return trialHas(6) ? 1.25 : 1; }
 function trialHandMinus(){ return trialHas(2) ? 1 : 0; }
-function trialRestMult(){ return trialHas(4) ? 0.5 : 1; }
+// 試練4: 行商人の値段と、怪しい実験場の合成の代金が25%上がる
+function trialPriceMult(){ return trialHas(4) ? 1.25 : 1; }
 function trialGoldMult(){ return trialHas(5) ? 0.5 : 1; }
-function trialEnergyCapMinus(){ return trialHas(7) ? 10 : 0; }
+// 試練7: 戦闘開始時に持っているガッツが10少ない(上限ではなく手持ち)
+function trialInitEnergyMinus(){ return trialHas(7) ? 10 : 0; }
 function trialBattleInjury(){ return trialHas(9) ? 1 : 0; }
 
 // ==================== すっぴん ====================
@@ -417,7 +419,8 @@ function applyMetaShopBonuses(){
 // 【重要】継承ショップの適用(applyMetaShopBonuses)の外に置くこと。
 // すっぴんではあちらを丸ごと飛ばすので、中に書くと試練の不利益まで消える
 function applyTrialPenalties(){
-  state.player.maxEnergy -= trialEnergyCapMinus();   // 試練7: ガッツ上限-10
+  // いまのところ冒険開始時に動かす数値は無い(初期ガッツは戦闘開始のたびに引くため)。
+  // 冒険を通してずっと効く不利益を足すときは、ここに書くこと
 }
 // ゴールドの獲得は必ずこれを通す(継承ショップの「取得ゴールドアップ」を一律で反映するため)
 function gainGold(n){
@@ -721,6 +724,7 @@ const CHANGELOG = [
     '試練の記録はランキングの「⚔ 試練」に「試練○クリア」として並びます',
     '⚠ 試練ランキングに載る名前は、最初に試練を始めたときの名前でずっと固定されます。始める前に必ず確認が出ます',
     '試練は不利益が増えるぶん、最終スコアと継承ポイントの倍率も上がります',
+    '戦闘開始時に混ざるケガは、その戦闘のあいだだけです。デッキに溜まっていくことはありません',
   ]},
   { date:'2026/08/08', title:'「すっぴん」と、ランキングの絞り込みを追加', items:[
     '冒険を始めるときに「通常」か「すっぴん」かを選べるようになりました',
