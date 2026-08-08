@@ -89,7 +89,7 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
 
   <div id="box-new">
     <div class="row">
-      <div><label>どのモンスターの</label><select id="sp"></select></div>
+      <div><label>モンスター</label><select id="sp"></select></div>
       <div style="flex:0 0 34%"><label>レア度</label><select id="rarity"><option>SSR</option><option>SR</option></select></div>
     </div>
     <label>表示名</label>
@@ -262,21 +262,26 @@ function loadSkins(){
     // 目印が無いと差し込めない
     var marks = (SKINS_TEXT.match(/<<add:(\w+)>>/g) || []).length;
     log('data-skins.js を読みました(スキン' + Object.keys(SKINS).reduce(function(a,k){return a+SKINS[k].length;},0) + '件 / 差し込み位置' + marks + '個)', 'ok');
-    fillSelects();
+    fillTargets();
     refresh();
   });
 }
-function fillSelects(){
-  var sp = $('sp'), tg = $('target');
-  var keys = Object.keys(SPECIES_LABEL);
-  sp.innerHTML = keys.map(function(k){ return '<option value="'+k+'">'+SPECIES_LABEL[k]+'</option>'; }).join('');
+// モンスターの一覧は固定なので、接続を待たずに最初から出す。
+// 【重要】ここを loadSkins() の中でだけ呼んでいたせいで、接続前は選択肢が空だった。
+function fillSpecies(){
+  $('sp').innerHTML = Object.keys(SPECIES_LABEL).map(function(k){
+    return '<option value="'+k+'">'+SPECIES_LABEL[k]+'</option>';
+  }).join('');
+}
+// 差し替え先は本物の一覧が要るので、読み込めてから
+function fillTargets(){
   var opts = [];
-  keys.forEach(function(k){
+  Object.keys(SPECIES_LABEL).forEach(function(k){
     (SKINS[k]||[]).forEach(function(s){
       opts.push('<option value="'+s.id+'">'+SPECIES_LABEL[k]+' / '+s.name+' ('+s.rarity+')</option>');
     });
   });
-  tg.innerHTML = opts.join('');
+  $('target').innerHTML = opts.join('');
 }
 
 // ==================== id の自動決定 ====================
@@ -297,11 +302,20 @@ function refresh(){
   $('mode-note').textContent = isNew
     ? '画像を1枚置いて、data-skins.js に1行足します。'
     : '画像を差し替えるだけです。data-skins.js は触りません。';
-  if(isNew && SKINS){
-    $('sid').value = nextId();
-    var list = SKINS[$('sp').value] || [];
-    $('dup-note').textContent = SPECIES_LABEL[$('sp').value] + ' はいま ' + list.length + '体 ('
-      + list.map(function(s){ return s.name; }).join(' / ') + ')';
+  if(isNew){
+    if(SKINS){
+      $('sid').value = nextId();
+      var list = SKINS[$('sp').value] || [];
+      $('dup-note').className = 'hint';
+      $('dup-note').textContent = SPECIES_LABEL[$('sp').value] + ' はいま ' + list.length + '体 ('
+        + list.map(function(s){ return s.name; }).join(' / ') + ')';
+    } else {
+      // 接続前。ここで黙っていると「選べないだけ」に見えるので理由を出す
+      $('sid').value = '';
+      $('sid').placeholder = '①で接続すると自動で決まります';
+      $('dup-note').className = 'hint warn';
+      $('dup-note').textContent = '↑の「1 GitHub設定」で接続してください。つながると、idと今いる体数がここに出ます。';
+    }
     // イブリースは形態ごとに絵を持てる
     $('box-angel').classList.toggle('hide', $('sp').value !== 'iblis');
   } else {
@@ -475,6 +489,7 @@ function done(id, imgPath){
       ? location.host.split('.')[0] + '/' + location.pathname.split('/').filter(Boolean)[0] : '');
     $('branch').value = localStorage.getItem(LS.branch) || 'main';
   } catch(e){}
+  fillSpecies();
   $('btn-test').onclick = testConn;
   $('btn-clear').onclick = function(){
     try { localStorage.removeItem(LS.tok); } catch(e){}
