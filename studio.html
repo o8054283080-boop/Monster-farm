@@ -88,8 +88,9 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
   <select id="kind">
     <option value="skin">スキン</option>
     <option value="enemy">敵</option>
+    <option value="accpos">アクセの位置を既定にする</option>
   </select>
-  <label>やり方</label>
+  <label id="mode-label">やり方</label>
   <select id="mode">
     <option value="new">新しく追加する</option>
     <option value="replace">今あるものの絵を差し替える</option>
@@ -143,10 +144,24 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
     <select id="target"></select>
     <p class="hint" id="replace-note">絵だけを新しくします。名前や中身は変わりません。</p>
   </div>
+
+  <!-- ゲーム画面で合わせた位置を、全員の既定値にする -->
+  <div id="box-accpos" class="hide">
+    <p class="hint" style="margin-top:0">
+      ゲームの装備画面でアクセサリの位置・大きさ・角度を合わせてから、ここを開いてください。<br>
+      この端末で合わせたぶんが下に出ます。選んで登録すると、<b>全員の既定の位置</b>になります。
+    </p>
+    <div id="acc-list"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost small" id="btn-acc-all">全部えらぶ</button>
+      <button class="ghost small" id="btn-acc-none">全部やめる</button>
+    </div>
+    <p class="hint warn" id="acc-note"></p>
+  </div>
 </section>
 
 <!-- ============ 4. 画像 ============ -->
-<section>
+<section id="sec-image">
   <h2><span class="n">4</span>画像</h2>
   <div class="file"><input type="file" id="pic" accept="image/*"></div>
 
@@ -176,7 +191,7 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
 
 <!-- ============ 5. 登録 ============ -->
 <section>
-  <h2><span class="n">5</span>登録</h2>
+  <h2><span class="n" id="go-n">5</span>登録</h2>
   <button class="primary" id="btn-go" disabled>登録する</button>
   <p class="hint" id="go-note">画像を先に置いてから、データに足します。<br>
   GitHub Pages の反映には <b>1〜2分</b>かかります。</p>
@@ -296,6 +311,7 @@ function testConn(){
     var oops = function(name){ return function(e){ log(name + ' を読めませんでした: ' + e.message, 'ng'); }; };
     loadSkins().catch(oops('data-skins.js'));
     loadEnemies().catch(oops('data-enemies.js'));
+    loadAccPos().catch(oops('data-accessories.js'));
   }).catch(function(e){
     setConn(false, 'つながりません: ' + e.message);
     log('接続に失敗: ' + e.message, 'ng');
@@ -389,6 +405,125 @@ function fillTiers(){
   }).join('');
 }
 function isEnemy(){ return $('kind').value === 'enemy'; }
+function isAccPos(){ return $('kind').value === 'accpos'; }
+
+// ==================== アクセの位置を既定にする ====================
+// ゲーム(index.html)とこのページは同じ場所に置いてあるので、localStorage を共有している。
+// つまり「ゲームの装備画面で合わせた調整値」をここから読める。
+// その調整値を data-accessories.js の基準位置に焼き込めば、全員の既定値になる。
+var COSMETICS_KEY = 'mf_cosmetics';
+var ACC_DEFAULT_TUNING = { hue:0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100 };
+var ACCPOS_TEXT = '', ACCPOS_SHA = '';
+var ACCS = null;      // [{id, name, keys:{キー:{xPct,...}}}]
+var ACC_CHANGES = []; // 焼き込む候補
+
+function loadAccPos(){
+  return getFile('data-accessories.js').then(function(j){
+    ACCPOS_SHA = j.sha;
+    ACCPOS_TEXT = b64ToText(j.content);
+    ACCS = [];
+    var re = /\{id:'([^']+)',name:'([^']+)'/g, m;
+    while((m = re.exec(ACCPOS_TEXT))){
+      var chunk = accChunk(ACCPOS_TEXT, m[1]);
+      var keys = {}, rk = /'?([A-Za-z_][\w@]*)'?\s*:\s*\{([^}]*)\}/g, k;
+      while((k = rk.exec(chunk.pos))){
+        var o = {};
+        k[2].split(',').forEach(function(kv){
+          var p = kv.split(':'); if(p.length===2) o[p[0].trim()] = parseFloat(p[1]);
+        });
+        keys[k[1]] = o;
+      }
+      ACCS.push({ id:m[1], name:m[2], keys:keys });
+    }
+    log('data-accessories.js を読みました(アクセサリ' + ACCS.length + '個)', 'ok');
+    buildAccChanges();
+    refresh();
+  });
+}
+// そのアクセサリの pos:{...} の範囲を切り出す。中の {} は入れ子にならない前提
+function accChunk(text, id){
+  var at = text.indexOf("{id:'" + id + "'");
+  if(at < 0) return null;
+  var ps = text.indexOf('pos:{', at);
+  if(ps < 0) return null;
+  var open = ps + 4, depth = 0, i = open;
+  for(; i < text.length; i++){
+    if(text[i] === '{') depth++;
+    else if(text[i] === '}'){ depth--; if(depth === 0){ i++; break; } }
+  }
+  return { start:open, end:i, pos:text.slice(open, i) };
+}
+// この端末で合わせたぶんを拾い、焼き込んだ後の値を計算する
+function buildAccChanges(){
+  ACC_CHANGES = [];
+  var c = {};
+  try { c = JSON.parse(localStorage.getItem(COSMETICS_KEY) || '{}'); } catch(e){}
+  var tuning = c.accessoryTuning || {};
+  Object.keys(tuning).forEach(function(key){          // key は種族id、または 'iblis@angel'
+    Object.keys(tuning[key]).forEach(function(accId){
+      var t = Object.assign({}, ACC_DEFAULT_TUNING, tuning[key][accId] || {});
+      // 色(hue)は遊ぶ人の好みなので既定値にはしない。位置・大きさ・角度だけ見る
+      var moved = t.offsetXPct || t.offsetYPct || t.rotate || (t.scale !== 100);
+      if(!moved) return;
+      var acc = (ACCS||[]).filter(function(a){ return a.id === accId; })[0];
+      if(!acc) return;
+      // 基準は「その形態のぶん」、無ければ種族のぶん(ゲーム側の accPos と同じ)
+      var base = acc.keys[key] || acc.keys[key.split('@')[0]];
+      if(!base) return;
+      ACC_CHANGES.push({
+        accId:accId, accName:acc.name, key:key, on:true,
+        before:base,
+        after:{
+          xPct: round1(base.xPct + t.offsetXPct),
+          yPct: round1(base.yPct + t.offsetYPct),
+          wPct: round1(base.wPct * t.scale / 100),
+          hPct: round1(base.hPct * t.scale / 100),
+          rotate: round1((base.rotate||0) + t.rotate)
+        }
+      });
+    });
+  });
+  ACC_CHANGES.sort(function(a,b){ return a.key===b.key ? (a.accId<b.accId?-1:1) : (a.key<b.key?-1:1); });
+  renderAccList();
+}
+function round1(n){ return Math.round(n * 10) / 10; }
+function renderAccList(){
+  var el = $('acc-list');
+  if(!ACCS){ el.innerHTML = '<p class="hint warn">①で接続してください。つながると、この端末で合わせたぶんがここに出ます。</p>'; return; }
+  if(!ACC_CHANGES.length){
+    el.innerHTML = '<p class="hint warn">この端末では、まだ位置を動かしたアクセサリがありません。'
+      + '<br>ゲームの装備画面で動かしてから、もう一度この画面を開いてください。</p>';
+    return;
+  }
+  el.innerHTML = ACC_CHANGES.map(function(ch, i){
+    var b = ch.before, a = ch.after;
+    var line = function(name, x, y){ return x === y ? '' : name + ' ' + x + ' → <b>' + y + '</b>　'; };
+    return '<div class="move"><div class="top">'
+      + '<label style="display:flex;align-items:center;gap:8px;margin:0;flex:1;color:#e5e7eb;font-size:13px">'
+      + '<input type="checkbox" class="acc-on" data-i="'+i+'" style="width:auto;accent-color:#fbbf24;transform:scale(1.3)"'
+      + (ch.on?' checked':'') + '>' + ch.accName + '</label>'
+      + '<span class="muted" style="font-size:10px">' + ch.key + '</span></div>'
+      + '<div class="hint" style="margin-top:6px">'
+      + line('よこ', b.xPct, a.xPct) + line('たて', b.yPct, a.yPct)
+      + line('はば', b.wPct, a.wPct) + line('たかさ', b.hPct, a.hPct)
+      + line('かたむき', b.rotate||0, a.rotate) + '</div></div>';
+  }).join('');
+  el.querySelectorAll('.acc-on').forEach(function(cb){
+    cb.onchange = function(){ ACC_CHANGES[+cb.dataset.i].on = cb.checked; refresh(); };
+  });
+}
+// pos の中の「そのキー」を書き換える。無ければ末尾に足す
+function writePosEntry(posText, key, v){
+  var body = '{xPct:' + v.xPct + ',yPct:' + v.yPct + ',wPct:' + v.wPct
+           + ',hPct:' + v.hPct + ',rotate:' + (v.rotate||0) + '}';
+  var esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var re = new RegExp("('?)" + esc + "\\1\\s*:\\s*\\{[^}]*\\}");
+  if(re.test(posText)) return posText.replace(re, quoteKey(key) + ':' + body);
+  // 末尾の } の直前に足す
+  var last = posText.lastIndexOf('}');
+  return posText.slice(0, last) + ', ' + quoteKey(key) + ':' + body + posText.slice(last);
+}
+function quoteKey(k){ return /^[A-Za-z_]\w*$/.test(k) ? k : "'" + k + "'"; }
 
 // ==================== 技の入力欄 ====================
 // 1行1技。ダメージ以外は空欄でよい(0として扱う)。
@@ -437,6 +572,29 @@ function nextId(){
   return sp + '_' + r + '_' + ('0' + (max + 1)).slice(-2);
 }
 function refresh(){
+  // アクセの位置は「やり方」も画像も要らないので、丸ごと隠して別扱いにする
+  if(isAccPos()){
+    ['box-new','box-enemy','box-replace','box-angel'].forEach(function(id){ $(id).classList.add('hide'); });
+    $('box-accpos').classList.remove('hide');
+    $('mode-label').classList.add('hide'); $('mode').classList.add('hide');
+    $('sec-image').classList.add('hide');
+    $('go-n').textContent = '4';   // 画像の欄を隠すぶん、番号を詰める
+    $('h2-content').textContent = 'この端末で合わせた位置';
+    $('mode-note').textContent = 'ゲームで合わせた位置を、data-accessories.js の既定値にします。画像は要りません。';
+    $('go-note').innerHTML = '選んだぶんを data-accessories.js に書き込みます。<br>'
+      + '書き込んだあと、この端末の「ずらし」は0に戻します(そうしないと二重にずれます)。';
+    var n = ACC_CHANGES.filter(function(c){ return c.on; }).length;
+    $('acc-note').className = 'hint' + (n ? '' : ' warn');
+    $('acc-note').textContent = ACCS ? (n ? n + '個を既定にします。' : '1つ以上えらんでください。') : '';
+    $('btn-go').disabled = !ACCPOS_TEXT || n === 0;
+    return;
+  }
+  $('box-accpos').classList.add('hide');
+  $('mode-label').classList.remove('hide'); $('mode').classList.remove('hide');
+  $('sec-image').classList.remove('hide');
+  $('go-n').textContent = '5';
+  $('go-note').innerHTML = '画像を先に置いてから、データに足します。<br>'
+    + 'GitHub Pages の反映には <b>1〜2分</b>かかります。';
   var isNew = $('mode').value === 'new';
   var en = isEnemy();
   $('box-new').classList.toggle('hide', !isNew || en);
@@ -630,9 +788,54 @@ function doneEnemy(trait){
   $('btn-go').disabled = false;
 }
 
+// ==================== アクセの位置の書き込み ====================
+function goAccPos(){
+  var picked = ACC_CHANGES.filter(function(c){ return c.on; });
+  log('① data-accessories.js を書き換えます(' + picked.length + '個)');
+  var next = ACCPOS_TEXT;
+  picked.forEach(function(ch){
+    var chunk = accChunk(next, ch.accId);
+    if(!chunk) throw new Error('見つかりません: ' + ch.accId);
+    var newPos = writePosEntry(chunk.pos, ch.key, ch.after);
+    next = next.slice(0, chunk.start) + newPos + next.slice(chunk.end);
+    log('   ' + ch.accName + ' (' + ch.key + ')');
+  });
+  putFile('data-accessories.js', textToB64(next),
+    'アクセサリの既定位置を更新(' + picked.length + '個)', ACCPOS_SHA)
+  .then(function(){
+    ACCPOS_TEXT = next;
+    log('   書けました', 'ok');
+    // 【重要】焼き込んだぶんの「ずらし」を0に戻す。
+    // 戻さないと、新しい既定位置の上にさらに同じずらしが乗って二重にずれる
+    log('② この端末のずらしを0に戻します');
+    var c = {};
+    try { c = JSON.parse(localStorage.getItem(COSMETICS_KEY) || '{}'); } catch(e){}
+    var t = c.accessoryTuning || {};
+    picked.forEach(function(ch){
+      if(t[ch.key] && t[ch.key][ch.accId]){
+        var cur = t[ch.key][ch.accId];
+        // 色(hue)は遊ぶ人の好みなので残す
+        t[ch.key][ch.accId] = { hue: cur.hue||0, rotate:0, offsetXPct:0, offsetYPct:0, scale:100 };
+      }
+    });
+    try { localStorage.setItem(COSMETICS_KEY, JSON.stringify(c)); } catch(e){}
+    log('   戻しました', 'ok');
+    log('');
+    log('完了しました。' + picked.length + '個を既定の位置にしました。', 'ok');
+    log('GitHub Pages に出るまで1〜2分かかります。', 'warn');
+    loadAccPos().catch(function(){});
+    $('btn-go').disabled = false;
+  }).catch(function(e){
+    log('失敗しました: ' + e.message, 'ng');
+    log('※ 何も書き換わっていません。もう一度「登録する」を押せばやり直せます。', 'warn');
+    $('btn-go').disabled = false;
+  });
+}
+
 function go(){
   $('btn-go').disabled = true;
   clearLog();
+  if(isAccPos()){ try { goAccPos(); } catch(e){ log('失敗しました: ' + e.message, 'ng'); $('btn-go').disabled = false; } return; }
   if(isEnemy()){ goEnemy(); return; }
   var isNew = $('mode').value === 'new';
   var sp = $('sp').value;
@@ -715,7 +918,12 @@ function done(id, imgPath){
   fillTiers();
   addMove(); addMove(); addMove(); addMove();   // 既存の敵に合わせて4つ出しておく
   $('btn-addmove').onclick = function(){ addMove(); };
+  $('btn-acc-all').onclick = function(){ ACC_CHANGES.forEach(function(c){ c.on = true; }); renderAccList(); refresh(); };
+  $('btn-acc-none').onclick = function(){ ACC_CHANGES.forEach(function(c){ c.on = false; }); renderAccList(); refresh(); };
+  renderAccList();
   $('kind').addEventListener('change', function(){
+    // 位置合わせは、開いた時点の調整値をその場で読み直す
+    if(isAccPos()){ buildAccChanges(); refresh(); return; }
     // 敵の絵は中央値220px、スキンは420px。切り替えたら既定を寄せる
     $('hsize').value = isEnemy() ? 260 : 420;
     $('hv').textContent = $('hsize').value;
