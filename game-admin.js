@@ -151,6 +151,17 @@ function showAdminBody(){
   const toast = (m) => { if(typeof showDiaToast==='function') showDiaToast(m); };
   const redraw = () => showAdminBody();
 
+  // ---- 🎨 スキン作成スタジオ ----
+  // 画像の加工から data-skins.js への追記まで、スマホだけで完結させるための別ページ。
+  // ゲーム本体からは何も読み込んでいない(studio.html は完全に独立している)。
+  {
+    const c = card('🎨 スキン作成スタジオ',
+      '写真を選ぶ → 背景を抜く → GitHubへ登録 まで、この端末だけでできます。'
+      + '<br>GitHubのアクセストークンが要ります(作り方はスタジオの画面に書いてあります)。');
+    const row = btnRow(c);
+    btn(row, '開く', () => { window.open('studio.html', '_blank'); }, 'primary');
+  }
+
   // ---- 💎 ダイヤ ----
   {
     const dp = loadDiaProgress();

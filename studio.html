@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スキン作成スタジオ</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* ==== スキン作成スタジオ ====
+   スマホだけで 写真を選ぶ → 背景を抜く → 登録 → 本番反映 まで完結させるための道具。
+   ゲーム本体とは完全に独立していて、index.html からは一切読み込まれない。
+   Tailwind に頼らず自前のCSSで書いてあるので、CDNが死んでいても動く。 */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0b0e14;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:14px;line-height:1.6}
+header{padding:14px 16px;border-bottom:1px solid #1f2937;position:sticky;top:0;background:#0b0e14ee;backdrop-filter:blur(8px);z-index:10}
+h1{margin:0;font-size:17px;font-weight:800;color:#fcd34d}
+header p{margin:2px 0 0;font-size:11px;color:#6b7280}
+main{max-width:560px;margin:0 auto;padding:14px 14px 80px}
+section{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:14px;margin-bottom:14px}
+h2{margin:0 0 12px;font-size:14px;color:#fcd34d;display:flex;align-items:center;gap:8px}
+h2 .n{background:#fbbf24;color:#111827;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex:0 0 auto}
+label{display:block;font-size:11px;color:#9ca3af;margin:10px 0 4px}
+input[type=text],input[type=password],select,textarea{width:100%;background:#0b0e14;border:1px solid #374151;border-radius:10px;padding:11px 12px;color:#e5e7eb;font-size:15px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:#fbbf24}
+.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}
+button{border:none;border-radius:10px;padding:12px 14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:transform .1s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.45}
+.primary{background:linear-gradient(180deg,#f59e0b,#b45309);color:#fff;width:100%}
+.ghost{background:#1f2937;color:#d1d5db;border:1px solid #374151}
+.danger{background:#7f1d1d;color:#fecaca}
+.hint{font-size:11px;color:#6b7280;margin-top:8px;line-height:1.7}
+.ok{color:#6ee7b7}.ng{color:#fca5a5}.warn{color:#fcd34d}
+.pill{display:inline-block;border:1px solid #10b981;color:#6ee7b7;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;margin-bottom:10px}
+.pill.bad{border-color:#ef4444;color:#fca5a5}
+/* 市松模様。透過が抜けているか見るため */
+.checker{background-image:linear-gradient(45deg,#374151 25%,transparent 25%),linear-gradient(-45deg,#374151 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#374151 75%),linear-gradient(-45deg,transparent 75%,#374151 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}
+.preview{border-radius:12px;border:1px solid #374151;padding:8px;display:flex;align-items:center;justify-content:center;min-height:190px}
+.preview img{max-width:100%;max-height:260px;display:block}
+input[type=range]{width:100%;accent-color:#fbbf24}
+.log{background:#0b0e14;border:1px solid #1f2937;border-radius:10px;padding:10px;font-size:11px;line-height:1.8;max-height:230px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.file{display:flex;align-items:center;gap:10px}
+.file input[type=file]{font-size:12px;color:#9ca3af;flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.muted{color:#6b7280}
+code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5px;font-size:11px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>スキン作成スタジオ</h1>
+  <p>スマホだけで 写真を選ぶ → 背景を抜く → 登録 → 本番反映 まで完結します</p>
+</header>
+<main>
+
+<!-- ============ 1. GitHub設定 ============ -->
+<section>
+  <h2><span class="n">1</span>GitHub設定</h2>
+  <div id="conn" class="pill bad">未接続</div>
+  <label>アクセストークン(fine-grained / Contents: Read and write)</label>
+  <input type="password" id="tok" autocomplete="off" placeholder="github_pat_...">
+  <div class="row">
+    <div><label>リポジトリ(owner/name)</label><input type="text" id="repo" placeholder="o8054283080-boop/Monster-farm"></div>
+    <div style="flex:0 0 34%"><label>ブランチ</label><input type="text" id="branch" value="main"></div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <button class="primary" id="btn-test">保存して接続テスト</button>
+    <button class="ghost" style="flex:0 0 38%" id="btn-clear">トークンを消す</button>
+  </div>
+  <p class="hint">トークンはこの端末のブラウザにだけ保存され、送信先は <code>api.github.com</code> だけです。<br>
+  作り方: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token →
+  リポジトリを <b>Monster-farm</b> だけに絞り、<b>Contents</b> を <b>Read and write</b> に。</p>
+</section>
+
+<!-- ============ 2. 何をするか ============ -->
+<section>
+  <h2><span class="n">2</span>やること</h2>
+  <select id="mode">
+    <option value="new">新しいスキンを追加する</option>
+    <option value="replace">今あるスキンの絵を差し替える</option>
+  </select>
+  <div id="mode-note" class="hint"></div>
+</section>
+
+<!-- ============ 3. 中身 ============ -->
+<section>
+  <h2><span class="n">3</span>スキンの中身</h2>
+
+  <div id="box-new">
+    <div class="row">
+      <div><label>どのモンスターの</label><select id="sp"></select></div>
+      <div style="flex:0 0 34%"><label>レア度</label><select id="rarity"><option>SSR</option><option>SR</option></select></div>
+    </div>
+    <label>表示名</label>
+    <input type="text" id="name" placeholder="例: ゴジョモッチー">
+    <label>id(自動。英小文字と数字)</label>
+    <input type="text" id="sid" placeholder="自動で決まります">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:#d1d5db;font-size:13px">
+      <input type="checkbox" id="hidden" style="width:auto;accent-color:#fbbf24;transform:scale(1.3)">
+      まだ表に出さない(ガチャに並べない)
+    </label>
+    <p class="hint" id="dup-note"></p>
+  </div>
+
+  <div id="box-replace" class="hide">
+    <label>差し替えるスキン</label>
+    <select id="target"></select>
+    <p class="hint">絵だけを新しくします。名前・レア度・idは変わりません。</p>
+  </div>
+</section>
+
+<!-- ============ 4. 画像 ============ -->
+<section>
+  <h2><span class="n">4</span>画像</h2>
+  <div class="file"><input type="file" id="pic" accept="image/*"></div>
+
+  <label>背景の抜き方</label>
+  <select id="bgmode">
+    <option value="corner">四隅と同じ色を抜く(白背景の写真むけ)</option>
+    <option value="white">白を抜く</option>
+    <option value="none">抜かない(すでに透過しているPNG)</option>
+  </select>
+  <label>しきい値 <span id="thv" class="muted">30</span> — 大きくすると多く抜きます</label>
+  <input type="range" id="th" min="0" max="120" value="30">
+
+  <label>高さ <span id="hv" class="muted">420</span>px — ゲーム内の他のスキンは 300〜500px です</label>
+  <input type="range" id="hsize" min="240" max="520" step="20" value="420">
+
+  <div style="margin-top:12px" class="preview checker" id="prev"><span class="muted">画像を選ぶとここに出ます</span></div>
+  <div class="hint" id="picinfo"></div>
+
+  <!-- イブリースだけ2枚目が要る -->
+  <div id="box-angel" class="hide" style="margin-top:14px;border-top:1px solid #1f2937;padding-top:12px">
+    <h2 style="font-size:13px"><span class="n">＋</span>天使型の絵(イブリース専用)</h2>
+    <div class="file"><input type="file" id="pic2" accept="image/*"></div>
+    <div style="margin-top:10px" class="preview checker" id="prev2"><span class="muted">入れなければ1枚で通します</span></div>
+    <div class="hint" id="picinfo2"></div>
+  </div>
+</section>
+
+<!-- ============ 5. 登録 ============ -->
+<section>
+  <h2><span class="n">5</span>登録</h2>
+  <button class="primary" id="btn-go" disabled>登録する</button>
+  <p class="hint">画像を先に置いてから、データに1行足します。<br>
+  GitHub Pages の反映には <b>1〜2分</b>かかります。</p>
+  <div id="log" class="log" style="margin-top:12px">まだ何もしていません。</div>
+</section>
+
+</main>
+
+<script>
+// ==================== 設定の保存 ====================
+// トークンはこの端末にだけ置く。送信先は api.github.com のみ。
+var LS = { tok:'studio_token', repo:'studio_repo', branch:'studio_branch' };
+var $ = function(id){ return document.getElementById(id); };
+var SKINS = null;              // 読み込んだ data-skins.js から作る一覧
+var SKINS_TEXT = '', SKINS_SHA = '';
+var pic1 = null, pic2 = null;  // 加工後の {blob, w, h}
+var SPECIES_LABEL = {
+  motchi:'モッチー', golem:'ゴーレム', monolith:'モノリス', kawazumo:'カワズモー',
+  gali:'ガリ', hinotori:'ヒノトリ', zan:'ザン', iblis:'イブリース'
+};
+
+function log(msg, cls){
+  var el = $('log');
+  var line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  if(el.firstChild && el.textContent === 'まだ何もしていません。') el.textContent = '';
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(){ $('log').textContent = ''; }
+
+// ==================== base64 まわり ====================
+// 【重要】atob/btoa は1バイト文字しか扱えない。日本語を含むテキストは
+// TextEncoder/TextDecoder を通さないと壊れる(スキン名が全部化ける)。
+function b64ToText(b64){
+  var bin = atob(b64.replace(/\s/g,''));
+  var u = new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(u);
+}
+function textToB64(t){
+  var u = new TextEncoder().encode(t);
+  return bytesToB64(u);
+}
+function bytesToB64(u){
+  // 一度に apply すると数百KBでスタックが溢れるので刻む
+  var s = '', CH = 0x8000;
+  for(var i=0;i<u.length;i+=CH) s += String.fromCharCode.apply(null, u.subarray(i, i+CH));
+  return btoa(s);
+}
+function blobToB64(blob){
+  return blob.arrayBuffer().then(function(buf){ return bytesToB64(new Uint8Array(buf)); });
+}
+
+// ==================== GitHub API ====================
+function gh(path, opt){
+  opt = opt || {};
+  var repo = $('repo').value.trim();
+  return fetch('https://api.github.com/repos/' + repo + path, {
+    method: opt.method || 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + $('tok').value.trim(),
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    },
+    body: opt.body ? JSON.stringify(opt.body) : undefined
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(j){
+      if(!r.ok) throw new Error((j && j.message ? j.message : ('HTTP ' + r.status)));
+      return j;
+    });
+  });
+}
+function getFile(path){
+  return gh('/contents/' + path + '?ref=' + encodeURIComponent($('branch').value.trim()));
+}
+function putFile(path, b64, message, sha){
+  var body = { message: message, content: b64, branch: $('branch').value.trim() };
+  if(sha) body.sha = sha;
+  return gh('/contents/' + path, { method:'PUT', body: body });
+}
+
+// ==================== 接続テスト & 一覧の読み込み ====================
+function setConn(okFlag, text){
+  var el = $('conn');
+  el.textContent = text;
+  el.className = 'pill' + (okFlag ? '' : ' bad');
+}
+function testConn(){
+  var repo = $('repo').value.trim();
+  if(!$('tok').value.trim() || !repo){ setConn(false, 'トークンとリポジトリを入れてください'); return; }
+  try {
+    localStorage.setItem(LS.tok, $('tok').value.trim());
+    localStorage.setItem(LS.repo, repo);
+    localStorage.setItem(LS.branch, $('branch').value.trim());
+  } catch(e){}
+  setConn(false, '確認中…');
+  gh('').then(function(j){
+    setConn(true, '接続OK: ' + j.full_name);
+    return loadSkins();
+  }).catch(function(e){
+    setConn(false, 'つながりません: ' + e.message);
+    log('接続に失敗: ' + e.message, 'ng');
+  });
+}
+// data-skins.js を読んで、種族ごとの一覧を作る
+function loadSkins(){
+  return getFile('data-skins.js').then(function(j){
+    SKINS_SHA = j.sha;
+    SKINS_TEXT = b64ToText(j.content);
+    SKINS = {};
+    var re = /\{id:'([^']+)',name:'([^']+)',rarity:'([^']+)'/g, m;
+    while((m = re.exec(SKINS_TEXT))){
+      var sp = m[1].replace(/_(sr|ssr)_\d+.*$/, '');
+      (SKINS[sp] = SKINS[sp] || []).push({ id:m[1], name:m[2], rarity:m[3] });
+    }
+    // 目印が無いと差し込めない
+    var marks = (SKINS_TEXT.match(/<<add:(\w+)>>/g) || []).length;
+    log('data-skins.js を読みました(スキン' + Object.keys(SKINS).reduce(function(a,k){return a+SKINS[k].length;},0) + '件 / 差し込み位置' + marks + '個)', 'ok');
+    fillSelects();
+    refresh();
+  });
+}
+function fillSelects(){
+  var sp = $('sp'), tg = $('target');
+  var keys = Object.keys(SPECIES_LABEL);
+  sp.innerHTML = keys.map(function(k){ return '<option value="'+k+'">'+SPECIES_LABEL[k]+'</option>'; }).join('');
+  var opts = [];
+  keys.forEach(function(k){
+    (SKINS[k]||[]).forEach(function(s){
+      opts.push('<option value="'+s.id+'">'+SPECIES_LABEL[k]+' / '+s.name+' ('+s.rarity+')</option>');
+    });
+  });
+  tg.innerHTML = opts.join('');
+}
+
+// ==================== id の自動決定 ====================
+function nextId(){
+  var sp = $('sp').value, r = $('rarity').value.toLowerCase();
+  var list = (SKINS && SKINS[sp]) || [];
+  var max = 0;
+  list.forEach(function(s){
+    var m = s.id.match(new RegExp('^' + sp + '_' + r + '_(\\d+)$'));
+    if(m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return sp + '_' + r + '_' + ('0' + (max + 1)).slice(-2);
+}
+function refresh(){
+  var isNew = $('mode').value === 'new';
+  $('box-new').classList.toggle('hide', !isNew);
+  $('box-replace').classList.toggle('hide', isNew);
+  $('mode-note').textContent = isNew
+    ? '画像を1枚置いて、data-skins.js に1行足します。'
+    : '画像を差し替えるだけです。data-skins.js は触りません。';
+  if(isNew && SKINS){
+    $('sid').value = nextId();
+    var list = SKINS[$('sp').value] || [];
+    $('dup-note').textContent = SPECIES_LABEL[$('sp').value] + ' はいま ' + list.length + '体 ('
+      + list.map(function(s){ return s.name; }).join(' / ') + ')';
+    // イブリースは形態ごとに絵を持てる
+    $('box-angel').classList.toggle('hide', $('sp').value !== 'iblis');
+  } else {
+    $('box-angel').classList.add('hide');
+  }
+  var ready = !!SKINS && !!pic1 && (isNew ? ($('name').value.trim() && $('sid').value.trim()) : !!$('target').value);
+  $('btn-go').disabled = !ready;
+}
+
+// ==================== 画像の加工 ====================
+// 背景を抜いて、余白を切って、指定の高さに縮める。
+// 端末の中だけで完結する(どこにも送らない)。
+function processImage(file, into, prevEl, infoEl){
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function(){
+    URL.revokeObjectURL(url);
+    var c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    var g = c.getContext('2d', { willReadFrequently:true });
+    g.drawImage(img, 0, 0);
+    var mode = $('bgmode').value, th = +$('th').value;
+    if(mode !== 'none') removeBg(g, c.width, c.height, mode, th);
+    var box = bbox(g, c.width, c.height);
+    if(!box){ infoEl.textContent = '全部消えてしまいました。しきい値を下げてください。'; infoEl.className='hint ng'; return; }
+    // 余白を切って縮める
+    var targetH = +$('hsize').value;
+    var scale = targetH / box.h;
+    var out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(box.w * scale));
+    out.height = targetH;
+    var og = out.getContext('2d');
+    og.imageSmoothingQuality = 'high';
+    og.drawImage(c, box.x, box.y, box.w, box.h, 0, 0, out.width, out.height);
+    out.toBlob(function(blob){
+      into.set({ blob: blob, w: out.width, h: out.height });
+      prevEl.innerHTML = '';
+      var p = new Image(); p.src = URL.createObjectURL(blob); prevEl.appendChild(p);
+      var kb = Math.round(blob.size/1024);
+      infoEl.textContent = out.width + '×' + out.height + ' / ' + kb + 'KB';
+      infoEl.className = 'hint' + (kb > 600 ? ' warn' : '');
+      if(kb > 600) infoEl.textContent += ' — 少し重いので高さを下げてもよいです';
+      refresh();
+    }, 'image/png');
+  };
+  img.onerror = function(){ infoEl.textContent = '画像を読めませんでした。'; infoEl.className='hint ng'; };
+  img.src = url;
+}
+// 四隅から同じ色をたどって消す(塗りつぶし)。写真の白背景を抜くのに使う。
+function removeBg(g, w, h, mode, th){
+  var d = g.getImageData(0, 0, w, h), p = d.data;
+  var targets = [];
+  if(mode === 'white') targets.push([255,255,255]);
+  else {
+    [[0,0],[w-1,0],[0,h-1],[w-1,h-1]].forEach(function(c){
+      var i = (c[1]*w + c[0]) * 4;
+      targets.push([p[i], p[i+1], p[i+2]]);
+    });
+  }
+  var near = function(i){
+    for(var t=0;t<targets.length;t++){
+      var c = targets[t];
+      if(Math.abs(p[i]-c[0])<=th && Math.abs(p[i+1]-c[1])<=th && Math.abs(p[i+2]-c[2])<=th) return true;
+    }
+    return false;
+  };
+  // 端から繋がっているところだけ消す(キャラの中の白は残す)
+  var seen = new Uint8Array(w*h), stack = [];
+  var push = function(x,y){
+    if(x<0||y<0||x>=w||y>=h) return;
+    var k = y*w+x; if(seen[k]) return;
+    seen[k]=1;
+    if(near(k*4)) stack.push(k);
+  };
+  for(var x=0;x<w;x++){ push(x,0); push(x,h-1); }
+  for(var y=0;y<h;y++){ push(0,y); push(w-1,y); }
+  while(stack.length){
+    var k = stack.pop();
+    p[k*4+3] = 0;
+    var kx = k % w, ky = (k - kx) / w;
+    push(kx+1,ky); push(kx-1,ky); push(kx,ky+1); push(kx,ky-1);
+  }
+  g.putImageData(d, 0, 0);
+}
+// 中身の入っている範囲を測る
+function bbox(g, w, h){
+  var p = g.getImageData(0,0,w,h).data;
+  var x0=w, y0=h, x1=-1, y1=-1;
+  for(var y=0;y<h;y++) for(var x=0;x<w;x++){
+    if(p[(y*w+x)*4+3] > 16){
+      if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
+    }
+  }
+  if(x1 < 0) return null;
+  return { x:x0, y:y0, w:x1-x0+1, h:y1-y0+1 };
+}
+
+// ==================== 登録 ====================
+function go(){
+  $('btn-go').disabled = true;
+  clearLog();
+  var isNew = $('mode').value === 'new';
+  var sp = $('sp').value;
+  var id = isNew ? $('sid').value.trim() : $('target').value;
+  var imgPath = 'img/skins/' + id + '.png';
+  var anglePath = 'img/skins/' + id + '_imgAngel.png';
+
+  if(isNew && SKINS && (SKINS[sp]||[]).some(function(s){ return s.id === id; })){
+    log('その id はもう使われています: ' + id, 'ng'); $('btn-go').disabled = false; return;
+  }
+
+  // 既にファイルがあれば sha が要る(差し替えのとき)
+  var step = getFile(imgPath).then(function(j){ return j.sha; }).catch(function(){ return null; });
+
+  step.then(function(sha){
+    log('① 画像を置きます: ' + imgPath);
+    return blobToB64(pic1.blob).then(function(b64){
+      return putFile(imgPath, b64, (isNew?'スキン追加':'スキンの絵を差し替え') + ': ' + id, sha);
+    });
+  }).then(function(){
+    log('   置けました', 'ok');
+    if(!(pic2 && sp === 'iblis' && isNew)) return null;
+    log('② 天使型の絵を置きます: ' + anglePath);
+    return getFile(anglePath).then(function(j){ return j.sha; }).catch(function(){ return null; })
+      .then(function(sha2){
+        return blobToB64(pic2.blob).then(function(b64){
+          return putFile(anglePath, b64, 'スキン追加(天使型): ' + id, sha2);
+        });
+      }).then(function(){ log('   置けました', 'ok'); });
+  }).then(function(){
+    if(!isNew){ done(id, imgPath); return; }
+    log('③ data-skins.js に1行足します');
+    // 目印の直前に差し込む
+    var mark = '// <<add:' + sp + '>>';
+    var at = SKINS_TEXT.indexOf(mark);
+    if(at < 0) throw new Error('差し込み位置の目印が見つかりません(<<add:' + sp + '>>)');
+    var lineStart = SKINS_TEXT.lastIndexOf('\n', at) + 1;
+    var indent = SKINS_TEXT.slice(lineStart, at);
+    var entry;
+    var hid = $('hidden').checked ? 'hidden:true,' : '';
+    if(pic2 && sp === 'iblis'){
+      entry = indent + "{id:'" + id + "',name:'" + $('name').value.trim() + "',rarity:'" + $('rarity').value + "'," + hid + "\n"
+            + indent + " img:'" + imgPath + "',\n"
+            + indent + " imgAngel:'" + anglePath + "'},\n";
+    } else {
+      entry = indent + "{id:'" + id + "',name:'" + $('name').value.trim() + "',rarity:'" + $('rarity').value + "'," + hid + "img:'" + imgPath + "'},\n";
+    }
+    var next = SKINS_TEXT.slice(0, lineStart) + entry + SKINS_TEXT.slice(lineStart);
+    return putFile('data-skins.js', textToB64(next), 'スキン追加: ' + id + ' (' + $('name').value.trim() + ')', SKINS_SHA)
+      .then(function(){ log('   足せました', 'ok'); SKINS_TEXT = next; done(id, imgPath); });
+  }).catch(function(e){
+    log('失敗しました: ' + e.message, 'ng');
+    log('※ 画像だけ置けてデータが足せていない場合、もう一度「登録する」を押せばやり直せます。', 'warn');
+    $('btn-go').disabled = false;
+  });
+}
+function done(id, imgPath){
+  log('');
+  log('完了しました。' + id, 'ok');
+  log('GitHub Pages に出るまで1〜2分かかります。', 'warn');
+  // 一覧を取り直して、続けて登録できるようにする
+  loadSkins().catch(function(){});
+  $('btn-go').disabled = false;
+}
+
+// ==================== 起動 ====================
+(function(){
+  try {
+    $('tok').value = localStorage.getItem(LS.tok) || '';
+    $('repo').value = localStorage.getItem(LS.repo) || (location.host.indexOf('github.io') >= 0
+      ? location.host.split('.')[0] + '/' + location.pathname.split('/').filter(Boolean)[0] : '');
+    $('branch').value = localStorage.getItem(LS.branch) || 'main';
+  } catch(e){}
+  $('btn-test').onclick = testConn;
+  $('btn-clear').onclick = function(){
+    try { localStorage.removeItem(LS.tok); } catch(e){}
+    $('tok').value = ''; setConn(false, '未接続'); log('トークンを消しました');
+  };
+  ['mode','sp','rarity','name','target'].forEach(function(id){
+    $(id).addEventListener('input', refresh);
+    $(id).addEventListener('change', refresh);
+  });
+  $('th').oninput = function(){ $('thv').textContent = this.value; if($('pic').files[0]) redo(); };
+  $('hsize').oninput = function(){ $('hv').textContent = this.value; if($('pic').files[0]) redo(); };
+  $('bgmode').onchange = function(){ if($('pic').files[0]) redo(); };
+  function redo(){
+    if($('pic').files[0]) processImage($('pic').files[0], { set:function(v){ pic1 = v; } }, $('prev'), $('picinfo'));
+    if($('pic2').files[0]) processImage($('pic2').files[0], { set:function(v){ pic2 = v; } }, $('prev2'), $('picinfo2'));
+  }
+  $('pic').onchange = function(){ if(this.files[0]) processImage(this.files[0], { set:function(v){ pic1 = v; } }, $('prev'), $('picinfo')); };
+  $('pic2').onchange = function(){ if(this.files[0]) processImage(this.files[0], { set:function(v){ pic2 = v; } }, $('prev2'), $('picinfo2')); };
+  $('btn-go').onclick = go;
+  refresh();
+  if($('tok').value && $('repo').value) testConn();
+})();
+</script>
+</body>
+</html>
