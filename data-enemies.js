@@ -19,7 +19,8 @@ normal_early: [
     {name:"毒霧",dmg:13,drain:15,vuln:2},
     {name:"牙切り",dmg:17},
     {name:"とびかかり",dmg:19,weak:2}
-  ]}
+  ]},
+  // <<add:normal_early>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 normal_mid1: [
   {name:"ディノ",icon:"🦖",trait:"dino",hp:179,dmg:24,img:'img/enemies/dino.png',actions:[
@@ -39,7 +40,8 @@ normal_mid1: [
     {name:"もちき",dmg:24},
     {name:"さくらふぶき",dmg:20,vuln:2},
     {name:"モッチ砲",dmg:40}
-  ]}
+  ]},
+  // <<add:normal_mid1>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 normal_mid2: [
   {name:"モノリス",icon:"⬛",trait:"monoru",hp:238,dmg:34,img:'img/enemies/monoru.png',actions:[
@@ -62,7 +64,8 @@ normal_mid2: [
     {name:"パラボラビーム",dmg:27,vuln:2},
     {name:"ゲルフーセン",dmg:31,handMinus:1},
     {name:"ガトリング",dmg:43,drain:10,handMinus:1}
-  ]}
+  ]},
+  // <<add:normal_mid2>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 normal_mid2b: [
   {name:"ゴーレム",icon:"🗿",trait:"golem_n",hp:334,dmg:49,img:'img/enemies/golem_n.png',actions:[
@@ -85,7 +88,8 @@ normal_mid2b: [
     {name:"バン",dmg:43,handMinus:1},
     {name:"メガレイ",dmg:39,weak:2},
     {name:"ビッグバン",dmg:54,handMinus:1}
-  ]}
+  ]},
+  // <<add:normal_mid2b>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 normal_late: [
   {name:"グジラ",icon:"🐋",trait:"gujira",hp:675,dmg:59,img:'img/enemies/gujira.png',actions:[
@@ -115,7 +119,8 @@ normal_late: [
     {name:"ホーリーサンダー",dmg:48,weak:2,vuln:2},
     {name:"ホーリーアイシクル",dmg:52,handMinus:2},
     {name:"ゴッドエレメンタル",dmg:61,weak:1,vuln:1,handMinus:1}
-  ]}
+  ]},
+  // <<add:normal_late>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 elite_early: [
   {name:"ビークロン",icon:"🪲",trait:"beaklon",hp:200,dmg:18,img:'img/enemies/beaklon.png',actions:[
@@ -138,7 +143,8 @@ elite_early: [
     {name:"ミツ",dmg:10,drain:30,weak:2,vuln:2},
     {name:"タネマシンガン",dmg:32,drain:15,handMinus:1},
     {name:"ドレイン",dmg:33,healSelf:15,drain:15}
-  ]}
+  ]},
+  // <<add:elite_early>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 elite_mid: [
   {name:"ケンタウロス",icon:"🐎",trait:"centaur",hp:545,dmg:29,img:'img/enemies/centaur.png',actions:[
@@ -165,7 +171,8 @@ elite_mid: [
     {name:"デスオーラ",atkUp:7,drainUp:7,once:true},
     {name:"デスゲート",dmg:56,drain:15,handMinus:2},
     {name:"デスファイナル",dmg:63,drain:30}
-  ]}
+  ]},
+  // <<add:elite_mid>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 elite_late: [
   {name:"デュラハン",icon:"🛡️",trait:"durahan",hp:870,dmg:44,img:'img/enemies/durahan.png',actions:[
@@ -193,7 +200,8 @@ elite_late: [
     {name:"宇宙交信",dmg:0,drain:33,block:45,atkUp:7},
     {name:"宙ポン拳",dmg:74,drain:22,block:27},
     {name:"対極変化",dmg:83,drain:10,handMinus:2}
-  ]}
+  ]},
+  // <<add:elite_late>> ここにツールが新しい敵を足す。行を消さないこと
 ],
 elite: [{name:"ビークロン",icon:"🪲",trait:"beaklon"},{name:"ヘンガー",icon:"🤖",trait:"henger"},{name:"プラント",icon:"🌱",trait:"plant"},{name:"ケンタウロス",icon:"🐎",trait:"centaur"},{name:"ドラゴン",icon:"🐉",trait:"dragon"},{name:"ジョーカー",icon:"🃏",trait:"joker_e"},{name:"デュラハン",icon:"🛡️",trait:"durahan"},{name:"ヒノトリ",icon:"🔥",trait:"hinotori"},{name:"メタルナー",icon:"🤖",trait:"metalner"}], rare_elite: [{name:"ナリキロッグ",icon:"🐸",trait:"narikillog",img:"img/enemies/narikillog.png"}]
 };
