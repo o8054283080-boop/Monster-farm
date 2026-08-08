@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スキン作成スタジオ</title>
+<title>作成スタジオ</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
-/* ==== スキン作成スタジオ ====
+/* ==== 作成スタジオ ====
    スマホだけで 写真を選ぶ → 背景を抜く → 登録 → 本番反映 まで完結させるための道具。
    ゲーム本体とは完全に独立していて、index.html からは一切読み込まれない。
    Tailwind に頼らず自前のCSSで書いてあるので、CDNが死んでいても動く。 */
@@ -45,11 +45,19 @@ input[type=range]{width:100%;accent-color:#fbbf24}
 .muted{color:#6b7280}
 code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5px;font-size:11px}
 .hide{display:none}
+.move{background:#0b0e14;border:1px solid #263043;border-radius:10px;padding:9px;margin-bottom:8px}
+.move .top{display:flex;gap:8px;align-items:center}
+.move .top input{flex:1}
+.move .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}
+.move .nums label{margin:0 0 2px;font-size:9px}
+.move .nums input{width:100%;background:#111827;border:1px solid #374151;border-radius:7px;padding:7px 6px;color:#e5e7eb;font-size:14px;text-align:center;font-family:inherit}
+.move .del{flex:0 0 auto;background:#3f1d1d;color:#fca5a5;border:1px solid #7f1d1d;border-radius:8px;padding:7px 9px;font-size:11px}
+.small{padding:8px 10px;font-size:12px}
 </style>
 </head>
 <body>
 <header>
-  <h1>スキン作成スタジオ</h1>
+  <h1>作成スタジオ</h1>
   <p>スマホだけで 写真を選ぶ → 背景を抜く → 登録 → 本番反映 まで完結します</p>
 </header>
 <main>
@@ -76,16 +84,22 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
 <!-- ============ 2. 何をするか ============ -->
 <section>
   <h2><span class="n">2</span>やること</h2>
+  <label style="margin-top:0">種類</label>
+  <select id="kind">
+    <option value="skin">スキン</option>
+    <option value="enemy">敵</option>
+  </select>
+  <label>やり方</label>
   <select id="mode">
-    <option value="new">新しいスキンを追加する</option>
-    <option value="replace">今あるスキンの絵を差し替える</option>
+    <option value="new">新しく追加する</option>
+    <option value="replace">今あるものの絵を差し替える</option>
   </select>
   <div id="mode-note" class="hint"></div>
 </section>
 
 <!-- ============ 3. 中身 ============ -->
 <section>
-  <h2><span class="n">3</span>スキンの中身</h2>
+  <h2><span class="n">3</span><span id="h2-content">スキンの中身</span></h2>
 
   <div id="box-new">
     <div class="row">
@@ -103,10 +117,31 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
     <p class="hint" id="dup-note"></p>
   </div>
 
+  <!-- 敵を新しく足す -->
+  <div id="box-enemy" class="hide">
+    <label>どこに出る敵か</label>
+    <select id="tier"></select>
+    <div class="row">
+      <div><label>名前</label><input type="text" id="ename" placeholder="例: スエゾー"></div>
+      <div style="flex:0 0 30%"><label>アイコン</label><input type="text" id="eicon" placeholder="👁️" maxlength="4"></div>
+    </div>
+    <label>id(英小文字・数字・_ のみ。他と重ならないこと)</label>
+    <input type="text" id="etrait" placeholder="例: suezo" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="row">
+      <div><label>ライフ</label><input type="text" id="ehp" inputmode="numeric" placeholder="83"></div>
+      <div><label>攻撃力(技が無いとき用)</label><input type="text" id="edmg" inputmode="numeric" placeholder="13"></div>
+    </div>
+    <p class="hint" id="tier-note"></p>
+
+    <label style="margin-top:14px">技(1つ以上。上限なし。毎ターンこの中から1つ選ばれます)</label>
+    <div id="moves"></div>
+    <button class="ghost small" id="btn-addmove" style="width:100%">＋ 技を足す</button>
+  </div>
+
   <div id="box-replace" class="hide">
-    <label>差し替えるスキン</label>
+    <label id="target-label">差し替えるもの</label>
     <select id="target"></select>
-    <p class="hint">絵だけを新しくします。名前・レア度・idは変わりません。</p>
+    <p class="hint" id="replace-note">絵だけを新しくします。名前や中身は変わりません。</p>
   </div>
 </section>
 
@@ -124,7 +159,7 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
   <label>しきい値 <span id="thv" class="muted">30</span> — 大きくすると多く抜きます</label>
   <input type="range" id="th" min="0" max="120" value="30">
 
-  <label>高さ <span id="hv" class="muted">420</span>px — ゲーム内の他のスキンは 300〜500px です</label>
+  <label>高さ <span id="hv" class="muted">420</span>px — <span id="hsize-note">ゲーム内の他のスキンは 300〜500px です</span></label>
   <input type="range" id="hsize" min="240" max="520" step="20" value="420">
 
   <div style="margin-top:12px" class="preview checker" id="prev"><span class="muted">画像を選ぶとここに出ます</span></div>
@@ -143,7 +178,7 @@ code{background:#0b0e14;border:1px solid #1f2937;border-radius:5px;padding:1px 5
 <section>
   <h2><span class="n">5</span>登録</h2>
   <button class="primary" id="btn-go" disabled>登録する</button>
-  <p class="hint">画像を先に置いてから、データに1行足します。<br>
+  <p class="hint" id="go-note">画像を先に置いてから、データに足します。<br>
   GitHub Pages の反映には <b>1〜2分</b>かかります。</p>
   <div id="log" class="log" style="margin-top:12px">まだ何もしていません。</div>
 </section>
@@ -158,6 +193,19 @@ var $ = function(id){ return document.getElementById(id); };
 var SKINS = null;              // 読み込んだ data-skins.js から作る一覧
 var SKINS_TEXT = '', SKINS_SHA = '';
 var pic1 = null, pic2 = null;  // 加工後の {blob, w, h}
+var ENEMIES = null;            // data-enemies.js から作る一覧
+var ENEMY_TEXT = '', ENEMY_SHA = '';
+// 段階の名前と、だいたい何階で出るか
+var TIERS = [
+  ['normal_early', '通常敵 1〜14階'],
+  ['normal_mid1',  '通常敵 5〜14階'],
+  ['normal_mid2',  '通常敵 16〜29階'],
+  ['normal_mid2b', '通常敵 20〜29階'],
+  ['normal_late',  '通常敵 31階〜'],
+  ['elite_early',  '強敵 序盤'],
+  ['elite_mid',    '強敵 中盤'],
+  ['elite_late',   '強敵 終盤'],
+];
 var SPECIES_LABEL = {
   motchi:'モッチー', golem:'ゴーレム', monolith:'モノリス', kawazumo:'カワズモー',
   gali:'ガリ', hinotori:'ヒノトリ', zan:'ザン', iblis:'イブリース'
@@ -242,13 +290,59 @@ function testConn(){
   setConn(false, '確認中…');
   gh('').then(function(j){
     setConn(true, '接続OK: ' + j.full_name);
-    return loadSkins();
+    // 【重要】ここから先の失敗で接続の表示を赤に戻さないこと。
+    // 片方のファイルが読めなかっただけで「つながりません」と出ると、
+    // トークンやリポジトリを疑って延々と直そうとしてしまう。
+    var oops = function(name){ return function(e){ log(name + ' を読めませんでした: ' + e.message, 'ng'); }; };
+    loadSkins().catch(oops('data-skins.js'));
+    loadEnemies().catch(oops('data-enemies.js'));
   }).catch(function(e){
     setConn(false, 'つながりません: ' + e.message);
     log('接続に失敗: ' + e.message, 'ng');
   });
 }
 // data-skins.js を読んで、種族ごとの一覧を作る
+// data-enemies.js を読んで、敵の一覧を作る
+function loadEnemies(){
+  return getFile('data-enemies.js').then(function(j){
+    ENEMY_SHA = j.sha;
+    ENEMY_TEXT = b64ToText(j.content);
+    ENEMIES = [];
+    // 絵の場所は書いてあるものを優先する(書いていなければ trait から組み立てる)
+    var imgOf = function(chunk, trait){
+      var mi = /img:\s*['"]([^'"]+)['"]/.exec(chunk);
+      return mi ? mi[1] : 'img/enemies/' + trait + '.png';
+    };
+    // 通常敵・強敵(段階ごとの配列に入っている)
+    TIERS.forEach(function(t){
+      var m = new RegExp('\\n\\s*' + t[0] + ':\\s*\\[').exec(ENEMY_TEXT);
+      if(!m) return;
+      var end = ENEMY_TEXT.indexOf('\n]', m.index + m[0].length);
+      var seg = ENEMY_TEXT.slice(m.index, end);
+      var re = /\{name:"([^"]+)",icon:"([^"]*)",trait:"([^"]+)"([\s\S]{0,120})/g, x;
+      while((x = re.exec(seg))) ENEMIES.push({ name:x[1], icon:x[2], trait:x[3],
+        img: imgOf(x[4], x[3]), tier:t[0], label:t[1] });
+    });
+    // ボス(階ごと)。ボスは書いてある項目がまちまちなので、
+    // 「階:{name,icon」だけを頼りにして、trait と img は後ろから拾う。
+    var bd = ENEMY_TEXT.indexOf('BOSS_DATA');
+    if(bd >= 0){
+      var seg2 = ENEMY_TEXT.slice(bd);
+      // 先読みにしておく。ふつうに書くと1件ぶん読み飛ばして次のボスを取りこぼす
+      var rb = /(\d+)\s*:\s*\{name:"([^"]+)",icon:"([^"]*)"(?=([\s\S]{0,300}))/g, y;
+      while((y = rb.exec(seg2))){
+        var mt = /trait:\s*['"]([^'"]+)['"]/.exec(y[4]);
+        if(!mt) continue;
+        ENEMIES.push({ name:y[2], icon:y[3], trait:mt[1],
+          img: imgOf(y[4], mt[1]), tier:'boss', label:y[1]+'階ボス' });
+      }
+    }
+    log('data-enemies.js を読みました(敵' + ENEMIES.length + '体 / 差し込み位置'
+        + (ENEMY_TEXT.match(/<<add:(\w+)>>/g)||[]).length + '個)', 'ok');
+    fillTargets();
+    refresh();
+  });
+}
 function loadSkins(){
   return getFile('data-skins.js').then(function(j){
     SKINS_SHA = j.sha;
@@ -276,12 +370,59 @@ function fillSpecies(){
 // 差し替え先は本物の一覧が要るので、読み込めてから
 function fillTargets(){
   var opts = [];
-  Object.keys(SPECIES_LABEL).forEach(function(k){
-    (SKINS[k]||[]).forEach(function(s){
-      opts.push('<option value="'+s.id+'">'+SPECIES_LABEL[k]+' / '+s.name+' ('+s.rarity+')</option>');
+  if(isEnemy()){
+    (ENEMIES||[]).forEach(function(e){
+      opts.push('<option value="'+e.trait+'">'+(e.icon||'')+' '+e.name+' ('+e.label+')</option>');
     });
-  });
+  } else if(SKINS){
+    Object.keys(SPECIES_LABEL).forEach(function(k){
+      (SKINS[k]||[]).forEach(function(s){
+        opts.push('<option value="'+s.id+'">'+SPECIES_LABEL[k]+' / '+s.name+' ('+s.rarity+')</option>');
+      });
+    });
+  }
   $('target').innerHTML = opts.join('');
+}
+function fillTiers(){
+  $('tier').innerHTML = TIERS.map(function(t){
+    return '<option value="'+t[0]+'">'+t[1]+'</option>';
+  }).join('');
+}
+function isEnemy(){ return $('kind').value === 'enemy'; }
+
+// ==================== 技の入力欄 ====================
+// 1行1技。ダメージ以外は空欄でよい(0として扱う)。
+var MOVE_FIELDS = [
+  ['dmg','ダメージ'], ['drain','ガッツ吸収'], ['block','敵の防御'],
+  ['weak','攻弱'], ['vuln','守弱'], ['handMinus','手札減'],
+];
+function addMove(v){
+  v = v || {};
+  var d = document.createElement('div');
+  d.className = 'move';
+  d.innerHTML = '<div class="top"><input type="text" class="mv-name" placeholder="技の名前" value="'+(v.name||'')+'">'
+    + '<button class="del" type="button">消す</button></div>'
+    + '<div class="nums">' + MOVE_FIELDS.map(function(f){
+        return '<div><label>'+f[1]+'</label><input type="text" inputmode="numeric" class="mv-'+f[0]+'" value="'+(v[f[0]]||'')+'"></div>';
+      }).join('') + '</div>';
+  d.querySelector('.del').onclick = function(){ d.remove(); renumberMoves(); refresh(); };
+  d.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', refresh); });
+  $('moves').appendChild(d);
+  refresh();
+}
+function renumberMoves(){
+  // 技が0個になったら1つ戻す(0個だと戦えない)
+  if($('moves').children.length === 0) addMove();
+}
+function readMoves(){
+  return Array.prototype.map.call($('moves').children, function(d){
+    var o = { name: (d.querySelector('.mv-name').value||'').trim() };
+    MOVE_FIELDS.forEach(function(f){
+      var n = parseInt(d.querySelector('.mv-'+f[0]).value, 10);
+      if(!isNaN(n) && n !== 0) o[f[0]] = n;
+    });
+    return o;
+  }).filter(function(o){ return o.name; });
 }
 
 // ==================== id の自動決定 ====================
@@ -297,12 +438,18 @@ function nextId(){
 }
 function refresh(){
   var isNew = $('mode').value === 'new';
-  $('box-new').classList.toggle('hide', !isNew);
+  var en = isEnemy();
+  $('box-new').classList.toggle('hide', !isNew || en);
+  $('box-enemy').classList.toggle('hide', !isNew || !en);
   $('box-replace').classList.toggle('hide', isNew);
+  $('target-label').textContent = en ? '差し替える敵' : '差し替えるスキン';
   $('mode-note').textContent = isNew
-    ? '画像を1枚置いて、data-skins.js に1行足します。'
-    : '画像を差し替えるだけです。data-skins.js は触りません。';
-  if(isNew){
+    ? (en ? '画像を1枚置いて、data-enemies.js に1体足します。'
+          : '画像を1枚置いて、data-skins.js に1行足します。')
+    : (en ? '画像を差し替えるだけです。data-enemies.js は触りません。'
+          : '画像を差し替えるだけです。data-skins.js は触りません。');
+  $('h2-content').textContent = en ? '敵の中身' : 'スキンの中身';
+  if(isNew && !en){
     if(SKINS){
       $('sid').value = nextId();
       var list = SKINS[$('sp').value] || [];
@@ -321,7 +468,26 @@ function refresh(){
   } else {
     $('box-angel').classList.add('hide');
   }
-  var ready = !!SKINS && !!pic1 && (isNew ? ($('name').value.trim() && $('sid').value.trim()) : !!$('target').value);
+  var ready;
+  if(en){
+    var t = ($('etrait').value||'').trim();
+    var okTrait = /^[a-z][a-z0-9_]*$/.test(t) && !(ENEMIES||[]).some(function(x){ return x.trait === t; });
+    ready = !!ENEMIES && !!pic1 && (isNew
+      ? (okTrait && $('ename').value.trim() && +$('ehp').value > 0 && readMoves().length > 0)
+      : !!$('target').value);
+    if(isNew){
+      var msg = [];
+      if(!ENEMIES) msg.push('①で接続してください。');
+      if(t && !/^[a-z][a-z0-9_]*$/.test(t)) msg.push('idは英小文字・数字・_ だけです。');
+      if(t && (ENEMIES||[]).some(function(x){ return x.trait === t; })) msg.push('そのidはもう使われています。');
+      if(readMoves().length === 0) msg.push('技の名前を1つ以上入れてください。');
+      $('tier-note').className = 'hint' + (msg.length ? ' warn' : '');
+      $('tier-note').textContent = msg.length ? msg.join(' ')
+        : (ENEMIES ? 'いまこの段階には ' + ENEMIES.filter(function(x){return x.tier===$('tier').value;}).length + '体います。' : '');
+    }
+  } else {
+    ready = !!SKINS && !!pic1 && (isNew ? ($('name').value.trim() && $('sid').value.trim()) : !!$('target').value);
+  }
   $('btn-go').disabled = !ready;
 }
 
@@ -414,9 +580,60 @@ function bbox(g, w, h){
 }
 
 // ==================== 登録 ====================
+// ==================== 敵の登録 ====================
+function goEnemy(){
+  var isNew = $('mode').value === 'new';
+  var trait = isNew ? $('etrait').value.trim() : $('target').value;
+  // 差し替えのときは、その敵が実際に見ている絵の場所に上書きする
+  var cur = (ENEMIES||[]).filter(function(x){ return x.trait === trait; })[0];
+  var imgPath = (!isNew && cur && cur.img) ? cur.img : 'img/enemies/' + trait + '.png';
+
+  getFile(imgPath).then(function(j){ return j.sha; }).catch(function(){ return null; })
+  .then(function(sha){
+    log('① 画像を置きます: ' + imgPath);
+    return blobToB64(pic1.blob).then(function(b64){
+      return putFile(imgPath, b64, (isNew?'敵を追加':'敵の絵を差し替え') + ': ' + trait, sha);
+    });
+  }).then(function(){
+    log('   置けました', 'ok');
+    if(!isNew){ doneEnemy(trait); return; }
+    log('② data-enemies.js に1体足します');
+    var tier = $('tier').value;
+    var mark = '// <<add:' + tier + '>>';
+    var at = ENEMY_TEXT.indexOf(mark);
+    if(at < 0) throw new Error('差し込み位置の目印が見つかりません(<<add:' + tier + '>>)');
+    // 目印の行の頭に差し込む
+    var lineStart = ENEMY_TEXT.lastIndexOf('\n', at) + 1;
+    var moves = readMoves().map(function(m){
+      var parts = ['name:"' + m.name + '"'];
+      MOVE_FIELDS.forEach(function(f){ if(m[f[0]]) parts.push(f[0] + ':' + m[f[0]]); });
+      return '    {' + parts.join(',') + '}';
+    }).join(',\n');
+    var entry = '  {name:"' + $('ename').value.trim() + '",icon:"' + ($('eicon').value.trim()||'❓')
+      + '",trait:"' + trait + '",hp:' + (+$('ehp').value) + ',dmg:' + (+$('edmg').value || 10)
+      + ",img:'" + imgPath + "',actions:[\n" + moves + '\n  ]},\n';
+    var next = ENEMY_TEXT.slice(0, lineStart) + entry + ENEMY_TEXT.slice(lineStart);
+    return putFile('data-enemies.js', textToB64(next),
+      '敵を追加: ' + trait + ' (' + $('ename').value.trim() + ')', ENEMY_SHA)
+      .then(function(){ log('   足せました', 'ok'); ENEMY_TEXT = next; doneEnemy(trait); });
+  }).catch(function(e){
+    log('失敗しました: ' + e.message, 'ng');
+    log('※ 画像だけ置けてデータが足せていない場合、もう一度「登録する」を押せばやり直せます。', 'warn');
+    $('btn-go').disabled = false;
+  });
+}
+function doneEnemy(trait){
+  log('');
+  log('完了しました。' + trait, 'ok');
+  log('GitHub Pages に出るまで1〜2分かかります。', 'warn');
+  loadEnemies().catch(function(){});
+  $('btn-go').disabled = false;
+}
+
 function go(){
   $('btn-go').disabled = true;
   clearLog();
+  if(isEnemy()){ goEnemy(); return; }
   var isNew = $('mode').value === 'new';
   var sp = $('sp').value;
   var id = isNew ? $('sid').value.trim() : $('target').value;
@@ -495,6 +712,21 @@ function done(id, imgPath){
     try { localStorage.removeItem(LS.tok); } catch(e){}
     $('tok').value = ''; setConn(false, '未接続'); log('トークンを消しました');
   };
+  fillTiers();
+  addMove(); addMove(); addMove(); addMove();   // 既存の敵に合わせて4つ出しておく
+  $('btn-addmove').onclick = function(){ addMove(); };
+  $('kind').addEventListener('change', function(){
+    // 敵の絵は中央値220px、スキンは420px。切り替えたら既定を寄せる
+    $('hsize').value = isEnemy() ? 260 : 420;
+    $('hv').textContent = $('hsize').value;
+    $('hsize-note').textContent = isEnemy() ? '他の敵は 86〜539px(中央値220)です' : 'ゲーム内の他のスキンは 300〜500px です';
+    if($('pic').files[0]) processImage($('pic').files[0], { set:function(v){ pic1 = v; } }, $('prev'), $('picinfo'));
+    fillTargets(); refresh();
+  });
+  ['kind','tier','ename','eicon','etrait','ehp','edmg'].forEach(function(id){
+    $(id).addEventListener('input', refresh);
+    $(id).addEventListener('change', refresh);
+  });
   ['mode','sp','rarity','name','target'].forEach(function(id){
     $(id).addEventListener('input', refresh);
     $(id).addEventListener('change', refresh);
