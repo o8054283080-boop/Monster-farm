@@ -56,6 +56,7 @@
   |---|---|---|
   | `trialEnemyToughness()` | `playCard` と **`calcPreviewDmg`** | 1(+5) / 10(+10) |
   | `trialBossPierce()` | `enemyDefPierce()` | 10 |
+  | `trialCardPlayLimit()` | `cardPlayLimit()` | 10 |
   | `trialEnemyDmgMult()` / `trialEnemyRage()` | `setEnemyIntent()` | 3 / 8 |
   | `trialEnemyHpMult()` | `startBattle()` の難易度倍率のところ | 6 |
   | `trialHandMinus()` / `trialBattleInjury()` | `startBattle()` | 2 / 9 |
@@ -63,6 +64,9 @@
   | `trialGoldMult()` | `gainGold()` | 5 |
   | `trialInitEnergyMinus()` | `startBattle()` の初期ガッツ(上限ではなく手持ち) | 7 |
 
+- 試練10の「1ターン5枚まで」はラスボスの `cardPlayLimit` をそのまま使っている。
+  **敵が元から制限を持っているときは厳しい方を採る**(65階ボスの7枚 → 5枚)。
+  残り枚数のバッジも特殊効果の説明も、`cardPlayLimit()` の返り値を見るようにしてある
 - 行商人の値段は **`shopDiscountMult` の1か所に混ぜてある**(カード・遺物・サービス品の3か所とも
   この倍率を通っているため)。実験場の合成代金だけは表示と判定の2か所にあるので、必ず同じ変数を使うこと
 - **⚠ 試練9のケガは `state.drawPile` に入れる(`state.deck` ではない)。**

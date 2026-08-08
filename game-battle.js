@@ -90,7 +90,11 @@ function effectivePlayerDef(){
 }
 function cardPlayLimit(){
   const e = state.enemy;
-  return (e && e.cardPlayLimit) ? e.cardPlayLimit : 0;   // 0 = 制限なし
+  const fromEnemy = (e && e.cardPlayLimit) ? e.cardPlayLimit : 0;   // 0 = 制限なし
+  const fromTrial = trialCardPlayLimit();                            // 試練10は全戦闘で5枚まで
+  if(!fromEnemy) return fromTrial;
+  if(!fromTrial) return fromEnemy;
+  return Math.min(fromEnemy, fromTrial);   // 両方あるときは厳しい方(65階ボスの7枚 → 5枚)
 }
 function resetCardPlayLimit(){ state.cardsPlayedThisTurn = 0; updateCardLimitBadge(); }
 function cardPlayLeft(){
@@ -599,7 +603,8 @@ window.game.showBossEffectInfo = function() {
                         : 'こちらの連撃(複数ヒット)攻撃はそのままだが、';
     lines.push(`🌀 伝説のきまぐれ\n${head}連撃のない通常攻撃のダメージが${sm}倍になる。`);
   }
-  if(state.enemy.cardPlayLimit) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${state.enemy.cardPlayLimit}枚までに制限される。残り枚数は手札の上に出る。`);
+  // 敵が持っている制限と、試練10の制限のどちらでも出す。数は実際に効いている方を書く
+  if(cardPlayLimit()) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${cardPlayLimit()}枚までに制限される。残り枚数は手札の上に出る。`);
   if(state.enemy.defPierce) lines.push(`🌀 理を無視する\nこちらの丈夫さを${Math.round(state.enemy.defPierce*100)}%無視して攻撃してくる。丈夫さを積んでも受けるダメージが減りきらない。`);
   // 試練でかかっている不利益も、戦闘中にここから読めるようにしておく
   if(currentTrial() > 0){
