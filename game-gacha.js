@@ -1094,21 +1094,18 @@ n.onclick=()=>{if(!state.mapActionTaken){state.mapActionTaken=true;a();}}; retur
 window.game.showCamp = function() {
 showModal("休息所","休んで英気を養いましょう");
 const b=document.createElement('button'); b.className="w-full p-4 bg-zinc-800 hover:bg-zinc-700 rounded-xl mb-2 text-sm font-bold border border-zinc-700 shadow";
-// 試練4では戻る量が半分になる。ボタンの文字も実際の割合に合わせる
-const campPct = Math.round(50 * trialRestMult());
-b.innerText=`休む (ライフ ${campPct}%回復)`; b.onclick=()=>{state.player.hp=Math.min(state.player.maxHp,state.player.hp + Math.floor(state.player.maxHp*campPct/100)); nextFloor();};
+b.innerText="休む (ライフ 50%回復)"; b.onclick=()=>{state.player.hp=Math.min(state.player.maxHp,state.player.hp + Math.floor(state.player.maxHp*0.5)); nextFloor();};
 ui.rewardList.appendChild(b);
 };
 window.game.showRest = function() {
-const restPct = 35 * trialRestMult();   // 試練4: 半分
-const healAmt = Math.floor(state.player.maxHp * restPct / 100);
+const healAmt = Math.floor(state.player.maxHp * 0.35);
 const newHp = Math.min(state.player.maxHp, state.player.hp + healAmt);
 const actual = newHp - state.player.hp;
 state.player.hp = newHp;
 showModal("🏕️ 休憩所","焚き火のそばで一息つく…");
 const info = document.createElement('div');
 info.className = "w-full p-4 bg-green-950 border border-green-700 rounded-xl mb-2 text-center";
-info.innerHTML = `<div class="text-4xl mb-2">🏕️</div><div class="text-green-300 font-bold text-sm">ライフが <span class="text-green-200 text-xl font-black">+${actual}</span> 回復した</div><div class="text-zinc-400 text-xs mt-1">(最大HP の ${restPct}%)</div>`;
+info.innerHTML = `<div class="text-4xl mb-2">🏕️</div><div class="text-green-300 font-bold text-sm">ライフが <span class="text-green-200 text-xl font-black">+${actual}</span> 回復した</div><div class="text-zinc-400 text-xs mt-1">(最大HP の 35%)</div>`;
 ui.rewardList.appendChild(info);
 const btn = document.createElement('button');
 btn.className = "w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded-full text-sm mt-2 active:scale-95 transition-all";
@@ -1164,24 +1161,27 @@ window.game.showForge = function() {
     // カード合成ボタン(スコア or ゴールド)
     const fuseBtnScore = document.createElement('button');
     fuseBtnScore.className = 'w-full p-3 bg-amber-900 hover:bg-amber-800 border border-amber-500 rounded-xl text-sm font-bold mb-1';
-    fuseBtnScore.innerHTML = '⚗️ カード合成 <span class="text-yellow-300 text-xs">（スコア50,000消費）</span>';
+    // 試練4では代金が上がる。表示と判定で必ず同じ数を使うこと
+    const fuseScoreCost = Math.floor(50000 * trialPriceMult());
+    const fuseGoldCost  = Math.floor(500 * trialPriceMult());
+    fuseBtnScore.innerHTML = `⚗️ カード合成 <span class="text-yellow-300 text-xs">（スコア${fuseScoreCost.toLocaleString()}消費）</span>`;
     fuseBtnScore.onclick = () => {
-      if(state.score < 50000) {
-        alert('スコアが足りません！（必要：50,000）');
+      if(state.score < fuseScoreCost) {
+        alert(`スコアが足りません！（必要：${fuseScoreCost.toLocaleString()}）`);
         return;
       }
-      state.score -= 50000;
+      state.score -= fuseScoreCost;
       try { showFuseMenu(); } catch(e) { console.error('showFuseMenu error', e); showForgeErrorFallback(); }
     };
     const fuseBtnGold = document.createElement('button');
     fuseBtnGold.className = 'w-full p-3 bg-amber-900 hover:bg-amber-800 border border-amber-500 rounded-xl text-sm font-bold mb-2';
-    fuseBtnGold.innerHTML = '⚗️ カード合成 <span class="text-emerald-300 text-xs">（ゴールド500消費）</span>';
+    fuseBtnGold.innerHTML = `⚗️ カード合成 <span class="text-emerald-300 text-xs">（ゴールド${fuseGoldCost.toLocaleString()}消費）</span>`;
     fuseBtnGold.onclick = () => {
-      if((state.gold||0) < 500) {
-        alert('ゴールドが足りません！（必要：500）');
+      if((state.gold||0) < fuseGoldCost) {
+        alert(`ゴールドが足りません！（必要：${fuseGoldCost.toLocaleString()}）`);
         return;
       }
-      state.gold -= 500;
+      state.gold -= fuseGoldCost;
       try { showFuseMenu(); } catch(e) { console.error('showFuseMenu error', e); showForgeErrorFallback(); }
     };
 
@@ -1385,8 +1385,9 @@ state.shopSoldThisVisit = {}; // 訪問ごとにリセット(サービス品は�
 
 // ---- 商品カード(7枚)を毎回抽選 ----
 const CARD_PRICE = {N:50,R:150,SR:400,SSR:800,MR:1500};
-const shopDiscountMult = state.player.relics.some(r=>r.id==='gold_card') ? 0.5
-  : (state.player.relics.some(r=>r.id==='point_card') ? 0.8 : 1);
+// 試練4の値上げもここに混ぜる。カード・遺物・サービス品の3か所とも、この倍率を通っている
+const shopDiscountMult = (state.player.relics.some(r=>r.id==='gold_card') ? 0.5
+  : (state.player.relics.some(r=>r.id==='point_card') ? 0.8 : 1)) * trialPriceMult();
 const rollCardRarity = () => {
   const r = Math.random();
   if(r < 0.20) return 'N';

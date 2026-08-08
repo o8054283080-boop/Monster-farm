@@ -59,8 +59,15 @@
   | `trialEnemyDmgMult()` / `trialEnemyRage()` | `setEnemyIntent()` | 3 / 8 |
   | `trialEnemyHpMult()` | `startBattle()` の難易度倍率のところ | 6 |
   | `trialHandMinus()` / `trialBattleInjury()` | `startBattle()` | 2 / 9 |
-  | `trialRestMult()` / `trialGoldMult()` / `trialEnergyCapMinus()` | 休息所・`gainGold()`・`applyTrialPenalties()` | 4 / 5 / 7 |
+  | `trialPriceMult()` | `showShop()` の `shopDiscountMult` と `showForge()` の合成代金 | 4 |
+  | `trialGoldMult()` | `gainGold()` | 5 |
+  | `trialInitEnergyMinus()` | `startBattle()` の初期ガッツ(上限ではなく手持ち) | 7 |
 
+- 行商人の値段は **`shopDiscountMult` の1か所に混ぜてある**(カード・遺物・サービス品の3か所とも
+  この倍率を通っているため)。実験場の合成代金だけは表示と判定の2か所にあるので、必ず同じ変数を使うこと
+- **⚠ 試練9のケガは `state.drawPile` に入れる(`state.deck` ではない)。**
+  山札は戦闘開始のたびにデッキから作り直されるので、**1戦につき1枚で、戦闘が終われば消える**。
+  デッキに溜まっていくわけではない
 - **⚠ 敵の丈夫さは `playCard` と `calcPreviewDmg` の両方に同じ行がある。**
   片方だけ直すと「予告と実ダメージが食い違う」というこの土地の定番の不具合になる。
   検証は `scratchpad/preview_check.js`(実際に手札をドラッグして予告の数字を読む)
