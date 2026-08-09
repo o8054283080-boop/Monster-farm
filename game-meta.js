@@ -657,6 +657,20 @@ function diaTitleBonus(difficulty, floor){
   if(difficulty==='hard') return 70;
   return 50;
 }
+// ---- すっぴん称号(60階到達 × 難易度ごとに1回) ----
+// 継承ショップの底上げも専用技も無しで踏破したことへの称号。初踏破称号より少し厚い
+function diaNakedTitleBonus(difficulty){
+  if(difficulty==='legend') return 220;
+  if(difficulty==='veryhard') return 160;
+  if(difficulty==='expert') return 120;
+  if(difficulty==='hard') return 90;
+  return 60;
+}
+// ---- 試練称号(その試練を突破したときに1回) ----
+function diaTrialTitleBonus(n){ return 100 + 20 * (n||0); }   // 試練1=120 … 試練10=300
+// 称号のキーは全部 dp.firstClearTitles に入れている。
+// 【重要】種族×難易度の初踏破称号を数えるときは、すっぴん・試練のぶんを外すこと
+function isSpeciesTitleKey(k){ return !/^naked_/.test(k) && !/^trial_/.test(k); }
 // 冒険終了時(勝利/敗北/ギブアップ共通)にダイヤを付与し、獲得量を返す
 function awardDiaRewards(){
   const dp = loadDiaProgress();
@@ -675,6 +689,22 @@ function awardDiaRewards(){
       earned += diaTitleBonus(diffKey, floor);
     }
   }
+  // すっぴん称号(60階到達 × 難易度ごとに1回)。種族は問わない
+  if(floor >= 60 && state.naked){
+    const k = `naked_${diffKey}`;
+    if(!dp.firstClearTitles.includes(k)){
+      dp.firstClearTitles.push(k);
+      earned += diaNakedTitleBonus(diffKey);
+    }
+  }
+  // 試練称号(その試練を突破したときに1回)。突破の判定は markTrialCleared() が付ける印を見る
+  if(state.trialCleared && state.trial > 0){
+    const k = `trial_${state.trial}`;
+    if(!dp.firstClearTitles.includes(k)){
+      dp.firstClearTitles.push(k);
+      earned += diaTrialTitleBonus(state.trial);
+    }
+  }
   dp.dia += earned;
   saveDiaProgress(dp);
   return earned;
@@ -684,6 +714,8 @@ function awardDiaRewards(){
 // 「累計プレイ回数のダイヤが何の説明もなく増える」のが分かりにくかったため、
 // 挑戦回数・次の報酬までの残り・獲得済みの称号をまとめて見られる画面を用意する。
 const DIA_DIFF_LABEL = { normal:'ノーマル', hard:'ハード', expert:'エキスパート', veryhard:'ベリーハード', legend:'レジェンド' };
+// 称号の升目は5列ぶんしか幅が無く、正式名だと2行に折れて読みにくい。升目の中だけ短く書く
+const DIA_DIFF_SHORT = { normal:'ノーマル', hard:'ハード', expert:'エキスパ', veryhard:'ベリハ', legend:'レジェンド' };
 // 難易度ごとの称号の格。60階以上を踏破した種族×難易度の組み合わせごとに1回だけ獲得できる
 const DIA_TITLE_RANK = {
   normal:   { suffix:'踏破者', color:'text-zinc-200',   border:'border-zinc-500' },
@@ -729,6 +761,7 @@ const CHANGELOG = [
     '試練は不利益が増えるぶん、最終スコアと継承ポイントの倍率も上がります',
     '戦闘開始時に混ざるケガは、その戦闘のあいだだけです。デッキに溜まっていくことはありません',
     '最後の試練10では、ラスボスの「創造の律」が全ての戦闘にかかります(1ターンに5枚まで)',
+    '試練を突破すると、その試練の番号ごとに「試練称号」とダイヤが手に入ります',
   ]},
   { date:'2026/08/08', title:'「すっぴん」と、ランキングの絞り込みを追加', items:[
     '冒険を始めるときに「通常」か「すっぴん」かを選べるようになりました',
@@ -737,6 +770,8 @@ const CHANGELOG = [
     'ランキングに「技なし」「すっぴん」「⚔ 試練」の絞り込みを足しました',
     'すっぴんで残した記録には「素」の印が付きます',
     '15階を突破していない記録は、ランキングに載らないようにしました',
+    'すっぴんで60階まで到達すると、難易度ごとに「すっぴん称号」とダイヤが手に入ります',
+    '遊び方に「試練」「すっぴん」「ランキング」の説明を足しました',
   ]},
   { date:'2026/08/08', title:'不具合修正のお詫び', items:[
     'お詫びとして 💎270 をお配りしました',
@@ -1089,7 +1124,9 @@ function renderTitlesScreen(){
   const tHead = document.createElement('div');
   tHead.className = 'text-[11px] text-zinc-400 font-bold text-left mt-1';
   const totalTitles = speciesIds().length * Object.keys(DIA_DIFF_LABEL).length;
-  tHead.innerHTML = `初踏破称号 <span class="text-zinc-500">(${dp.firstClearTitles.length} / ${totalTitles})</span>
+  // 【重要】すっぴん・試練のぶんを数に混ぜないこと(別の欄で数えている)
+  const gotSpecies = dp.firstClearTitles.filter(isSpeciesTitleKey).length;
+  tHead.innerHTML = `初踏破称号 <span class="text-zinc-500">(${gotSpecies} / ${totalTitles})</span>
     <div class="text-[9px] text-zinc-500 font-normal mt-0.5">60階まで到達すると、その種族と難易度の組み合わせごとに1回だけ獲得できます</div>`;
   wrap.appendChild(tHead);
 
@@ -1102,14 +1139,15 @@ function renderTitlesScreen(){
     name.innerText = sp.name;
     row.appendChild(name);
     const badges = document.createElement('div');
-    badges.className = 'grid grid-cols-4 gap-1 flex-1';
+    // 難易度は5つ。4列だとレジェンドだけ次の行に折れて、種族ごとに2行ぶん縦に伸びる
+    badges.className = 'grid grid-cols-5 gap-1 flex-1';
     Object.keys(DIA_DIFF_LABEL).forEach(diff => {
       const rank = DIA_TITLE_RANK[diff];
       const got = dp.firstClearTitles.includes(`${spId}_${diff}`);
       const b = document.createElement('div');
       b.className = 'rounded border px-1 py-1 text-center ' +
         (got ? `bg-zinc-900 ${rank.border} ${rank.color}` : 'bg-zinc-900/40 border-zinc-800 text-zinc-600');
-      b.innerHTML = `<div class="text-[8px] leading-tight">${DIA_DIFF_LABEL[diff]}</div>
+      b.innerHTML = `<div class="text-[8px] leading-tight">${DIA_DIFF_SHORT[diff]}</div>
         <div class="text-[9px] font-bold leading-tight">${got ? rank.suffix : '未取得'}</div>
         <div class="text-[8px] leading-tight">${got ? '✅' : `💎${diaTitleBonus(diff, 60)}`}</div>`;
       badges.appendChild(b);
@@ -1122,6 +1160,53 @@ function renderTitlesScreen(){
   note.className = 'text-[9px] text-zinc-500 leading-relaxed text-left';
   note.innerText = 'ベリーハードで63階(レジェンドボスラッシュ)まで踏破した場合は、称号のダイヤが💎150になります。';
   wrap.appendChild(note);
+
+  // ---- すっぴん称号(難易度ごとに1回) ----
+  const nHead = document.createElement('div');
+  nHead.className = 'text-[11px] text-zinc-400 font-bold text-left mt-2';
+  const gotNaked = Object.keys(DIA_DIFF_LABEL).filter(d => dp.firstClearTitles.includes(`naked_${d}`)).length;
+  nHead.innerHTML = `すっぴん称号 <span class="text-zinc-500">(${gotNaked} / ${Object.keys(DIA_DIFF_LABEL).length})</span>
+    <div class="text-[9px] text-zinc-500 font-normal mt-0.5">継承ショップの強化と専用技セットなしで60階まで到達すると、難易度ごとに1回だけ獲得できます</div>`;
+  wrap.appendChild(nHead);
+  const nRow = document.createElement('div');
+  nRow.className = 'grid grid-cols-5 gap-1';
+  Object.keys(DIA_DIFF_LABEL).forEach(diff => {
+    const got = dp.firstClearTitles.includes(`naked_${diff}`);
+    const b = document.createElement('div');
+    b.className = 'rounded border px-1 py-1 text-center ' +
+      (got ? 'bg-zinc-900 border-sky-500 text-sky-200' : 'bg-zinc-900/40 border-zinc-800 text-zinc-600');
+    b.innerHTML = `<div class="text-[8px] leading-tight">${DIA_DIFF_SHORT[diff]}</div>
+      <div class="text-[9px] font-bold leading-tight">${got ? '素の' + DIA_TITLE_RANK[diff].suffix : '未取得'}</div>
+      <div class="text-[8px] leading-tight">${got ? '✅' : `💎${diaNakedTitleBonus(diff)}`}</div>`;
+    nRow.appendChild(b);
+  });
+  wrap.appendChild(nRow);
+
+  // ---- 試練称号(試練の番号ごとに1回) ----
+  const tp = loadTrialProgress();
+  const trHead = document.createElement('div');
+  trHead.className = 'text-[11px] text-zinc-400 font-bold text-left mt-2';
+  const gotTrial = TRIALS.filter(t => dp.firstClearTitles.includes(`trial_${t.n}`)).length;
+  trHead.innerHTML = `試練称号 <span class="text-zinc-500">(${gotTrial} / ${TRIAL_MAX})</span>
+    <div class="text-[9px] text-zinc-500 font-normal mt-0.5">その試練で60階まで到達すると、試練の番号ごとに1回だけ獲得できます${tp.name ? `<br>試練ランキングの名前: <b class="text-cyan-300">${tp.name}</b>` : ''}</div>`;
+  wrap.appendChild(trHead);
+  const trRow = document.createElement('div');
+  trRow.className = 'grid grid-cols-5 gap-1';
+  TRIALS.forEach(t => {
+    const got = dp.firstClearTitles.includes(`trial_${t.n}`);
+    // まだ挑めない試練は、獲れないことが分かるように暗くする
+    const reachable = t.n <= trialUnlockedMax();
+    const b = document.createElement('div');
+    b.className = 'rounded border px-1 py-1 text-center ' +
+      (got ? 'bg-zinc-900 border-rose-500 text-rose-200'
+           : (reachable ? 'bg-zinc-900/40 border-zinc-800 text-zinc-600' : 'bg-zinc-900/20 border-zinc-900 text-zinc-700'));
+    b.innerHTML = `<div class="text-[8px] leading-tight">試練${t.n}</div>
+      <div class="text-[9px] font-bold leading-tight">${got ? '突破' : (reachable ? '未取得' : '🔒')}</div>
+      <div class="text-[8px] leading-tight">${got ? '✅' : `💎${diaTrialTitleBonus(t.n)}`}</div>`;
+    b.title = `${t.label} — ${t.desc}`;
+    trRow.appendChild(b);
+  });
+  wrap.appendChild(trRow);
 
   ui.rewardList.appendChild(wrap);
 }
