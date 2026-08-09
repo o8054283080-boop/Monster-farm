@@ -91,6 +91,24 @@
 - **⚠ すっぴんは `applyMetaShopBonuses()` を飛ばすので、試練の不利益をあの中に書かないこと。**
   すっぴん＋試練を同時に選べるので、片方が素通りする。`applyTrialPenalties()` を外に置いてある
 
+### 称号
+`mf_dia_progress.firstClearTitles` の1つの配列に、3種類のキーを混ぜて入れている。
+
+| 種類 | キー | 条件 | ダイヤ |
+|---|---|---|---|
+| 初踏破 | `<種族id>_<難易度>` | 60階到達 | `diaTitleBonus()` 50〜220 |
+| すっぴん | `naked_<難易度>` | すっぴんで60階到達 | `diaNakedTitleBonus()` 60〜220 |
+| 試練 | `trial_<番号>` | その試練を突破 | `diaTrialTitleBonus()` = 100+20n |
+
+- **⚠ 初踏破称号の「取得数 / 全体」を数えるときは `isSpeciesTitleKey()` で絞ること。**
+  同じ配列にすっぴん・試練のぶんも入っているので、素直に `.length` を使うと数が合わなくなる
+- 付与は全部 `awardDiaRewards()` の中。試練は `state.trialCleared`(→ `markTrialCleared()`)を見る
+- 称号の升目は5列。**難易度の正式名だと折り返して読めない**ので、升目の中だけ `DIA_DIFF_SHORT` を使う
+- **⚠ `grid-cols-5` のような新しい Tailwind のclassを足したら、確認用のCSSを作り直すこと。**
+  `npx tailwindcss -c twbuild/tw.config.js -i twbuild/in.css -o twbuild/tailwind-local.css --minify`。
+  本番はCDNが実行時に作るので効くが、`__preview.html` では作り直すまで効かず、
+  「並ばずに1個ずつ縦に並ぶ」という見え方になる(実際にこれで一度悩んだ)
+
 ### ランキング
 - 記録に `trial` / `trialCleared` / `naked` / `floor` が増えた。**古い記録には無い**ので
   `undefined` を「使っていない」として扱うこと
