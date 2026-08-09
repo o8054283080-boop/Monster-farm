@@ -1985,7 +1985,17 @@ window.game.showCardInfo = function(c){
   document.getElementById('card-info-name').innerText = c.name || '';
   document.getElementById('card-info-meta').innerText =
     `${CARD_RARITY_LABEL[c.rarity] || c.rarity || ''}　／　${role.label}　／　消費ガッツ ${c.cost||0}`;
-  document.getElementById('card-info-desc').innerText = c.desc || '(効果なし)';
+  const fm = formToMark(c);
+  const desc = c.desc || '(効果なし)';
+  const el = document.getElementById('card-info-desc');
+  el.innerText = desc;
+  // 形態が変わるカードは、説明の頭に大きく出す(面の印と同じ色・同じ意味)
+  if(fm){
+    const line = document.createElement('div');
+    line.className = 'card-info-form ' + fm.cls;
+    line.innerText = `${fm.icon} ${fm.title}`;
+    el.insertBefore(line, el.firstChild);
+  }
   ov.classList.remove('hidden'); ov.classList.add('flex');
 };
 window.game.hideCardInfo = function(){
@@ -2009,6 +2019,22 @@ function createCardChoice(card, idx, onPick){
   wrap.onclick = onPick;
   return { wrap, el };
 }
+// ---- 使ったあとに形態がどうなるカードか ----
+// 「天使型になる / 通常形態に戻る / いまと入れ替わる」の3つ。
+// toggle はいまの形態で行き先が変わるので、行き先そのものを出す(戦闘外では両方向の矢印)。
+// 【重要】formCard() を通したあとのカードを渡すこと。formTo は形態で変わらないが、
+// 呼ぶ側が素のカードと加工後のカードを混ぜないようにするため、入口をここ1つに揃えている
+function formToMark(c){
+  if(!c || !c.formTo) return null;
+  const inRun = (typeof state !== 'undefined' && state && state.player && state.player.form);
+  if(c.formTo === 'angel')  return { icon:'👼', cls:'to-angel',  title:'使うと 天使型 になる' };
+  if(c.formTo === 'normal') return { icon:'🌑', cls:'to-normal', title:'使うと 通常形態 に戻る' };
+  // toggle: 戦闘中はいまの形態から見た行き先を出す。戦闘外では両方向
+  if(!inRun) return { icon:'🔄', cls:'to-toggle', title:'使うと 形態が入れ替わる' };
+  return state.player.form === 'angel'
+    ? { icon:'🌑', cls:'to-normal', title:'いまは天使型 → 使うと 通常形態 に戻る' }
+    : { icon:'👼', cls:'to-angel',  title:'いまは通常形態 → 使うと 天使型 になる' };
+}
 function createCardUI(c,idx,isR=false,isSmall=false) {
 c=formCard(c);   // イブリースは、いまの形態で出る数値をカードの面に出す
 const d=document.createElement('div');
@@ -2024,10 +2050,15 @@ const costBadge = discounted
   ? `<div class="flex flex-col items-center leading-none"><div class="card-cost is-cut ${c.upgraded?'card-cost-star':''}">${realCost}</div><div class="card-costold">${c.cost||0}</div></div>`
   : `<div class="card-cost ${c.upgraded?'card-cost-star':''}">${realCost}</div>`;
 // 面には説明を出さない(長押しのポップアップへ移した)。そのぶん名前と数値を大きく見せる
+// イブリースの形態変化は、手札を見ただけで分かるようにカードの面に印を出す。
+// 説明文を読まないと分からないと、どちらの形態で終わるか組み立てられない
+const fm = formToMark(c);
 d.innerHTML=`<div class="card-hd">${costBadge}<div class="card-rank">${c.rarity}</div></div>
+${fm ? `<div class="card-form ${fm.cls}" title="${fm.title}">${fm.icon}</div>` : ''}
 <div class="card-name" ${nameColor}>${c.name}</div>
 <div class="card-body"><span class="card-emblem">${role.icon}</span><span class="card-val">${role.value}</span></div>
 <div class="card-ft"><span class="card-crit">${c.crit?`会心 ${c.crit}`:''}</span><span class="card-type">${role.label}</span></div>`;
+if(fm) d.classList.add('has-form-mark', fm.cls);
 d.dataset.cardIdx = (idx!==undefined && idx!==null) ? idx : '';
 d.__cardData = c; // 長押しで説明を出すときに参照する
 if(!isR&&can)d.onclick=(e)=>{ if(e.pointerType==='touch'||e.detail===0) return; e.stopPropagation(); clickCard(idx); };
