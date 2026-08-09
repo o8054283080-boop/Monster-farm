@@ -597,11 +597,13 @@ window.game.showBossEffectInfo = function() {
   let lines = [];
   if(state.enemy.legendaryAura) lines.push('✨ 伝説のオーラ\nバトル開始時と3ターン目に、こちらのデッキへ強制的に「ケガ」を2枚追加する。');
   if(state.enemy.legendaryWhim){
-    // 連撃に罰が無い敵もいるので、実際の数値から文章を作る
+    // 連撃に罰が無い敵もいるので、実際の数値から文章を作る。
+    // 名前は階で分ける。15階のボスに「伝説の」と付くとおかしいため
     const mm = whimMultiMult(), sm = whimSingleMult();
+    const title = state.floor >= 61 ? '🌀 伝説のきまぐれ' : '⚖️ 一撃の理';
     const head = mm < 1 ? `こちらの連撃(複数ヒット)攻撃のダメージが${Math.round((1-mm)*100)}%下がる代わりに、`
                         : 'こちらの連撃(複数ヒット)攻撃はそのままだが、';
-    lines.push(`🌀 伝説のきまぐれ\n${head}連撃のない通常攻撃のダメージが${sm}倍になる。`);
+    lines.push(`${title}\n${head}連撃のない通常攻撃のダメージが${sm}倍になる。`);
   }
   // 敵が持っている制限と、試練10の制限のどちらでも出す。数は実際に効いている方を書く
   if(cardPlayLimit()) lines.push(`⚖️ 創造の律\n1ターンに使えるカードが${cardPlayLimit()}枚までに制限される。残り枚数は手札の上に出る。`);
@@ -2366,16 +2368,31 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(!c) return null;
     c = formCard(c);
     if(!c.dmgEqualsBlock && (!c.val || c.val <= 0)) return null;
-    const hits = c.hits || 1;
+    // 【重要】連撃の回数は playCard と同じ出し方をすること。
+    // ここを c.hits だけで見ていたため、モッチ砲の遺物とゴッドライジングで予告がずれていた
+    let hits = c.hits || 1;
+    if(c.name && c.name.includes('モッチ砲') && state.player.relics.some(r=>r.id==='m_mochihou_ougi')) hits += 1;
+    if(c.godRising){
+      let n = 0;
+      if(state.enemy){
+        if(state.enemy.weak>0) n++; if(state.enemy.vuln>0) n++; if(state.enemy.burn>0) n++;
+        if(state.enemy.freeze>0) n++; if(state.enemy.shock>0) n++;
+      }
+      hits = Math.max(1, n);
+    }
     let b = (c.val||0) + state.player.atkBase + state.player.atkBattle + state.player.nextAtkBonus;
     if(c.dmgEqualsBlock) b = state.player.block;
     if(c.name && (c.name.includes('たおれこみ')||c.name.includes('針ぶっ刺し')) && state.player.relics.some(r=>r.id==='mo_togetoge')) b += 30;
     if(c.name && c.name.includes('はりて') && state.player.relics.some(r=>r.id==='k_menkyokaiden')) b += 5;
-    if(c.bleedBonusMult) b += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
-    if(c.curseDmg) b += (state.player.curse||0) * c.curseDmg;   // 実処理(playCard)と必ず同じにすること
+    // 【重要】この3つは playCard では「1回のカード使用につき1回だけ(k===0)」。
+    // 連撃の2発目以降には乗らないので、あとで引けるように別に数えておく
+    let firstHitOnly = 0;
+    if(c.bleedBonusMult) firstHitOnly += Math.floor((state.enemy.bleed||0) * c.bleedBonusMult);
+    if(c.curseDmg) firstHitOnly += (state.player.curse||0) * c.curseDmg;   // 実処理(playCard)と必ず同じにすること
+    b += firstHitOnly;
     if(c.comboDmg && state.enemy && state.enemy.vuln>0) b += c.comboDmg;
     if(c.combo && state.enemy && state.enemy.vuln>0) b += 25;
-    if(state.player.relics.some(r=>r.id==='br_ga_elemental') && state.enemy && (state.enemy.weak>0||state.enemy.vuln>0||state.enemy.burn>0||state.enemy.freeze>0||state.enemy.shock>0)) b += 15;
+    if(state.player.relics.some(r=>r.id==='br_ga_elemental') && state.enemy && (state.enemy.weak>0||state.enemy.vuln>0||state.enemy.burn>0||state.enemy.freeze>0||state.enemy.shock>0)) { b += 15; firstHitOnly += 15; }
     let m = state.player.nextDmgMult || 1;
     if(state.player.species && state.player.species.id==='golem') m *= state.player.relics.some(r=>r.id==='g_ganseki_ame') ? 1.4 : 1.25;
     if(state.player.species && state.player.species.id==='gali')  m *= 1.1;
@@ -2394,8 +2411,11 @@ ui.endTurnBtn.onclick = handleEndTurn;
     if(state.player.currentTurnDouble) m *= 2;
     if(state.enemy && state.enemy.vuln>0) m *= 1.5;
     if(state.player.weak>0) m *= 0.75;
-    // 試練の「敵の丈夫さ」。実処理(playCard)と必ず同じにすること
-    const raw = Math.max(0, Math.floor(b*m) - trialEnemyToughness());
+    // 【重要】playCard は1発ずつこの計算をして、丈夫さも1発ごとに引く。
+    // ここで連撃ぶんを掛けていなかったため、連撃カードの予告が実ダメージの1/連撃数になっていた。
+    // (試練の「敵の丈夫さ」も1発ごとに引く。実処理と必ず同じにすること)
+    const onePunch = (base) => Math.max(0, Math.floor(base*m) - trialEnemyToughness());
+    const raw = onePunch(b) + (hits - 1) * onePunch(b - firstHitOnly);
     const blk = (state.enemy && state.enemy.block)||0;
     return { raw, net: Math.max(0,raw-blk), block: blk };
   }
