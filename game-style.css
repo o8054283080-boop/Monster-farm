@@ -73,6 +73,39 @@ background: linear-gradient(168deg, #1c1917 0%, #0c0a09 62%, #141110 100%);
 .card-ft { display:flex; justify-content:space-between; align-items:center; gap:2px;
   padding:0 5px 5px; font-size:7px; font-weight:900; }
 .card-crit { color:#fcd34d; }
+/* イブリースの形態変化の印。カードの右上、レア度の下に小さく置く。
+   ここを見るだけで「使ったあとどちらの形態で終わるか」が分かるようにするためのもの */
+.card-form {
+  position:absolute; right:3px; top:17px; z-index:3;
+  width:15px; height:15px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; line-height:1; pointer-events:none;
+  border:1px solid rgba(255,255,255,0.35);
+  box-shadow:0 0 5px rgba(0,0,0,0.6);
+}
+.card-form.to-angel  { background:radial-gradient(circle,#fef3c7,#f59e0b); }
+.card-form.to-normal { background:radial-gradient(circle,#c7d2fe,#4338ca); }
+.card-form.to-toggle { background:radial-gradient(circle,#e9d5ff,#7e22ce); }
+/* 【重要】カード側に box-shadow を足さないこと。
+   枠の光はレア度(.rarity-*)が持っていて、あちらの方が後ろに書いてあるので上書きされて消える。
+   目立たせたいぶんは、印の側の帯で表す */
+.card-form::after {
+  content:''; position:absolute; left:50%; top:calc(100% + 1px); transform:translateX(-50%);
+  width:11px; height:2px; border-radius:1px; background:currentColor; opacity:0.85;
+}
+.card-form.to-angel  { color:#fbbf24; }
+.card-form.to-normal { color:#818cf8; }
+.card-form.to-toggle { color:#c084fc; }
+.card.small .card-form { width:12px; height:12px; font-size:7.5px; top:14px; right:2px; }
+.card.small .card-form::after { width:9px; }
+/* 長押しで出る説明の、いちばん上に置く形態変化の行 */
+.card-info-form {
+  font-size:12px; font-weight:800; margin-bottom:7px; padding:5px 8px; border-radius:7px;
+  background:rgba(0,0,0,0.35); border:1px solid currentColor;
+}
+.card-info-form.to-angel  { color:#fcd34d; }
+.card-info-form.to-normal { color:#a5b4fc; }
+.card-info-form.to-toggle { color:#d8b4fe; }
 .card-type { color:var(--tp); letter-spacing:0.05em; }
 /* 役割ごとの色。color-mixは使わず実色で持たせている(古いiOSでも確実に出すため) */
 .card.type-atk { --tp:#f87171; --tpGlow:rgba(248,113,113,0.5); --tpSoft:rgba(248,113,113,0.16); }

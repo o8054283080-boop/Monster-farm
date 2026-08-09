@@ -143,7 +143,10 @@ function playPlayerFormFx(formKey){
 // 【重要】説明文(desc)は上書きしない。descには両方の形態ぶんが書いてあり、
 // 変身する前に反対側の数値も知りたいので、そのまま見せる。
 function formCard(c){
-  if(!c || !c.formEff || !isIblis()) return c;
+  // 【重要】冒険していないとき(タイトル・図鑑)も通る。state が無い状態で isIblis() を呼ばないこと
+  if(!c || !c.formEff) return c;
+  if(typeof state === 'undefined' || !state || !state.player || !state.player.species) return c;
+  if(!isIblis()) return c;
   const eff = c.formEff[state.player.form];
   return eff ? Object.assign({}, c, eff) : c;
 }

@@ -192,6 +192,7 @@
 <button onclick="window.game.showRanking()" class="ornate-panel w-full py-2 text-cyan-200 text-xs font-bold rounded-sm transition-all active:scale-95">🏆 ランキング</button>
 <button onclick="window.game.showTitles()" class="ornate-panel w-full py-2 text-amber-100 text-xs font-bold rounded-sm transition-all active:scale-95">🎖️ 称号</button>
 <button onclick="window.game.showChangelog()" class="ornate-panel w-full py-2 text-zinc-200 text-xs font-bold rounded-sm transition-all active:scale-95">📜 更新履歴</button>
+<button onclick="window.game.showLibrary()" class="ornate-panel col-span-2 w-full py-2 text-emerald-200 text-xs font-bold rounded-sm transition-all active:scale-95">📚 図鑑（カード・遺物）</button>
 </div>
 </div>
 </section>
@@ -581,6 +582,18 @@
 <button onclick="document.getElementById('ranking-modal').classList.add('hidden')" class="mt-6 px-10 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-full text-white text-sm font-bold shadow-lg transition-colors">閉じる</button>
 </div>
 
+<!-- ============ 図鑑（カード・遺物） ============
+     冒険していないときにも開く画面。中身は game-library.js が作る -->
+<div id="library-modal" class="fixed inset-0 bg-black/95 hidden flex flex-col items-center z-[200] p-4 backdrop-blur-md">
+  <h2 class="text-xl font-black text-emerald-300 mt-2 mb-2 pixel-font">📚 図鑑 <span id="library-count" class="text-xs text-zinc-500"></span></h2>
+  <div class="w-full max-w-sm flex flex-col min-h-0 flex-1">
+    <div id="library-tabs" class="flex gap-1.5 w-full mb-2"></div>
+    <div id="library-filters" class="w-full mb-2"></div>
+    <div id="library-body" class="bg-zinc-900 border border-zinc-700 w-full rounded-lg p-3 flex-1 overflow-y-auto shadow-2xl"></div>
+  </div>
+  <button onclick="window.game.hideLibrary()" class="mt-3 mb-1 px-10 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-full text-white text-sm font-bold shadow-lg transition-colors shrink-0">閉じる</button>
+</div>
+
 <div id="modal-overlay" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-[150] p-4 backdrop-blur-md">
 <div class="bg-zinc-900 border-2 border-amber-700 rounded-3xl p-6 w-full max-w-md text-center flex flex-col overflow-hidden max-h-[90dvh] shadow-2xl relative">
 <h2 id="modal-title" class="text-3xl font-black text-amber-500 mb-2 pixel-font drop-shadow-md">Result</h2>
@@ -640,5 +653,7 @@
 <script src="game-gacha.js"></script>
 <script src="game-enemy.js"></script>
 <script src="game-battle.js"></script>
+<!-- 図鑑。CARDS/ALL_RELICS と createCardUI を使うので、必ずこの順で最後に読む -->
+<script src="game-library.js"></script>
 </body>
 </html>
