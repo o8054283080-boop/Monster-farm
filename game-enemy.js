@@ -255,6 +255,13 @@ t.maxHp = t.hp;
 }
 
 state.enemy={...t,maxHp:t.hp,mode:mode,weak:0,vuln:0,burn:0,freeze:0,shock:0,block:0,evasion:0,bleed:0,turnCount:0,isElite:mode!=='normal',_baseDmg:t.dmg}; state.battleEnded=false;
+// ボスが自前の倍率を宣言していれば、その階から「一撃の理」を効かせる。
+// 【重要】mode==='boss' の中だけ。通常敵と強敵には一切かけない(連撃デッキの気持ちよさを残すため)。
+// 15階から60階にかけて、連撃を少しずつ抑えて単発を持ち上げる坂になっている。
+// 力は1発ごとに乗るので、力が育つ終盤ほど連撃が伸びすぎる。その傾きをボス戦だけで均している
+if(mode==='boss' && (t.whimSingleMult !== undefined || t.whimMultiMult !== undefined)){
+  state.enemy.legendaryWhim = true;
+}
 // 61階以降のボスには「伝説の特殊効果」を付与する
 if(mode==='boss' && state.floor>=61){
   state.enemy.legendaryAura = true;   // 伝説のオーラ: バトル開始時・3ターン目にケガを2枚強制追加
